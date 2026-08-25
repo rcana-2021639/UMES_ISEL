@@ -15,6 +15,10 @@ export function HomePage() {
   const [programs, setPrograms] = useState<MasterProgram[]>(localPrograms);
 
   useEffect(() => {
+    document.title = "ISEL | Instituto Salesiano de Educación en Línea";
+  }, []);
+
+  useEffect(() => {
     let active = true;
     getPrograms().then((data) => {
       if (active && data.length) setPrograms(data);

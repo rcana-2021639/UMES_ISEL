@@ -39,6 +39,10 @@ export function ProgramDetailPage() {
     };
   }, [slug]);
 
+  useEffect(() => {
+    document.title = program ? `${program.title} | ISEL` : "ISEL | Instituto Salesiano de Educación en Línea";
+  }, [program]);
+
   if (notFound || !program) {
     return (
       <>
