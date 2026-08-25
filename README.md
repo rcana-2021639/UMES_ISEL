@@ -44,7 +44,7 @@ UMES_PAGISEL/
 
 ## Cómo correrlo
 
-Requisitos: **Node.js LTS** y **.NET 8 SDK** instalados.
+Requisitos: **Node.js LTS**, **pnpm** y **.NET 8 SDK** instalados.
 
 ### Backend
 ```bash
@@ -57,8 +57,8 @@ Corre en `http://localhost:5199` (Swagger en `/swagger` durante desarrollo).
 ### Frontend
 ```bash
 cd frontend
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 ```
 Corre en `http://localhost:5173`. Si el backend no está corriendo, el sitio
 sigue funcionando igual: usa automáticamente los datos locales de
