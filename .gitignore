@@ -5,6 +5,12 @@ frontend/.vite/
 frontend/*.local
 frontend/.env
 frontend/.env.*.local
+frontend/*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
+
+# --- Local dev helper (machine-specific absolute paths, not portable) ---
+dev-frontend.cmd
 
 # --- Backend (.NET) ---
 backend/**/bin/
