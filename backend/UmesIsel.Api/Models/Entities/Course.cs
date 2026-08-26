@@ -3,9 +3,11 @@ using System.ComponentModel.DataAnnotations;
 namespace UmesIsel.Api.Models.Entities;
 
 /// <summary>
-/// One entry in the course catalog the admin maintains per carrera (Panel
-/// administrativo → Cursos). Students pick from this list instead of typing
-/// a course name by hand, so "Cursos por asignarse" can't have typos.
+/// One course in a carrera's official pensum, seeded from the program's
+/// published pensum PDF (see Data/CourseCatalogSeedData.cs) — Carrera +
+/// Trimestre together decide which courses "Cursos por asignarse"
+/// auto-includes once a student picks that trimestre, and the full list
+/// (grouped by Carrera/Trimestre) is what "Cursos adicionales" searches.
 /// </summary>
 public class Course
 {
@@ -13,6 +15,8 @@ public class Course
 
     [MaxLength(200)]
     public string Carrera { get; set; } = string.Empty;
+
+    public int Trimestre { get; set; }
 
     [MaxLength(200)]
     public string Nombre { get; set; } = string.Empty;

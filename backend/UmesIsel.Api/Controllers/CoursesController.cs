@@ -2,13 +2,14 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using UmesIsel.Api.Data;
 using UmesIsel.Api.Models.Dtos;
-using UmesIsel.Api.Models.Entities;
 
 namespace UmesIsel.Api.Controllers;
 
 /// <summary>
-/// Course catalog the admin maintains per carrera (Panel administrativo →
-/// Cursos). Students pick from this instead of typing course names by hand.
+/// Official pensum catalog — one entry per (carrera, trimestre, curso),
+/// seeded from each program's published pensum PDF (see
+/// Data/CourseCatalogSeedData.cs). Read-only: there is no admin UI to edit
+/// this anymore, it's authoritative and sourced from the pensum documents.
 /// </summary>
 [ApiController]
 [Route("api/courses")]
@@ -18,55 +19,37 @@ public class CoursesController : ControllerBase
 
     public CoursesController(IselDbContext db) => _db = db;
 
-    private static CourseDto ToDto(Course c) => new(c.Id, c.Carrera, c.Nombre);
-
-    /// <summary>GET /api/courses?carrera=X — omit carrera to get the full cross-program catalog ("cursos adicionales").</summary>
+    /// <summary>GET /api/courses?carrera=X&trimestre=3 — omit both for the full cross-program catalog ("cursos adicionales").</summary>
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<CourseDto>>> GetAll([FromQuery] string? carrera)
+    public async Task<ActionResult<IReadOnlyList<CourseDto>>> GetAll([FromQuery] string? carrera, [FromQuery] int? trimestre)
     {
         var query = _db.Courses.AsNoTracking().AsQueryable();
         if (!string.IsNullOrWhiteSpace(carrera))
         {
             query = query.Where(c => c.Carrera == carrera);
         }
-        var courses = await query.OrderBy(c => c.Carrera).ThenBy(c => c.Nombre).ToListAsync();
-        return Ok(courses.Select(ToDto).ToList());
-    }
-
-    [HttpPost]
-    public async Task<ActionResult<CourseDto>> Create(CourseUpsertRequest request)
-    {
-        if (string.IsNullOrWhiteSpace(request.Nombre) || string.IsNullOrWhiteSpace(request.Carrera))
+        if (trimestre.HasValue)
         {
-            return BadRequest("Carrera y nombre del curso son obligatorios.");
+            query = query.Where(c => c.Trimestre == trimestre.Value);
         }
-
-        var course = new Course { Carrera = request.Carrera.Trim(), Nombre = request.Nombre.Trim() };
-        _db.Courses.Add(course);
-        await _db.SaveChangesAsync();
-        return Ok(ToDto(course));
+        var courses = await query.OrderBy(c => c.Carrera).ThenBy(c => c.Trimestre).ThenBy(c => c.Nombre).ToListAsync();
+        return Ok(courses.Select(c => new CourseDto(c.Id, c.Carrera, c.Trimestre, c.Nombre)).ToList());
     }
 
-    [HttpPut("{id:int}")]
-    public async Task<ActionResult<CourseDto>> Update(int id, CourseUpsertRequest request)
+    /// <summary>GET /api/courses/trimestres?carrera=X — the distinct trimestres that carrera's pensum has, in order.</summary>
+    [HttpGet("trimestres")]
+    public async Task<ActionResult<IReadOnlyList<int>>> GetTrimestres([FromQuery] string carrera)
     {
-        var course = await _db.Courses.FirstOrDefaultAsync(c => c.Id == id);
-        if (course is null) return NotFound();
-
-        course.Carrera = request.Carrera.Trim();
-        course.Nombre = request.Nombre.Trim();
-        await _db.SaveChangesAsync();
-        return Ok(ToDto(course));
-    }
-
-    [HttpDelete("{id:int}")]
-    public async Task<IActionResult> Delete(int id)
-    {
-        var course = await _db.Courses.FirstOrDefaultAsync(c => c.Id == id);
-        if (course is null) return NotFound();
-
-        _db.Courses.Remove(course);
-        await _db.SaveChangesAsync();
-        return NoContent();
+        if (string.IsNullOrWhiteSpace(carrera))
+        {
+            return BadRequest("Selecciona una carrera.");
+        }
+        var trimestres = await _db.Courses.AsNoTracking()
+            .Where(c => c.Carrera == carrera)
+            .Select(c => c.Trimestre)
+            .Distinct()
+            .OrderBy(t => t)
+            .ToListAsync();
+        return Ok(trimestres);
     }
 }

@@ -1,5 +1,5 @@
 import { http } from "@/lib/http";
-import type { AssignmentStatusRow, CourseAssignment, CourseAssignmentUpsertInput, TipoPago } from "@/types/courseAssignment";
+import type { CourseAssignment, CourseAssignmentUpsertInput, TipoPago } from "@/types/courseAssignment";
 
 /** yyyy-MM-dd in the browser's local time (never UTC — a date filter must match the user's "today"). */
 export function toDateParam(date: Date): string {
@@ -13,11 +13,6 @@ export function getAssignments(from: Date, to: Date, tipoPago?: TipoPago): Promi
   const params = new URLSearchParams({ from: toDateParam(from), to: toDateParam(to) });
   if (tipoPago) params.set("tipoPago", tipoPago);
   return http.get<CourseAssignment[]>(`/api/course-assignments?${params.toString()}`);
-}
-
-export function getAssignmentStatus(carrera: string, trimestre: number): Promise<AssignmentStatusRow[]> {
-  const params = new URLSearchParams({ carrera, trimestre: String(trimestre) });
-  return http.get<AssignmentStatusRow[]>(`/api/course-assignments/status?${params.toString()}`);
 }
 
 export async function getAssignmentByStudent(carnet: string, trimestre?: number): Promise<CourseAssignment | null> {

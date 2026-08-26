@@ -21,6 +21,10 @@ public class CourseAssignment
     [MaxLength(200)]
     public string Carrera { get; set; } = string.Empty;
 
+    /// <summary>The single section that applies to every course auto-included for this trimestre.</summary>
+    [MaxLength(10)]
+    public string? Seccion { get; set; }
+
     public bool TienePendientesTrimestres { get; set; }
     public bool TienePendientesMaterias { get; set; }
 
@@ -29,9 +33,6 @@ public class CourseAssignment
 
     [MaxLength(30)]
     public string? TelefonoContacto { get; set; }
-
-    [MaxLength(50)]
-    public string? ComprobantePagoNo { get; set; }
 
     /// <summary>
     /// "Link" or "Presencial" — how this student will pay. Admin-only: never
@@ -56,7 +57,7 @@ public class CourseAssignment
     public List<AdditionalCourseRow> CursosAdicionales { get; set; } = new();
 }
 
-/// <summary>A row in the "Cursos por asignarse" grid (up to 10 per ficha).</summary>
+/// <summary>A row in the "Cursos por asignarse" grid — one per course of the selected carrera+trimestre.</summary>
 public class AssignedCourseRow
 {
     public int Id { get; set; }
@@ -75,7 +76,7 @@ public class AssignedCourseRow
     public string? Seccion { get; set; }
 }
 
-/// <summary>A row in the "Cursos adicionales o cambio de sección" grid (up to 5 per ficha).</summary>
+/// <summary>A row in the "Cursos adicionales o cambio de sección" grid — either a free additional pick or a "repetir trimestre" entry.</summary>
 public class AdditionalCourseRow
 {
     public int Id { get; set; }

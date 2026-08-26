@@ -2,16 +2,15 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getSession } from "@/lib/auth";
 import { useSession } from "@/hooks/useSession";
-import { getAssignments, getAssignmentStatus, toDateParam, getAssignmentByStudent, deleteAssignment } from "@/lib/assignmentsApi";
-import { getStudents, getCarreras, deleteStudent } from "@/lib/studentsApi";
+import { getAssignments, toDateParam, deleteAssignment } from "@/lib/assignmentsApi";
+import { getStudents, deleteStudent } from "@/lib/studentsApi";
 import { rangeFor, type RangeMode } from "@/lib/dateRanges";
-import type { CourseAssignment, AssignmentStatusRow, TipoPago } from "@/types/courseAssignment";
+import type { CourseAssignment, TipoPago } from "@/types/courseAssignment";
 import type { Student } from "@/types/student";
 import { Modal } from "@/components/ui/Modal";
 import { StudentFormModal } from "@/components/portal/StudentFormModal";
 import { CourseAssignmentForm } from "@/components/portal/CourseAssignmentForm";
 import { PrintableFichaBatch } from "@/components/portal/PrintableFicha";
-import { CoursesPanel } from "@/components/portal/CoursesPanel";
 import { useConfirm } from "@/hooks/useConfirm";
 
 const inputClass =
@@ -64,27 +63,6 @@ export function AdminPortalPage() {
     if (rangeMode) loadAssignments(rangeMode, tipoPago);
   }
 
-  // ---- Enviadas por carrera y trimestre ----
-  const [carreras, setCarreras] = useState<string[]>([]);
-  const [statusCarrera, setStatusCarrera] = useState("");
-  const [statusTrimestre, setStatusTrimestre] = useState<number | "">("");
-  const [statusRows, setStatusRows] = useState<AssignmentStatusRow[] | null>(null);
-  const [loadingStatus, setLoadingStatus] = useState(false);
-
-  useEffect(() => {
-    getCarreras().then(setCarreras);
-  }, []);
-
-  async function loadStatus() {
-    if (!statusCarrera || statusTrimestre === "") return;
-    setLoadingStatus(true);
-    try {
-      setStatusRows(await getAssignmentStatus(statusCarrera, Number(statusTrimestre)));
-    } finally {
-      setLoadingStatus(false);
-    }
-  }
-
   // ---- Alumnos (CRUD) ----
   const [students, setStudents] = useState<Student[]>([]);
   const [carnetFilter, setCarnetFilter] = useState("");
@@ -119,12 +97,7 @@ export function AdminPortalPage() {
   }
 
   // ---- Ver / editar ficha de un alumno ----
-  const [fichaModal, setFichaModal] = useState<{ student: Student; assignment: CourseAssignment | null } | null>(null);
-
-  async function openFicha(student: Student) {
-    const existing = await getAssignmentByStudent(student.carnet, student.trimestre ?? undefined);
-    setFichaModal({ student, assignment: existing });
-  }
+  const [fichaStudent, setFichaStudent] = useState<Student | null>(null);
 
   async function handleDeleteAssignment(a: CourseAssignment) {
     const ok = await confirm({
@@ -299,87 +272,6 @@ export function AdminPortalPage() {
           </div>
         </section>
 
-        {/* Enviadas por carrera y trimestre */}
-        <section className="rounded-2xl bg-white p-6 shadow-card">
-          <h2 className="mb-4 flex items-center gap-2 font-display text-lg font-semibold text-isel-navy">
-            👥 Enviadas por carrera y trimestre
-          </h2>
-          <div className="flex flex-wrap items-end gap-3">
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-semibold text-isel-ink/60">Carrera</span>
-              <select value={statusCarrera} onChange={(e) => setStatusCarrera(e.target.value)} className={`${inputClass} min-w-[16rem]`}>
-                <option value="">Seleccione carrera</option>
-                {carreras.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-semibold text-isel-ink/60">Sem/Trim</span>
-              <input
-                type="number"
-                value={statusTrimestre}
-                onChange={(e) => setStatusTrimestre(e.target.value ? Number(e.target.value) : "")}
-                className={`${inputClass} w-24`}
-              />
-            </label>
-            <button type="button" onClick={loadStatus} className="rounded-full bg-isel-navy px-4 py-2 text-sm font-semibold text-white hover:bg-isel-gold hover:text-isel-navy">
-              👥 Ver reporte
-            </button>
-          </div>
-
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full min-w-[700px] border-collapse text-sm">
-              <thead>
-                <tr className="text-left text-xs font-semibold uppercase tracking-wide text-isel-ink/50">
-                  <th className="pb-2">Estado</th>
-                  <th className="pb-2">Carné</th>
-                  <th className="pb-2">Alumno</th>
-                  <th className="pb-2">Carrera</th>
-                  <th className="pb-2">Sem/Tri</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-isel-line">
-                {loadingStatus ? (
-                  <tr>
-                    <td colSpan={5} className="py-6 text-center text-isel-ink/50">
-                      Cargando…
-                    </td>
-                  </tr>
-                ) : !statusRows ? (
-                  <tr>
-                    <td colSpan={5} className="py-6 text-center text-isel-ink/50">
-                      Selecciona carrera y trimestre para ver el estado.
-                    </td>
-                  </tr>
-                ) : statusRows.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="py-6 text-center text-isel-ink/50">
-                      No hay alumnos en esa carrera/trimestre.
-                    </td>
-                  </tr>
-                ) : (
-                  statusRows.map((r) => (
-                    <tr key={r.carnet}>
-                      <td className="py-2 pr-2">
-                        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${r.estado === "Enviada" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
-                          {r.estado}
-                        </span>
-                      </td>
-                      <td className="py-2 pr-2">{r.carnet}</td>
-                      <td className="py-2 pr-2">{r.alumno}</td>
-                      <td className="py-2 pr-2">{r.carrera}</td>
-                      <td className="py-2">{r.semTri}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
         {/* Alumnos (CRUD) */}
         <section className="rounded-2xl bg-white p-6 shadow-card">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -444,7 +336,7 @@ export function AdminPortalPage() {
                       <td className="py-2 pr-2">{s.trimestre}</td>
                       <td className="py-2">
                         <div className="flex flex-wrap gap-2">
-                          <button type="button" onClick={() => openFicha(s)} className="text-xs font-semibold text-isel-navy hover:underline">
+                          <button type="button" onClick={() => setFichaStudent(s)} className="text-xs font-semibold text-isel-navy hover:underline">
                             Ver ficha
                           </button>
                           <button
@@ -469,29 +361,23 @@ export function AdminPortalPage() {
             </table>
           </div>
         </section>
-
-        {/* Catálogo de cursos */}
-        <CoursesPanel carreras={carreras} />
       </div>
 
       <StudentFormModal
         open={studentModalOpen}
         onClose={() => setStudentModalOpen(false)}
         student={editingStudent}
-        onSaved={() => {
-          loadStudents();
-          getCarreras().then(setCarreras);
-        }}
+        onSaved={loadStudents}
       />
 
-      {fichaModal && (
-        <Modal open onClose={() => setFichaModal(null)} title={`Ficha — ${fichaModal.student.nombreCompleto}`} widthClassName="max-w-4xl">
+      {fichaStudent && (
+        <Modal open onClose={() => setFichaStudent(null)} title={`Ficha — ${fichaStudent.nombreCompleto}`} widthClassName="max-w-4xl">
           <CourseAssignmentForm
-            student={fichaModal.student}
-            initialAssignment={fichaModal.assignment}
-            trimestre={fichaModal.student.trimestre ?? 1}
+            student={fichaStudent}
             autorizadoPorCodigo={session?.role === "admin" ? "ADMIN" : null}
-            onSaved={(saved) => setFichaModal({ student: fichaModal.student, assignment: saved })}
+            onSaved={() => {
+              if (rangeMode) loadAssignments(rangeMode);
+            }}
           />
         </Modal>
       )}
