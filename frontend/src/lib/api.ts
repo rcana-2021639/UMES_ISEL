@@ -1,7 +1,6 @@
 import type { MasterProgram } from "@/types/program";
 import { programs as localPrograms } from "@/data/programs";
-
-const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:5199";
+import { API_BASE } from "@/lib/config";
 
 /**
  * Fetches with a short timeout and falls back to the bundled local data

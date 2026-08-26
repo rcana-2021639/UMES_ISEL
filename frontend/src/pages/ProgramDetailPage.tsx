@@ -101,7 +101,7 @@ export function ProgramDetailPage() {
             <AnimatedButton href={program.interviewUrl} variant="secondary">
               Entrevista
             </AnimatedButton>
-            <AnimatedButton variant="disabled" disabledHint="Próximamente disponible">
+            <AnimatedButton to={`/portal/login?programa=${program.slug}`} variant="secondary">
               Inscripción
             </AnimatedButton>
           </RevealOnScroll>

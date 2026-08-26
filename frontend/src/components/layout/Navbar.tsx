@@ -61,12 +61,20 @@ export function Navbar() {
           ))}
         </nav>
 
-        <a
-          href="#admision"
-          className="hidden rounded-full bg-isel-gold px-5 py-2.5 text-sm font-semibold text-isel-navy transition-transform duration-300 ease-snap hover:-translate-y-0.5 hover:bg-white lg:inline-flex"
-        >
-          Solicita tu entrevista
-        </a>
+        <div className="hidden items-center gap-3 lg:flex">
+          <Link
+            to="/portal/login"
+            className="rounded-full border-2 border-white/50 px-4 py-2 text-sm font-semibold text-white transition-colors duration-300 ease-snap hover:border-isel-gold hover:bg-isel-gold hover:text-isel-navy"
+          >
+            Portal ISEL
+          </Link>
+          <a
+            href="#admision"
+            className="rounded-full bg-isel-gold px-5 py-2.5 text-sm font-semibold text-isel-navy transition-transform duration-300 ease-snap hover:-translate-y-0.5 hover:bg-white"
+          >
+            Solicita tu entrevista
+          </a>
+        </div>
 
         <button
           aria-label="Abrir menú"
@@ -105,6 +113,13 @@ export function Navbar() {
                   {link.label}
                 </a>
               ))}
+              <Link
+                to="/portal/login"
+                onClick={() => setMobileOpen(false)}
+                className="mt-2 rounded-lg border-2 border-white/30 px-4 py-3 text-center text-sm font-semibold text-white"
+              >
+                Portal ISEL
+              </Link>
               <a
                 href="#admision"
                 onClick={() => setMobileOpen(false)}
