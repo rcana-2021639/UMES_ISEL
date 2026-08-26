@@ -3,6 +3,7 @@ import { Modal } from "@/components/ui/Modal";
 import type { Student, StudentUpsertInput } from "@/types/student";
 import { createStudent, updateStudent } from "@/lib/studentsApi";
 import { ApiError } from "@/lib/http";
+import { useConfirm } from "@/hooks/useConfirm";
 
 const inputClass =
   "w-full rounded-lg border border-isel-line bg-white px-3 py-2 text-sm text-isel-ink transition-colors duration-200 focus:border-isel-navy focus:outline-none focus:ring-2 focus:ring-isel-navy/15";
@@ -36,6 +37,7 @@ export function StudentFormModal({ open, onClose, student, onSaved }: StudentFor
   const [form, setForm] = useState<StudentUpsertInput>(blank());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { confirm, dialog: confirmDialog } = useConfirm();
 
   useEffect(() => {
     if (open) {
@@ -70,6 +72,16 @@ export function StudentFormModal({ open, onClose, student, onSaved }: StudentFor
       setError("Carné, primer apellido, primer nombre y carrera son obligatorios.");
       return;
     }
+
+    if (student) {
+      const ok = await confirm({
+        title: "Confirmar cambios",
+        message: `¿Confirmas guardar los cambios de ${student.nombreCompleto}?`,
+        confirmLabel: "Sí, guardar",
+      });
+      if (!ok) return;
+    }
+
     setSaving(true);
     setError(null);
     try {
@@ -155,6 +167,7 @@ export function StudentFormModal({ open, onClose, student, onSaved }: StudentFor
           </button>
         </div>
       </form>
+      {confirmDialog}
     </Modal>
   );
 }

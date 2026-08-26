@@ -38,6 +38,7 @@ public class CourseAssignmentsController : ControllerBase
         ca.CorreoContacto,
         ca.TelefonoContacto,
         ca.ComprobantePagoNo,
+        ca.TipoPago,
         ca.FirmaBase64,
         ca.FirmadoEn,
         ca.AutorizadoPorCodigo,
@@ -50,9 +51,10 @@ public class CourseAssignmentsController : ControllerBase
             .Include(ca => ca.CursosAsignados)
             .Include(ca => ca.CursosAdicionales);
 
-    /// <summary>GET /api/course-assignments?from=2026-08-25&to=2026-08-25 — used by Hoy/Semana/Mes + the date picker.</summary>
+    /// <summary>GET /api/course-assignments?from=2026-08-25&to=2026-08-25&tipoPago=Link — used by Hoy/Semana/Mes, the date picker, and the payment-method filter.</summary>
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<CourseAssignmentDto>>> GetAll([FromQuery] DateOnly? from, [FromQuery] DateOnly? to)
+    public async Task<ActionResult<IReadOnlyList<CourseAssignmentDto>>> GetAll(
+        [FromQuery] DateOnly? from, [FromQuery] DateOnly? to, [FromQuery] string? tipoPago)
     {
         var query = WithIncludes().AsNoTracking().AsQueryable();
 
@@ -63,6 +65,10 @@ public class CourseAssignmentsController : ControllerBase
         if (to.HasValue)
         {
             query = query.Where(ca => ca.Fecha <= to.Value);
+        }
+        if (!string.IsNullOrWhiteSpace(tipoPago))
+        {
+            query = query.Where(ca => ca.TipoPago == tipoPago);
         }
 
         var results = await query.OrderByDescending(ca => ca.Fecha).ToListAsync();
@@ -171,6 +177,7 @@ public class CourseAssignmentsController : ControllerBase
         ca.CorreoContacto = request.CorreoContacto?.Trim();
         ca.TelefonoContacto = request.TelefonoContacto?.Trim();
         ca.ComprobantePagoNo = request.ComprobantePagoNo?.Trim();
+        ca.TipoPago = request.TipoPago;
         ca.UpdatedAt = now;
 
         if (!string.IsNullOrWhiteSpace(request.FirmaBase64))

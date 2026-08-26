@@ -1,3 +1,5 @@
+export type TipoPago = "Link" | "Presencial";
+
 export interface AssignedCourseRow {
   numero: number;
   curso: string;
@@ -35,6 +37,8 @@ export interface CourseAssignment {
   correoContacto?: string | null;
   telefonoContacto?: string | null;
   comprobantePagoNo?: string | null;
+  /** "Link" | "Presencial" — admin-only, never shown on the printed ficha. */
+  tipoPago?: TipoPago | null;
   firmaBase64?: string | null;
   firmadoEn?: string | null;
   autorizadoPorCodigo?: string | null;
@@ -52,6 +56,7 @@ export interface CourseAssignmentUpsertInput {
   correoContacto?: string | null;
   telefonoContacto?: string | null;
   comprobantePagoNo?: string | null;
+  tipoPago?: TipoPago | null;
   firmaBase64?: string | null;
   autorizadoPorCodigo?: string | null;
 }
