@@ -8,7 +8,7 @@ namespace UmesIsel.Api.Controllers;
 
 /// <summary>
 /// The "Ficha de Asignación de Cursos": students save their own (portal),
-/// the admin panel lists/prints/filters them by date range or by carrera+trimestre.
+/// the admin panel lists/prints/filters them by date range.
 /// </summary>
 [ApiController]
 [Route("api/course-assignments")]
@@ -30,14 +30,13 @@ public class CourseAssignmentsController : ControllerBase
         ca.Fecha,
         ca.Trimestre,
         ca.Carrera,
-        ca.Student?.Seccion,
+        ca.Seccion,
         ca.CursosAsignados.OrderBy(r => r.Numero).Select(r => new AssignedCourseRowDto(r.Numero, r.Curso, r.SemTri, r.Seccion)).ToList(),
         ca.CursosAdicionales.OrderBy(r => r.Numero).Select(r => new AdditionalCourseRowDto(r.Numero, r.CursoAdicional, r.Carrera, r.SemTri, r.Seccion, r.Jornada)).ToList(),
         ca.TienePendientesTrimestres,
         ca.TienePendientesMaterias,
         ca.CorreoContacto,
         ca.TelefonoContacto,
-        ca.ComprobantePagoNo,
         ca.TipoPago,
         ca.FirmaBase64,
         ca.FirmadoEn,
@@ -75,40 +74,6 @@ public class CourseAssignmentsController : ControllerBase
         return Ok(results.Select(ToDto).ToList());
     }
 
-    /// <summary>GET /api/course-assignments/status?carrera=X&trimestre=3 — one row per student in that carrera+trimestre, "Enviada"/"Pendiente".</summary>
-    [HttpGet("status")]
-    public async Task<ActionResult<IReadOnlyList<object>>> GetStatus([FromQuery] string carrera, [FromQuery] int trimestre)
-    {
-        if (string.IsNullOrWhiteSpace(carrera))
-        {
-            return BadRequest("Selecciona una carrera.");
-        }
-
-        var students = await _db.Students.AsNoTracking()
-            .Where(s => s.Carrera == carrera && s.Trimestre == trimestre)
-            .ToListAsync();
-
-        var studentIds = students.Select(s => s.Id).ToList();
-        var assignedIds = await _db.CourseAssignments.AsNoTracking()
-            .Where(ca => studentIds.Contains(ca.StudentId) && ca.Trimestre == trimestre)
-            .Select(ca => ca.StudentId)
-            .ToListAsync();
-        var assignedSet = assignedIds.ToHashSet();
-
-        var rows = students
-            .OrderBy(s => s.PrimerApellido)
-            .Select(s => new
-            {
-                estado = assignedSet.Contains(s.Id) ? "Enviada" : "Pendiente",
-                carnet = s.Carnet,
-                alumno = s.NombreCompleto,
-                carrera = s.Carrera,
-                semTri = s.Trimestre,
-            });
-
-        return Ok(rows);
-    }
-
     [HttpGet("{id:int}")]
     public async Task<ActionResult<CourseAssignmentDto>> GetById(int id)
     {
@@ -131,8 +96,9 @@ public class CourseAssignmentsController : ControllerBase
     }
 
     /// <summary>
-    /// POST /api/course-assignments — upsert by (carné, trimestre). The student portal's
-    /// "Guardar asignación" and the admin's edit view both call this.
+    /// POST /api/course-assignments — upsert by (carné, carrera, trimestre). The student
+    /// portal's "Guardar asignación" and the admin's edit view both call this. Fecha is
+    /// always stamped to the day it was actually (re)generated.
     /// </summary>
     [HttpPost]
     public async Task<ActionResult<CourseAssignmentDto>> Save(CourseAssignmentUpsertRequest request)
@@ -146,7 +112,7 @@ public class CourseAssignmentsController : ControllerBase
         var existing = await _db.CourseAssignments
             .Include(ca => ca.CursosAsignados)
             .Include(ca => ca.CursosAdicionales)
-            .FirstOrDefaultAsync(ca => ca.StudentId == student.Id && ca.Trimestre == request.Trimestre);
+            .FirstOrDefaultAsync(ca => ca.StudentId == student.Id && ca.Carrera == request.Carrera && ca.Trimestre == request.Trimestre);
 
         var now = DateTime.UtcNow;
         CourseAssignment ca;
@@ -156,9 +122,8 @@ public class CourseAssignmentsController : ControllerBase
             ca = new CourseAssignment
             {
                 StudentId = student.Id,
-                Fecha = DateOnly.FromDateTime(DateTime.Now),
                 Trimestre = request.Trimestre,
-                Carrera = student.Carrera,
+                Carrera = request.Carrera,
                 CreatedAt = now,
             };
             _db.CourseAssignments.Add(ca);
@@ -172,11 +137,13 @@ public class CourseAssignmentsController : ControllerBase
             ca.CursosAdicionales.Clear();
         }
 
+        // Every save re-generates the ficha, so Fecha always reflects the day it was (re)generated.
+        ca.Fecha = DateOnly.FromDateTime(DateTime.Now);
+        ca.Seccion = request.Seccion?.Trim();
         ca.TienePendientesTrimestres = request.TienePendientesTrimestres;
         ca.TienePendientesMaterias = request.TienePendientesMaterias;
         ca.CorreoContacto = request.CorreoContacto?.Trim();
         ca.TelefonoContacto = request.TelefonoContacto?.Trim();
-        ca.ComprobantePagoNo = request.ComprobantePagoNo?.Trim();
         ca.TipoPago = request.TipoPago;
         ca.UpdatedAt = now;
 

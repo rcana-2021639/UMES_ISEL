@@ -31,7 +31,6 @@ public record CourseAssignmentDto(
     bool TienePendientesMaterias,
     string? CorreoContacto,
     string? TelefonoContacto,
-    string? ComprobantePagoNo,
     string? TipoPago,
     string? FirmaBase64,
     DateTime? FirmadoEn,
@@ -42,14 +41,15 @@ public record CourseAssignmentDto(
 /// <summary>Body the student (or admin) submits to save a ficha. Grids are replaced wholesale on each save.</summary>
 public record CourseAssignmentUpsertRequest(
     string Carnet,
+    string Carrera,
     int Trimestre,
+    string? Seccion,
     IReadOnlyList<AssignedCourseRowDto> CursosAsignados,
     IReadOnlyList<AdditionalCourseRowDto> CursosAdicionales,
     bool TienePendientesTrimestres,
     bool TienePendientesMaterias,
     string? CorreoContacto,
     string? TelefonoContacto,
-    string? ComprobantePagoNo,
     string? TipoPago,
     string? FirmaBase64,
     string? AutorizadoPorCodigo

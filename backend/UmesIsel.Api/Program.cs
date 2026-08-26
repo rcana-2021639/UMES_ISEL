@@ -34,6 +34,7 @@ using (var scope = app.Services.CreateScope())
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
     db.Database.Migrate();
     DbInitializer.SeedIfEmpty(db, app.Environment.ContentRootPath, logger);
+    DbInitializer.SeedCoursesIfEmpty(db, logger);
 }
 
 if (app.Environment.IsDevelopment())

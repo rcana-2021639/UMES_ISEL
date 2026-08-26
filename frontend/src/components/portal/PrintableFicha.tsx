@@ -126,10 +126,9 @@ function PrintableFicha({ assignment: a, pageBreak }: { assignment: CourseAssign
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3 text-xs">
+      <div className="grid grid-cols-2 gap-3 text-xs">
         <InfoBox label="Correo electrónico" value={a.correoContacto ?? ""} />
         <InfoBox label="Teléfono para contacto" value={a.telefonoContacto ?? ""} />
-        <InfoBox label="Comprobante de pago No." value={a.comprobantePagoNo ?? ""} />
       </div>
 
       <p className="mt-6 text-[10px] leading-snug text-black/70">

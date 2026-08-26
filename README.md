@@ -122,19 +122,26 @@ Un solo campo de texto decide a dónde va el usuario — no hay contraseña:
 
 ### Alumno (`/portal/estudiante`)
 Ve sus datos (de la base de datos, no editables). En **"Cursos por
-asignarse"** ya no se escribe nada: aparece la lista de cursos de su carrera
-(cargada del catálogo que mantiene el admin) con un botón **"+ Asignar"** por
-curso — puede marcar varios, cada uno asignado se ve en verde con un
-contador ("N asignados"), y el Sem/Tri y la Sección de ese curso solo
-aparecen una vez que está asignado. En **"Cursos adicionales o cambio de
-sección"** empieza con un solo campo (buscable, sobre TODOS los cursos de
-TODAS las carreras) y un botón **"+ Agregar otro"** para sumar más solo si
-hace falta — nunca quedan campos vacíos de sobra. También marca las dos
-observaciones Sí/No, el **tipo de pago** (Link de pago / Presencial — esto
-es solo para uso interno del admin, nunca aparece en la ficha impresa),
-firma en **Firma digital** (mouse, lápiz óptico o el dedo) y da clic en
-**Guardar asignación**. Vuelve a entrar con el mismo carné para ver/editar lo
-guardado.
+asignarse"** elige su **Maestría** (todas las que existen) y, al elegirla,
+aparecen sus **trimestres**; al elegir un trimestre se listan — de una
+vez, no seleccionables uno por uno — todos los cursos oficiales de ese
+trimestre (vienen del pénsum real, ver `Data/CourseCatalogSeedData.cs`):
+un trimestre se asigna completo, no a la carta. Solo falta poner la
+**Sección**.
+
+En **"Cursos adicionales o cambio de sección"** empieza con un solo campo y
+un botón **"+ Agregar otro"** para sumar más solo si hace falta. Cada fila
+tiene dos modos: **"Curso adicional"** (buscador sobre el catálogo
+completo, agrupado por Maestría · Trimestre — los encabezados de grupo no
+se pueden seleccionar, solo los cursos) y **"Repetir trimestre"** (elige
+primero un trimestre *anterior* al principal de su propia carrera, y luego
+el curso específico de ese trimestre que necesita repetir).
+
+También marca las dos observaciones Sí/No, el **tipo de pago** (Link de
+pago / Presencial — uso interno del admin, nunca aparece en la ficha
+impresa), firma en **Firma digital** y da clic en **Guardar asignación**
+(la fecha de la ficha siempre queda como el día en que se guardó/generó).
+Vuelve a entrar con el mismo carné para ver/editar lo guardado.
 
 ### Administrador (`/portal/admin`)
 - **Impresión de asignaciones**: por fecha exacta (como antes, "Cargar día")
@@ -144,18 +151,20 @@ guardado.
   todas" abre el diálogo de impresión del navegador con una ficha por
   alumno, en el mismo formato que el PDF original (el tipo de pago nunca
   sale impreso — es admin-only).
-- **Enviadas por carrera y trimestre**: elige carrera + trimestre y ve quién
-  ya envió su ficha ("Enviada") y quién no ("Pendiente").
 - **Alumnos**: tabla filtrable por carné, con **Agregar alumno** (pide todos
   los campos del Excel — carné, nombres, carrera, sección, trimestre,
   correos, celular) para no tener que tocar la base de datos a mano, más
   Editar/Eliminar y "Ver ficha" (abre/edita la ficha de ese alumno). Editar y
   Eliminar siempre piden confirmación en una alerta centrada en pantalla
   (nunca el `confirm()` nativo del navegador).
-- **Catálogo de cursos**: agrega/edita/elimina los cursos oficiales de cada
-  carrera — esto es lo que ve el alumno en "Cursos por asignarse". **Está
-  vacío a propósito** (no se inventaron nombres de cursos reales): cárgalos
-  aquí antes de que los alumnos empiecen a usar el portal.
+
+El catálogo de cursos (`Courses`, con Carrera/Trimestre/Nombre) ya no lo
+administra nadie desde la interfaz — se carga una sola vez, al iniciar el
+backend por primera vez, desde `backend/UmesIsel.Api/Data/CourseCatalogSeedData.cs`,
+transcrito directamente de los pénsums oficiales de cada maestría. Para
+corregir un curso, edita ese archivo (no la base de datos a mano) y borra
+`isel.db` para que se vuelva a sembrar, o ajústalo con una migración si ya
+hay fichas guardadas que no quieres perder.
 
 ## Notas de diseño
 

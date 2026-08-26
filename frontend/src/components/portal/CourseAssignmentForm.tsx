@@ -1,204 +1,221 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import type { Student } from "@/types/student";
-import type { AdditionalCourseRow, CourseAssignment, TipoPago } from "@/types/courseAssignment";
-import { saveAssignment } from "@/lib/assignmentsApi";
-import { getCourses } from "@/lib/coursesApi";
+import type { CourseAssignment, TipoPago } from "@/types/courseAssignment";
+import { getAssignmentByStudent, saveAssignment } from "@/lib/assignmentsApi";
+import { getCourses, getTrimestres } from "@/lib/coursesApi";
 import { getCarreras } from "@/lib/studentsApi";
 import type { Course } from "@/types/course";
 import { SignaturePad, type SignaturePadHandle } from "@/components/portal/SignaturePad";
 import { RevealOnScroll } from "@/components/ui/RevealOnScroll";
-import { SearchSelect } from "@/components/ui/SearchSelect";
+import { SearchSelect, type SearchSelectOption } from "@/components/ui/SearchSelect";
 
 const inputClass =
   "w-full rounded-lg border border-isel-line bg-white px-3 py-2 text-sm text-isel-ink transition-colors duration-200 focus:border-isel-navy focus:outline-none focus:ring-2 focus:ring-isel-navy/15";
 
-/** A "cursos por asignarse" entry — one per course the student has picked from the catalog. */
-interface AssignedEntry {
-  key: string;
-  courseId: number | null; // null = no longer in the catalog (legacy data), still shown so nothing gets silently dropped
-  nombre: string;
-  semTri: string;
-  seccion: string;
-}
-
-/** A "cursos adicionales" row — starts as a single blank row, grown one at a time via "+ Agregar otro". */
+/** A "cursos adicionales" row — either a free pick from the whole catalog, or a specific repeated course from an earlier trimestre of the same carrera. */
 interface AdditionalEntry {
   id: string;
-  cursoAdicional: string;
-  carrera: string;
-  semTri: string;
+  mode: "adicional" | "repetir";
+  courseId: number | null;
+  repetirTrimestre: number | null;
   seccion: string;
   jornada: string;
+  // Preserves a previously-saved row that no longer matches anything in the catalog, so nothing silently disappears.
+  fallback?: { nombre: string; carrera: string | null; semTri: string | null };
 }
 
-let entryIdSeq = 0;
-function nextId() {
-  entryIdSeq += 1;
-  return `row-${entryIdSeq}`;
+let rowIdSeq = 0;
+function nextRowId() {
+  rowIdSeq += 1;
+  return `row-${rowIdSeq}`;
 }
 
-function initAssigned(rows: CourseAssignment["cursosAsignados"] | undefined): AssignedEntry[] {
-  return (rows ?? []).map((r) => ({
-    key: nextId(),
-    courseId: null, // resolved against the catalog once it loads (see resolveAssignedAgainstCatalog)
-    nombre: r.curso,
-    semTri: r.semTri ?? "",
-    seccion: r.seccion ?? "",
-  }));
+function groupLabel(c: Course): string {
+  return c.carrera === "Inglés" ? "Inglés" : `${c.carrera} · Trimestre ${c.trimestre}`;
 }
 
-function initAdditional(rows: AdditionalCourseRow[] | undefined): AdditionalEntry[] {
-  if (!rows || rows.length === 0) {
-    return [{ id: nextId(), cursoAdicional: "", carrera: "", semTri: "", seccion: "", jornada: "" }];
-  }
-  return rows.map((r) => ({
-    id: nextId(),
-    cursoAdicional: r.cursoAdicional,
-    carrera: r.carrera ?? "",
-    semTri: r.semTri ?? "",
-    seccion: r.seccion ?? "",
-    jornada: r.jornada ?? "",
-  }));
+function blankAdditionalRow(): AdditionalEntry {
+  return { id: nextRowId(), mode: "adicional", courseId: null, repetirTrimestre: null, seccion: "", jornada: "" };
 }
 
 interface CourseAssignmentFormProps {
   student: Student;
-  initialAssignment: CourseAssignment | null;
-  trimestre: number;
   /** Present when an admin (not the student) is saving — recorded as an audit trail, not a real auth token. */
   autorizadoPorCodigo?: string | null;
   onSaved?: (assignment: CourseAssignment) => void;
 }
 
-export function CourseAssignmentForm({
-  student,
-  initialAssignment,
-  trimestre,
-  autorizadoPorCodigo,
-  onSaved,
-}: CourseAssignmentFormProps) {
-  const [catalog, setCatalog] = useState<Course[] | null>(null);
-  const [allCourses, setAllCourses] = useState<Course[]>([]);
+export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved }: CourseAssignmentFormProps) {
   const [carreras, setCarreras] = useState<string[]>([]);
-  const [assigned, setAssigned] = useState<AssignedEntry[]>(() => initAssigned(initialAssignment?.cursosAsignados));
-  const [additional, setAdditional] = useState<AdditionalEntry[]>(() => initAdditional(initialAssignment?.cursosAdicionales));
-  const [pendientesTrimestres, setPendientesTrimestres] = useState(initialAssignment?.tienePendientesTrimestres ?? false);
-  const [pendientesMaterias, setPendientesMaterias] = useState(initialAssignment?.tienePendientesMaterias ?? false);
-  const [tipoPago, setTipoPago] = useState<TipoPago | "">(initialAssignment?.tipoPago ?? "");
-  const [correoContacto, setCorreoContacto] = useState(initialAssignment?.correoContacto ?? student.correoPersonal ?? student.correoInstitucional ?? "");
-  const [telefonoContacto, setTelefonoContacto] = useState(initialAssignment?.telefonoContacto ?? student.celular ?? "");
-  const [comprobantePagoNo, setComprobantePagoNo] = useState(initialAssignment?.comprobantePagoNo ?? "");
+  const [allCourses, setAllCourses] = useState<Course[]>([]);
+  const [carrera, setCarrera] = useState(student.carrera);
+  const [trimestres, setTrimestres] = useState<number[] | null>(null);
+  const [trimestre, setTrimestre] = useState<number | null>(student.trimestre ?? null);
+  const [mainCourses, setMainCourses] = useState<Course[] | null>(null);
+  const [assignment, setAssignment] = useState<CourseAssignment | null>(null);
+  const [loadingAssignment, setLoadingAssignment] = useState(true);
+
+  const [seccion, setSeccion] = useState(student.seccion ?? "");
+  const [additional, setAdditional] = useState<AdditionalEntry[]>([blankAdditionalRow()]);
+  const [pendientesTrimestres, setPendientesTrimestres] = useState(false);
+  const [pendientesMaterias, setPendientesMaterias] = useState(false);
+  const [tipoPago, setTipoPago] = useState<TipoPago | "">("");
+  const [correoContacto, setCorreoContacto] = useState(student.correoPersonal ?? student.correoInstitucional ?? "");
+  const [telefonoContacto, setTelefonoContacto] = useState(student.celular ?? "");
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const signatureRef = useRef<SignaturePadHandle>(null);
 
-  // Reset the whole form whenever we're pointed at a different student/ficha.
+  // Reference catalogs — loaded once.
   useEffect(() => {
-    setAssigned(initAssigned(initialAssignment?.cursosAsignados));
-    setAdditional(initAdditional(initialAssignment?.cursosAdicionales));
-    setPendientesTrimestres(initialAssignment?.tienePendientesTrimestres ?? false);
-    setPendientesMaterias(initialAssignment?.tienePendientesMaterias ?? false);
-    setTipoPago(initialAssignment?.tipoPago ?? "");
-    setCorreoContacto(initialAssignment?.correoContacto ?? student.correoPersonal ?? student.correoInstitucional ?? "");
-    setTelefonoContacto(initialAssignment?.telefonoContacto ?? student.celular ?? "");
-    setComprobantePagoNo(initialAssignment?.comprobantePagoNo ?? "");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialAssignment?.id, student.id]);
+    getCarreras().then(setCarreras);
+    getCourses().then(setAllCourses);
+  }, []);
 
-  // Load the carrera's course catalog + the full cross-program catalog + the carrera list, once per carrera.
+  // Trimestres available for the chosen carrera.
   useEffect(() => {
     let active = true;
-    setCatalog(null);
-    getCourses(student.carrera).then((courses) => {
+    setTrimestres(null);
+    getTrimestres(carrera).then((list) => {
       if (!active) return;
-      setCatalog(courses);
-      // Match previously-saved course names to catalog ids now that we have them.
-      setAssigned((rows) =>
-        rows.map((r) => {
-          if (r.courseId !== null) return r;
-          const match = courses.find((c) => c.nombre === r.nombre);
-          return match ? { ...r, courseId: match.id } : r;
-        }),
-      );
+      setTrimestres(list);
+      setTrimestre((current) => (current && list.includes(current) ? current : (list[0] ?? null)));
     });
-    getCourses().then((courses) => active && setAllCourses(courses));
-    getCarreras().then((list) => active && setCarreras(list));
     return () => {
       active = false;
     };
-  }, [student.carrera]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [carrera]);
+
+  // Courses auto-included for carrera+trimestre, and the ficha already saved for that exact combo (if any).
+  useEffect(() => {
+    if (trimestre === null) {
+      setMainCourses(null);
+      return;
+    }
+    let active = true;
+    setLoadingAssignment(true);
+    getCourses(carrera, trimestre).then((list) => active && setMainCourses(list));
+    getAssignmentByStudent(student.carnet, trimestre).then((ca) => {
+      if (!active) return;
+      const matching = ca && ca.carrera === carrera ? ca : null;
+      setAssignment(matching);
+      setLoadingAssignment(false);
+    });
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [carrera, trimestre, student.carnet]);
+
+  // Re-hydrate the rest of the form whenever the loaded ficha (for this carrera+trimestre) changes.
+  useEffect(() => {
+    setSeccion(assignment?.seccion ?? student.seccion ?? "");
+    setPendientesTrimestres(assignment?.tienePendientesTrimestres ?? false);
+    setPendientesMaterias(assignment?.tienePendientesMaterias ?? false);
+    setTipoPago(assignment?.tipoPago ?? "");
+    setCorreoContacto(assignment?.correoContacto ?? student.correoPersonal ?? student.correoInstitucional ?? "");
+    setTelefonoContacto(assignment?.telefonoContacto ?? student.celular ?? "");
+
+    if (!assignment || assignment.cursosAdicionales.length === 0) {
+      setAdditional([blankAdditionalRow()]);
+      return;
+    }
+    setAdditional(
+      assignment.cursosAdicionales.map((row) => {
+        const match = allCourses.find(
+          (c) => c.nombre === row.cursoAdicional && c.carrera === row.carrera && String(c.trimestre) === row.semTri,
+        );
+        return {
+          id: nextRowId(),
+          mode: "adicional",
+          courseId: match?.id ?? null,
+          repetirTrimestre: null,
+          seccion: row.seccion ?? "",
+          jornada: row.jornada ?? "",
+          fallback: match ? undefined : { nombre: row.cursoAdicional, carrera: row.carrera ?? null, semTri: row.semTri ?? null },
+        };
+      }),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assignment, allCourses.length]);
 
   const fechaHoy = useMemo(
     () => new Date().toLocaleDateString("es-GT", { day: "2-digit", month: "2-digit", year: "numeric" }),
     [],
   );
 
-  function toggleAssign(course: Course) {
-    setAssigned((rows) => {
-      const existing = rows.find((r) => r.courseId === course.id);
-      if (existing) {
-        return rows.filter((r) => r.key !== existing.key);
-      }
-      return [
-        ...rows,
-        { key: nextId(), courseId: course.id, nombre: course.nombre, semTri: String(trimestre), seccion: student.seccion ?? "" },
-      ];
-    });
-  }
+  const additionalCourseOptions: SearchSelectOption[] = useMemo(
+    () =>
+      allCourses
+        .slice()
+        .sort((a, b) => (a.carrera + a.trimestre).localeCompare(b.carrera + b.trimestre))
+        .map((c) => ({ value: String(c.id), label: c.nombre, group: groupLabel(c) })),
+    [allCourses],
+  );
 
-  function removeAssigned(key: string) {
-    setAssigned((rows) => rows.filter((r) => r.key !== key));
-  }
+  const earlierTrimestres = useMemo(
+    () => (trimestre === null ? [] : (trimestres ?? []).filter((t) => t < trimestre)),
+    [trimestres, trimestre],
+  );
 
-  function updateAssignedMeta(key: string, field: "semTri" | "seccion", value: string) {
-    setAssigned((rows) => rows.map((r) => (r.key === key ? { ...r, [field]: value } : r)));
+  function updateAdditional(id: string, patch: Partial<AdditionalEntry>) {
+    setAdditional((rows) => rows.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   }
-
   function addAdditionalRow() {
-    setAdditional((rows) => (rows.length >= 10 ? rows : [...rows, { id: nextId(), cursoAdicional: "", carrera: "", semTri: "", seccion: "", jornada: "" }]));
+    setAdditional((rows) => (rows.length >= 10 ? rows : [...rows, blankAdditionalRow()]));
   }
   function removeAdditionalRow(id: string) {
     setAdditional((rows) => rows.filter((r) => r.id !== id));
   }
-  function updateAdditionalField(id: string, field: keyof AdditionalEntry, value: string) {
-    setAdditional((rows) => rows.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
-  }
-
-  const additionalCourseOptions = useMemo(
-    () => allCourses.map((c) => ({ value: c.nombre, label: c.nombre, hint: c.carrera })),
-    [allCourses],
-  );
 
   async function handleSave() {
+    if (trimestre === null) {
+      setError("Selecciona una maestría con pénsum cargado y un trimestre.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
-      const firma = signatureRef.current?.getSignature() ?? initialAssignment?.firmaBase64 ?? null;
+      const firma = signatureRef.current?.getSignature() ?? assignment?.firmaBase64 ?? null;
+
+      const cursosAsignados = (mainCourses ?? []).map((c, i) => ({
+        numero: i + 1,
+        curso: c.nombre,
+        semTri: String(trimestre),
+        seccion,
+      }));
+
+      const cursosAdicionales = additional
+        .map((row, i) => {
+          if (row.fallback) {
+            return { numero: i + 1, cursoAdicional: row.fallback.nombre, carrera: row.fallback.carrera, semTri: row.fallback.semTri, seccion: row.seccion, jornada: row.jornada };
+          }
+          const course = allCourses.find((c) => c.id === row.courseId);
+          if (!course) return null;
+          return { numero: i + 1, cursoAdicional: course.nombre, carrera: course.carrera, semTri: String(course.trimestre), seccion: row.seccion, jornada: row.jornada };
+        })
+        .filter((r): r is NonNullable<typeof r> => r !== null);
+
       const saved = await saveAssignment({
         carnet: student.carnet,
+        carrera,
         trimestre,
-        cursosAsignados: assigned.map((r, i) => ({ numero: i + 1, curso: r.nombre, semTri: r.semTri, seccion: r.seccion })),
-        cursosAdicionales: additional
-          .filter((r) => r.cursoAdicional.trim().length > 0)
-          .map((r, i) => ({
-            numero: i + 1,
-            cursoAdicional: r.cursoAdicional,
-            carrera: r.carrera,
-            semTri: r.semTri,
-            seccion: r.seccion,
-            jornada: r.jornada,
-          })),
+        seccion: seccion || null,
+        cursosAsignados,
+        cursosAdicionales,
         tienePendientesTrimestres: pendientesTrimestres,
         tienePendientesMaterias: pendientesMaterias,
         correoContacto: correoContacto || null,
         telefonoContacto: telefonoContacto || null,
-        comprobantePagoNo: comprobantePagoNo || null,
         tipoPago: tipoPago || null,
         firmaBase64: firma,
         autorizadoPorCodigo: autorizadoPorCodigo ?? null,
       });
+      setAssignment(saved);
       setSavedAt(new Date().toLocaleTimeString("es-GT"));
       onSaved?.(saved);
     } catch (e) {
@@ -207,8 +224,6 @@ export function CourseAssignmentForm({
       setSaving(false);
     }
   }
-
-  const offCatalogAssigned = assigned.filter((r) => r.courseId === null);
 
   return (
     <div className="space-y-6">
@@ -223,19 +238,11 @@ export function CourseAssignmentForm({
           <Field label="Fecha">
             <input className={inputClass} value={fechaHoy} disabled />
           </Field>
-          <Field label="Sem/Trim">
-            <input className={inputClass} value={trimestre} disabled />
-          </Field>
-        </div>
-        <div className="mt-4">
-          <Field label="Carrera">
-            <input className={inputClass} value={student.carrera} disabled />
-          </Field>
-        </div>
-        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Field label="Primer apellido">
             <input className={inputClass} value={student.primerApellido} disabled />
           </Field>
+        </div>
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Field label="Segundo apellido">
             <input className={inputClass} value={student.segundoApellido ?? ""} disabled />
           </Field>
@@ -251,139 +258,91 @@ export function CourseAssignmentForm({
       <RevealOnScroll delay={0.05} className="rounded-2xl bg-white p-6 shadow-card">
         <h3 className="mb-1 flex items-center gap-2 font-display text-lg font-semibold text-isel-navy">
           <span aria-hidden>💾</span> Cursos por asignarse
-          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
-            {assigned.length} asignado{assigned.length === 1 ? "" : "s"}
-          </span>
         </h3>
         <p className="mb-4 text-sm text-isel-ink/60">
-          Elige de la lista los cursos que tienes actualmente asignados — puedes marcar varios.
+          Elige tu maestría y el trimestre — los cursos de ese trimestre se asignan todos juntos.
         </p>
 
-        {catalog === null ? (
-          <p className="py-4 text-sm text-isel-ink/40">Cargando catálogo de cursos…</p>
-        ) : catalog.length === 0 ? (
-          <p className="rounded-lg bg-isel-paper px-4 py-3 text-sm text-isel-ink/60">
-            Aún no hay cursos cargados para <strong>{student.carrera}</strong>. Pídele al administrador que los agregue en
-            el panel de Cursos.
-          </p>
-        ) : (
-          <ul className="divide-y divide-isel-line">
-            {catalog.map((course) => {
-              const entry = assigned.find((r) => r.courseId === course.id);
-              return (
-                <li key={course.id} className="py-3">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      {entry && <span className="text-emerald-600" aria-hidden>✔</span>}
-                      <span className={entry ? "font-semibold text-isel-navy" : "text-isel-ink"}>{course.nombre}</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => toggleAssign(course)}
-                      className={`rounded-full px-4 py-1.5 text-xs font-bold transition-colors duration-200 ${
-                        entry
-                          ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
-                          : "bg-isel-navy text-white hover:bg-isel-gold hover:text-isel-navy"
-                      }`}
-                    >
-                      {entry ? "✓ Asignado — Quitar" : "+ Asignar"}
-                    </button>
-                  </div>
-                  {entry && (
-                    <div className="mt-2 grid grid-cols-2 gap-3 rounded-lg bg-emerald-50 p-3 sm:w-80">
-                      <Field label="Sem/Tri">
-                        <input className={inputClass} value={entry.semTri} onChange={(e) => updateAssignedMeta(entry.key, "semTri", e.target.value)} />
-                      </Field>
-                      <Field label="Sección">
-                        <input className={inputClass} value={entry.seccion} onChange={(e) => updateAssignedMeta(entry.key, "seccion", e.target.value)} />
-                      </Field>
-                    </div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-
-        {offCatalogAssigned.length > 0 && (
-          <div className="mt-4 rounded-lg border border-dashed border-isel-line p-3">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-isel-ink/50">
-              Otros cursos ya asignados (no están en el catálogo actual)
-            </p>
-            <ul className="space-y-2">
-              {offCatalogAssigned.map((entry) => (
-                <li key={entry.key} className="flex flex-wrap items-center gap-3 text-sm">
-                  <span className="font-semibold text-isel-ink">{entry.nombre}</span>
-                  <input className={`${inputClass} w-20`} placeholder="Sem/Tri" value={entry.semTri} onChange={(e) => updateAssignedMeta(entry.key, "semTri", e.target.value)} />
-                  <input className={`${inputClass} w-20`} placeholder="Sección" value={entry.seccion} onChange={(e) => updateAssignedMeta(entry.key, "seccion", e.target.value)} />
-                  <button type="button" onClick={() => removeAssigned(entry.key)} className="text-xs font-semibold text-red-600 hover:underline">
-                    Quitar
-                  </button>
-                </li>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <Field label="Maestría">
+            <select className={inputClass} value={carrera} onChange={(e) => setCarrera(e.target.value)}>
+              {carreras.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
               ))}
-            </ul>
-          </div>
-        )}
+            </select>
+          </Field>
+          <Field label="Trimestre">
+            <select
+              className={inputClass}
+              value={trimestre ?? ""}
+              onChange={(e) => setTrimestre(e.target.value ? Number(e.target.value) : null)}
+              disabled={!trimestres || trimestres.length === 0}
+            >
+              {(trimestres ?? []).map((t) => (
+                <option key={t} value={t}>
+                  Trimestre {t}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Sección">
+            <input className={inputClass} value={seccion} onChange={(e) => setSeccion(e.target.value)} placeholder="Ej. A" />
+          </Field>
+        </div>
+
+        <div className="mt-4">
+          {loadingAssignment ? (
+            <p className="py-4 text-sm text-isel-ink/40">Cargando…</p>
+          ) : trimestres && trimestres.length === 0 ? (
+            <p className="rounded-lg bg-isel-paper px-4 py-3 text-sm text-isel-ink/60">
+              Aún no hay pénsum cargado para <strong>{carrera}</strong>.
+            </p>
+          ) : (mainCourses ?? []).length === 0 ? (
+            <p className="rounded-lg bg-isel-paper px-4 py-3 text-sm text-isel-ink/60">
+              No hay cursos definidos para el trimestre {trimestre}.
+            </p>
+          ) : (
+            <>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-isel-ink/50">
+                Cursos del trimestre {trimestre} (se asignan todos)
+              </p>
+              <ul className="divide-y divide-isel-line rounded-lg border border-isel-line">
+                {(mainCourses ?? []).map((c) => (
+                  <li key={c.id} className="flex items-center gap-2 px-4 py-2.5 text-sm">
+                    <span className="text-emerald-600" aria-hidden>
+                      ✔
+                    </span>
+                    <span className="text-isel-ink">{c.nombre}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
       </RevealOnScroll>
 
       <RevealOnScroll delay={0.1} className="rounded-2xl bg-white p-6 shadow-card">
         <h3 className="mb-1 font-display text-lg font-semibold text-isel-navy">Cursos adicionales o cambio de sección</h3>
         <p className="mb-4 text-sm text-isel-ink/60">
-          Busca y selecciona el curso o cursos que solicitas agregarte y/o cambiarte de sección.
+          Agrega un curso extra de cualquier carrera, o marca "Repetir trimestre" si necesitas retomar un curso específico
+          de un trimestre anterior tuyo.
         </p>
 
         <div className="space-y-4">
           {additional.map((row) => (
-            <div key={row.id} className="rounded-lg bg-isel-paper p-4">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                <div className="lg:col-span-2">
-                  <Field label="Curso adicional">
-                    <SearchSelect
-                      options={additionalCourseOptions}
-                      value={row.cursoAdicional}
-                      onChange={(v) => updateAdditionalField(row.id, "cursoAdicional", v)}
-                      placeholder="Buscar curso…"
-                    />
-                  </Field>
-                </div>
-                <Field label="Carrera">
-                  <select className={inputClass} value={row.carrera} onChange={(e) => updateAdditionalField(row.id, "carrera", e.target.value)}>
-                    <option value=""></option>
-                    {carreras.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <Field label="Sem/Tri">
-                  <input className={inputClass} value={row.semTri} onChange={(e) => updateAdditionalField(row.id, "semTri", e.target.value)} />
-                </Field>
-                <Field label="Sección">
-                  <input className={inputClass} value={row.seccion} onChange={(e) => updateAdditionalField(row.id, "seccion", e.target.value)} />
-                </Field>
-              </div>
-              <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
-                <Field label="Jornada">
-                  <select
-                    className={`${inputClass} w-40`}
-                    value={row.jornada}
-                    onChange={(e) => updateAdditionalField(row.id, "jornada", e.target.value)}
-                  >
-                    <option value=""></option>
-                    <option value="Matutina">Matutina</option>
-                    <option value="Vespertina">Vespertina</option>
-                    <option value="Nocturna">Nocturna</option>
-                    <option value="Fin de semana">Fin de semana</option>
-                  </select>
-                </Field>
-                {additional.length > 1 && (
-                  <button type="button" onClick={() => removeAdditionalRow(row.id)} className="text-xs font-semibold text-red-600 hover:underline">
-                    Quitar este campo
-                  </button>
-                )}
-              </div>
-            </div>
+            <AdditionalRow
+              key={row.id}
+              row={row}
+              options={additionalCourseOptions}
+              allCourses={allCourses}
+              carrera={carrera}
+              earlierTrimestres={earlierTrimestres}
+              canRemove={additional.length > 1}
+              onChange={(patch) => updateAdditional(row.id, patch)}
+              onRemove={() => removeAdditionalRow(row.id)}
+            />
           ))}
         </div>
 
@@ -417,7 +376,7 @@ export function CourseAssignmentForm({
           <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-isel-ink">
             <span aria-hidden>✍️</span> Firma digital
           </p>
-          <SignaturePad ref={signatureRef} initialValue={initialAssignment?.firmaBase64} className="max-w-md" />
+          <SignaturePad ref={signatureRef} initialValue={assignment?.firmaBase64} className="max-w-md" key={assignment?.id ?? "blank"} />
           <button
             type="button"
             onClick={() => signatureRef.current?.clear()}
@@ -446,11 +405,6 @@ export function CourseAssignmentForm({
             />
           </Field>
         </div>
-        <div className="mt-4">
-          <Field label="Comprobante de pago No.">
-            <input className={inputClass} value={comprobantePagoNo} onChange={(e) => setComprobantePagoNo(e.target.value)} />
-          </Field>
-        </div>
       </RevealOnScroll>
 
       <div className="flex flex-wrap items-center gap-4">
@@ -467,6 +421,134 @@ export function CourseAssignmentForm({
         </motion.button>
         {savedAt && <span className="text-sm text-isel-navy/70">Guardado a las {savedAt} ✓</span>}
         {error && <span className="text-sm font-semibold text-red-600">{error}</span>}
+      </div>
+    </div>
+  );
+}
+
+function AdditionalRow({
+  row,
+  options,
+  allCourses,
+  carrera,
+  earlierTrimestres,
+  canRemove,
+  onChange,
+  onRemove,
+}: {
+  row: AdditionalEntry;
+  options: SearchSelectOption[];
+  allCourses: Course[];
+  carrera: string;
+  earlierTrimestres: number[];
+  canRemove: boolean;
+  onChange: (patch: Partial<AdditionalEntry>) => void;
+  onRemove: () => void;
+}) {
+  const repetirCourseOptions = useMemo(
+    () => allCourses.filter((c) => c.carrera === carrera && c.trimestre === row.repetirTrimestre),
+    [allCourses, carrera, row.repetirTrimestre],
+  );
+
+  if (row.fallback) {
+    return (
+      <div className="rounded-lg bg-isel-paper p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-isel-ink">{row.fallback.nombre}</p>
+            <p className="text-xs text-isel-ink/50">
+              {row.fallback.carrera} — ya no está en el catálogo actual, pero se conserva
+            </p>
+          </div>
+          <button type="button" onClick={onRemove} className="text-xs font-semibold text-red-600 hover:underline">
+            Quitar
+          </button>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          <input className={`${inputClass} bg-white`} placeholder="Sección" value={row.seccion} onChange={(e) => onChange({ seccion: e.target.value })} />
+          <input className={`${inputClass} bg-white`} placeholder="Jornada" value={row.jornada} onChange={(e) => onChange({ jornada: e.target.value })} />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg bg-isel-paper p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex overflow-hidden rounded-full border-2 border-isel-line">
+          <button
+            type="button"
+            onClick={() => onChange({ mode: "adicional", courseId: null, repetirTrimestre: null })}
+            className={`px-3 py-1 text-xs font-bold transition-colors duration-200 ${row.mode === "adicional" ? "bg-isel-navy text-white" : "bg-white text-isel-ink/50"}`}
+          >
+            Curso adicional
+          </button>
+          <button
+            type="button"
+            onClick={() => onChange({ mode: "repetir", courseId: null, repetirTrimestre: null })}
+            className={`px-3 py-1 text-xs font-bold transition-colors duration-200 ${row.mode === "repetir" ? "bg-isel-gold text-isel-navy" : "bg-white text-isel-ink/50"}`}
+          >
+            Repetir trimestre
+          </button>
+        </div>
+        {canRemove && (
+          <button type="button" onClick={onRemove} className="text-xs font-semibold text-red-600 hover:underline">
+            Quitar este campo
+          </button>
+        )}
+      </div>
+
+      {row.mode === "adicional" ? (
+        <Field label="Curso adicional (busca en todas las carreras)">
+          <SearchSelect
+            options={options}
+            value={row.courseId !== null ? String(row.courseId) : ""}
+            onChange={(v) => onChange({ courseId: Number(v) })}
+            placeholder="Buscar curso…"
+          />
+        </Field>
+      ) : earlierTrimestres.length === 0 ? (
+        <p className="text-sm text-isel-ink/50">
+          Selecciona primero, arriba, tu trimestre principal — "repetir trimestre" solo aplica a trimestres anteriores a
+          ese.
+        </p>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field label="Trimestre a repetir">
+            <select
+              className={inputClass}
+              value={row.repetirTrimestre ?? ""}
+              onChange={(e) => onChange({ repetirTrimestre: e.target.value ? Number(e.target.value) : null, courseId: null })}
+            >
+              <option value="">Selecciona…</option>
+              {earlierTrimestres.map((t) => (
+                <option key={t} value={t}>
+                  Trimestre {t}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Curso a repetir">
+            <select
+              className={inputClass}
+              value={row.courseId ?? ""}
+              onChange={(e) => onChange({ courseId: e.target.value ? Number(e.target.value) : null })}
+              disabled={row.repetirTrimestre === null}
+            >
+              <option value="">Selecciona…</option>
+              {repetirCourseOptions.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nombre}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+      )}
+
+      <div className="mt-3 grid grid-cols-2 gap-3">
+        <input className={`${inputClass} bg-white`} placeholder="Sección" value={row.seccion} onChange={(e) => onChange({ seccion: e.target.value })} />
+        <input className={`${inputClass} bg-white`} placeholder="Jornada" value={row.jornada} onChange={(e) => onChange({ jornada: e.target.value })} />
       </div>
     </div>
   );

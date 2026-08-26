@@ -36,7 +36,6 @@ export interface CourseAssignment {
   tienePendientesMaterias: boolean;
   correoContacto?: string | null;
   telefonoContacto?: string | null;
-  comprobantePagoNo?: string | null;
   /** "Link" | "Presencial" — admin-only, never shown on the printed ficha. */
   tipoPago?: TipoPago | null;
   firmaBase64?: string | null;
@@ -48,23 +47,16 @@ export interface CourseAssignment {
 /** Body sent to save/update a ficha (student portal or admin edit). */
 export interface CourseAssignmentUpsertInput {
   carnet: string;
+  carrera: string;
   trimestre: number;
+  seccion?: string | null;
   cursosAsignados: AssignedCourseRow[];
   cursosAdicionales: AdditionalCourseRow[];
   tienePendientesTrimestres: boolean;
   tienePendientesMaterias: boolean;
   correoContacto?: string | null;
   telefonoContacto?: string | null;
-  comprobantePagoNo?: string | null;
   tipoPago?: TipoPago | null;
   firmaBase64?: string | null;
   autorizadoPorCodigo?: string | null;
-}
-
-export interface AssignmentStatusRow {
-  estado: "Enviada" | "Pendiente";
-  carnet: string;
-  alumno: string;
-  carrera: string;
-  semTri: number | null;
 }

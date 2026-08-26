@@ -1,36 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSession } from "@/hooks/useSession";
-import { getAssignmentByStudent } from "@/lib/assignmentsApi";
-import type { CourseAssignment } from "@/types/courseAssignment";
 import { CourseAssignmentForm } from "@/components/portal/CourseAssignmentForm";
-import { RevealOnScroll } from "@/components/ui/RevealOnScroll";
 
 export function StudentPortalPage() {
   const { session, logout } = useSession();
   const navigate = useNavigate();
   const student = session?.student;
 
-  const [assignment, setAssignment] = useState<CourseAssignment | null>(null);
-  const [loading, setLoading] = useState(true);
-
   useEffect(() => {
     if (!student) return;
     document.title = `Asignación de cursos | ${student.nombreCompleto}`;
-    let active = true;
-    getAssignmentByStudent(student.carnet, student.trimestre ?? undefined).then((ca) => {
-      if (active) {
-        setAssignment(ca);
-        setLoading(false);
-      }
-    });
-    return () => {
-      active = false;
-    };
-    // Only the carné identifies a distinct student — re-running this for every new
-    // (identical-looking) session object would loop forever.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [student?.carnet]);
+  }, [student]);
 
   function handleLogout() {
     logout();
@@ -56,18 +37,7 @@ export function StudentPortalPage() {
       </header>
 
       <div className="mx-auto max-w-4xl px-6 py-8">
-        {loading ? (
-          <RevealOnScroll className="rounded-2xl bg-white p-10 text-center text-isel-ink/50 shadow-card">
-            Cargando tu ficha…
-          </RevealOnScroll>
-        ) : (
-          <CourseAssignmentForm
-            student={student}
-            initialAssignment={assignment}
-            trimestre={student.trimestre ?? 1}
-            onSaved={setAssignment}
-          />
-        )}
+        <CourseAssignmentForm student={student} />
       </div>
     </main>
   );

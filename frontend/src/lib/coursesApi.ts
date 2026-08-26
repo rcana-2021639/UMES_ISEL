@@ -1,20 +1,16 @@
 import { http } from "@/lib/http";
-import type { Course, CourseUpsertInput } from "@/types/course";
+import type { Course } from "@/types/course";
 
-/** Omit carrera to get the full cross-program catalog (used by "Cursos adicionales"). */
-export function getCourses(carrera?: string): Promise<Course[]> {
-  const query = carrera ? `?carrera=${encodeURIComponent(carrera)}` : "";
-  return http.get<Course[]>(`/api/courses${query}`);
+/** Omit both filters to get the full cross-program catalog (used by "Cursos adicionales"). */
+export function getCourses(carrera?: string, trimestre?: number): Promise<Course[]> {
+  const params = new URLSearchParams();
+  if (carrera) params.set("carrera", carrera);
+  if (trimestre) params.set("trimestre", String(trimestre));
+  const query = params.toString();
+  return http.get<Course[]>(`/api/courses${query ? `?${query}` : ""}`);
 }
 
-export function createCourse(input: CourseUpsertInput): Promise<Course> {
-  return http.post<Course>("/api/courses", input);
-}
-
-export function updateCourse(id: number, input: CourseUpsertInput): Promise<Course> {
-  return http.put<Course>(`/api/courses/${id}`, input);
-}
-
-export function deleteCourse(id: number): Promise<void> {
-  return http.del(`/api/courses/${id}`);
+/** The trimestres a carrera's pensum actually has, in order (populates the Trimestre selector once a maestría is chosen). */
+export function getTrimestres(carrera: string): Promise<number[]> {
+  return http.get<number[]>(`/api/courses/trimestres?carrera=${encodeURIComponent(carrera)}`);
 }

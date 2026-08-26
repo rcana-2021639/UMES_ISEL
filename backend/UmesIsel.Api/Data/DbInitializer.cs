@@ -72,4 +72,21 @@ public static class DbInitializer
         db.SaveChanges();
         logger.LogInformation("Se importaron {Count} estudiantes desde {Path}.", seedStudents.Count, seedPath);
     }
+
+    /// <summary>
+    /// Loads the official pensum (Data/CourseCatalogSeedData.cs) into Courses,
+    /// once. Never runs again afterwards, so any future pensum correction
+    /// needs a migration/manual update, not a restart.
+    /// </summary>
+    public static void SeedCoursesIfEmpty(IselDbContext db, ILogger logger)
+    {
+        if (db.Courses.Any())
+        {
+            return;
+        }
+
+        db.Courses.AddRange(CourseCatalogSeedData.Courses);
+        db.SaveChanges();
+        logger.LogInformation("Se importaron {Count} cursos del pénsum oficial.", CourseCatalogSeedData.Courses.Count);
+    }
 }
