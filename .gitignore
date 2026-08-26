@@ -17,6 +17,11 @@ backend/**/bin/
 backend/**/obj/
 backend/**/*.user
 
+# --- Backend SQLite database (generated at first run — see Data/DbInitializer.cs) ---
+backend/**/*.db
+backend/**/*.db-shm
+backend/**/*.db-wal
+
 # --- Editors / OS ---
 .vs/
 .vscode/

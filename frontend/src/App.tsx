@@ -2,6 +2,10 @@ import { Route, Routes, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { HomePage } from "@/pages/HomePage";
 import { ProgramDetailPage } from "@/pages/ProgramDetailPage";
+import { LoginPage } from "@/pages/portal/LoginPage";
+import { StudentPortalPage } from "@/pages/portal/StudentPortalPage";
+import { AdminPortalPage } from "@/pages/portal/AdminPortalPage";
+import { RequireRole } from "@/components/portal/RequireRole";
 
 /**
  * Resets scroll position on route change; if the new URL carries a hash
@@ -31,6 +35,23 @@ export default function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/programas/:slug" element={<ProgramDetailPage />} />
+        <Route path="/portal/login" element={<LoginPage />} />
+        <Route
+          path="/portal/estudiante"
+          element={
+            <RequireRole role="student">
+              <StudentPortalPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/portal/admin"
+          element={
+            <RequireRole role="admin">
+              <AdminPortalPage />
+            </RequireRole>
+          }
+        />
       </Routes>
     </>
   );
