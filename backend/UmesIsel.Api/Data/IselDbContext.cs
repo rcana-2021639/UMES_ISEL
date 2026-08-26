@@ -11,6 +11,7 @@ public class IselDbContext : DbContext
     public DbSet<CourseAssignment> CourseAssignments => Set<CourseAssignment>();
     public DbSet<AssignedCourseRow> AssignedCourseRows => Set<AssignedCourseRow>();
     public DbSet<AdditionalCourseRow> AdditionalCourseRows => Set<AdditionalCourseRow>();
+    public DbSet<Course> Courses => Set<Course>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

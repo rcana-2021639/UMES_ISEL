@@ -5,12 +5,14 @@ import { useSession } from "@/hooks/useSession";
 import { getAssignments, getAssignmentStatus, toDateParam, getAssignmentByStudent, deleteAssignment } from "@/lib/assignmentsApi";
 import { getStudents, getCarreras, deleteStudent } from "@/lib/studentsApi";
 import { rangeFor, type RangeMode } from "@/lib/dateRanges";
-import type { CourseAssignment, AssignmentStatusRow } from "@/types/courseAssignment";
+import type { CourseAssignment, AssignmentStatusRow, TipoPago } from "@/types/courseAssignment";
 import type { Student } from "@/types/student";
 import { Modal } from "@/components/ui/Modal";
 import { StudentFormModal } from "@/components/portal/StudentFormModal";
 import { CourseAssignmentForm } from "@/components/portal/CourseAssignmentForm";
 import { PrintableFichaBatch } from "@/components/portal/PrintableFicha";
+import { CoursesPanel } from "@/components/portal/CoursesPanel";
+import { useConfirm } from "@/hooks/useConfirm";
 
 const inputClass =
   "rounded-lg border border-isel-line bg-white px-3 py-2 text-sm text-isel-ink transition-colors duration-200 focus:border-isel-navy focus:outline-none focus:ring-2 focus:ring-isel-navy/15";
@@ -24,6 +26,7 @@ export function AdminPortalPage() {
   const { logout } = useSession();
   const navigate = useNavigate();
   const session = getSession();
+  const { confirm, dialog: confirmDialog } = useConfirm();
 
   useEffect(() => {
     document.title = "Panel administrativo | ISEL";
@@ -37,22 +40,28 @@ export function AdminPortalPage() {
   // ---- Impresión de asignaciones ----
   const [dateInput, setDateInput] = useState(todayInput());
   const [rangeMode, setRangeMode] = useState<RangeMode | null>(null);
+  const [tipoPagoFilter, setTipoPagoFilter] = useState<TipoPago | "todas">("todas");
   const [assignments, setAssignments] = useState<CourseAssignment[]>([]);
   const [loadingAssignments, setLoadingAssignments] = useState(false);
   const [assignmentsLoaded, setAssignmentsLoaded] = useState(false);
 
-  async function loadAssignments(mode: RangeMode) {
+  async function loadAssignments(mode: RangeMode, tipoPago: TipoPago | "todas" = tipoPagoFilter) {
     setRangeMode(mode);
     setLoadingAssignments(true);
     const anchor = new Date(`${dateInput}T00:00:00`);
     const { from, to } = rangeFor(mode, anchor);
     try {
-      const results = await getAssignments(from, to);
+      const results = await getAssignments(from, to, tipoPago === "todas" ? undefined : tipoPago);
       setAssignments(results);
       setAssignmentsLoaded(true);
     } finally {
       setLoadingAssignments(false);
     }
+  }
+
+  function handleTipoPagoFilterChange(tipoPago: TipoPago | "todas") {
+    setTipoPagoFilter(tipoPago);
+    if (rangeMode) loadAssignments(rangeMode, tipoPago);
   }
 
   // ---- Enviadas por carrera y trimestre ----
@@ -98,7 +107,13 @@ export function AdminPortalPage() {
   }, []);
 
   async function handleDeleteStudent(s: Student) {
-    if (!confirm(`¿Eliminar a ${s.nombreCompleto} (${s.carnet}) de la base de datos?`)) return;
+    const ok = await confirm({
+      title: "Eliminar alumno",
+      message: `¿Estás seguro que deseas eliminar a ${s.nombreCompleto} (carné ${s.carnet}) de la base de datos? Esta acción no se puede deshacer.`,
+      confirmLabel: "Sí, eliminar",
+      danger: true,
+    });
+    if (!ok) return;
     await deleteStudent(s.id);
     loadStudents();
   }
@@ -112,7 +127,13 @@ export function AdminPortalPage() {
   }
 
   async function handleDeleteAssignment(a: CourseAssignment) {
-    if (!confirm(`¿Eliminar la ficha de ${a.nombreCompleto}?`)) return;
+    const ok = await confirm({
+      title: "Eliminar ficha",
+      message: `¿Estás seguro que deseas eliminar la ficha de asignación de ${a.nombreCompleto}? Esta acción no se puede deshacer.`,
+      confirmLabel: "Sí, eliminar",
+      danger: true,
+    });
+    if (!ok) return;
     await deleteAssignment(a.id);
     if (rangeMode) loadAssignments(rangeMode);
   }
@@ -135,6 +156,12 @@ export function AdminPortalPage() {
     if (!rangeMode) return null;
     return { day: "Hoy", week: "Esta semana", month: "Este mes" }[rangeMode];
   }, [rangeMode]);
+
+  const emptyAssignmentsMessage = useMemo(() => {
+    const tipoPagoLabel = { link: "de pago por link", presencial: "de pago presencial" } as const;
+    const suffix = tipoPagoFilter === "todas" ? "" : ` ${tipoPagoLabel[tipoPagoFilter.toLowerCase() as "link" | "presencial"]}`;
+    return `No hay fichas${suffix} para ${rangeLabel?.toLowerCase()}.`;
+  }, [tipoPagoFilter, rangeLabel]);
 
   return (
     <>
@@ -191,34 +218,51 @@ export function AdminPortalPage() {
             </button>
           </div>
 
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-isel-ink/50">Tipo de pago</span>
+            {(["todas", "Link", "Presencial"] as const).map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => handleTipoPagoFilterChange(opt)}
+                className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors duration-200 ${
+                  tipoPagoFilter === opt ? "bg-isel-gold text-isel-navy" : "border-2 border-isel-line text-isel-ink/60 hover:border-isel-navy hover:text-isel-navy"
+                }`}
+              >
+                {opt === "todas" ? "Todas" : opt === "Link" ? "Link de pago" : "Presencial"}
+              </button>
+            ))}
+          </div>
+
           <div className="mt-4 overflow-x-auto">
-            <table className="w-full min-w-[700px] border-collapse text-sm">
+            <table className="w-full min-w-[760px] border-collapse text-sm">
               <thead>
                 <tr className="text-left text-xs font-semibold uppercase tracking-wide text-isel-ink/50">
                   <th className="pb-2">Carné</th>
                   <th className="pb-2">Alumno</th>
                   <th className="pb-2">Carrera</th>
                   <th className="pb-2">Sem/Tri</th>
+                  <th className="pb-2">Tipo de pago</th>
                   <th className="pb-2">Acción</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-isel-line">
                 {!assignmentsLoaded ? (
                   <tr>
-                    <td colSpan={5} className="py-6 text-center text-isel-ink/50">
+                    <td colSpan={6} className="py-6 text-center text-isel-ink/50">
                       Elige HOY, SEMANA, MES o carga un día para ver las asignaciones guardadas.
                     </td>
                   </tr>
                 ) : loadingAssignments ? (
                   <tr>
-                    <td colSpan={5} className="py-6 text-center text-isel-ink/50">
+                    <td colSpan={6} className="py-6 text-center text-isel-ink/50">
                       Cargando…
                     </td>
                   </tr>
                 ) : assignments.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-6 text-center text-isel-ink/50">
-                      No hay asignaciones guardadas para {rangeLabel?.toLowerCase()}.
+                    <td colSpan={6} className="py-6 text-center text-isel-ink/50">
+                      {emptyAssignmentsMessage}
                     </td>
                   </tr>
                 ) : (
@@ -228,6 +272,15 @@ export function AdminPortalPage() {
                       <td className="py-2 pr-2">{a.nombreCompleto}</td>
                       <td className="py-2 pr-2">{a.carrera}</td>
                       <td className="py-2 pr-2">{a.trimestre}</td>
+                      <td className="py-2 pr-2">
+                        {a.tipoPago ? (
+                          <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${a.tipoPago === "Link" ? "bg-sky-100 text-sky-700" : "bg-purple-100 text-purple-700"}`}>
+                            {a.tipoPago === "Link" ? "Link de pago" : "Presencial"}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-isel-ink/30">—</span>
+                        )}
+                      </td>
                       <td className="py-2">
                         <div className="flex gap-2">
                           <button type="button" onClick={() => setPrintItems([a])} className="text-xs font-semibold text-isel-navy hover:underline">
@@ -416,6 +469,9 @@ export function AdminPortalPage() {
             </table>
           </div>
         </section>
+
+        {/* Catálogo de cursos */}
+        <CoursesPanel carreras={carreras} />
       </div>
 
       <StudentFormModal
@@ -439,6 +495,7 @@ export function AdminPortalPage() {
           />
         </Modal>
       )}
+      {confirmDialog}
     </main>
 
     {/* Print-only region — hidden on screen, shown only inside window.print() (sibling of `main`, which is print:hidden) */}

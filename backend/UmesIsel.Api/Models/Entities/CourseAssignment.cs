@@ -33,6 +33,14 @@ public class CourseAssignment
     [MaxLength(50)]
     public string? ComprobantePagoNo { get; set; }
 
+    /// <summary>
+    /// "Link" or "Presencial" — how this student will pay. Admin-only: never
+    /// rendered on the printed ficha (see PrintableFicha.tsx), only used for
+    /// the admin's payment-method filter in "Impresión de asignaciones".
+    /// </summary>
+    [MaxLength(20)]
+    public string? TipoPago { get; set; }
+
     /// <summary>PNG signature captured on the canvas signature pad, as a data: URL.</summary>
     public string? FirmaBase64 { get; set; }
     public DateTime? FirmadoEn { get; set; }

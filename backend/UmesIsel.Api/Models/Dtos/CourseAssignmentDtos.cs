@@ -32,6 +32,7 @@ public record CourseAssignmentDto(
     string? CorreoContacto,
     string? TelefonoContacto,
     string? ComprobantePagoNo,
+    string? TipoPago,
     string? FirmaBase64,
     DateTime? FirmadoEn,
     string? AutorizadoPorCodigo,
@@ -49,6 +50,7 @@ public record CourseAssignmentUpsertRequest(
     string? CorreoContacto,
     string? TelefonoContacto,
     string? ComprobantePagoNo,
+    string? TipoPago,
     string? FirmaBase64,
     string? AutorizadoPorCodigo
 );

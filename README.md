@@ -121,24 +121,41 @@ Un solo campo de texto decide a dónde va el usuario — no hay contraseña:
   entra al panel administrativo. Cámbialo ahí cuando quieras.
 
 ### Alumno (`/portal/estudiante`)
-Ve sus datos (de la base de datos, no editables), completa "Cursos por
-asignarse" (hasta 10) y "Cursos adicionales o cambio de sección" (hasta 5),
-marca las dos observaciones Sí/No, firma en el recuadro de **Firma digital**
-(mouse, lápiz óptico o el dedo — se guarda como imagen) y da clic en
+Ve sus datos (de la base de datos, no editables). En **"Cursos por
+asignarse"** ya no se escribe nada: aparece la lista de cursos de su carrera
+(cargada del catálogo que mantiene el admin) con un botón **"+ Asignar"** por
+curso — puede marcar varios, cada uno asignado se ve en verde con un
+contador ("N asignados"), y el Sem/Tri y la Sección de ese curso solo
+aparecen una vez que está asignado. En **"Cursos adicionales o cambio de
+sección"** empieza con un solo campo (buscable, sobre TODOS los cursos de
+TODAS las carreras) y un botón **"+ Agregar otro"** para sumar más solo si
+hace falta — nunca quedan campos vacíos de sobra. También marca las dos
+observaciones Sí/No, el **tipo de pago** (Link de pago / Presencial — esto
+es solo para uso interno del admin, nunca aparece en la ficha impresa),
+firma en **Firma digital** (mouse, lápiz óptico o el dedo) y da clic en
 **Guardar asignación**. Vuelve a entrar con el mismo carné para ver/editar lo
 guardado.
 
 ### Administrador (`/portal/admin`)
 - **Impresión de asignaciones**: por fecha exacta (como antes, "Cargar día")
-  o con los atajos **HOY / SEMANA / MES**. "Imprimir" (una fila) o
-  "Imprimir todas" abre el diálogo de impresión del navegador con una ficha
-  por alumno, en el mismo formato que el PDF original.
+  o con los atajos **HOY / SEMANA / MES**, más un filtro de **tipo de
+  pago** (Todas / Link de pago / Presencial) — si no hay fichas de ese tipo
+  en el rango, lo dice explícitamente. "Imprimir" (una fila) o "Imprimir
+  todas" abre el diálogo de impresión del navegador con una ficha por
+  alumno, en el mismo formato que el PDF original (el tipo de pago nunca
+  sale impreso — es admin-only).
 - **Enviadas por carrera y trimestre**: elige carrera + trimestre y ve quién
   ya envió su ficha ("Enviada") y quién no ("Pendiente").
 - **Alumnos**: tabla filtrable por carné, con **Agregar alumno** (pide todos
   los campos del Excel — carné, nombres, carrera, sección, trimestre,
   correos, celular) para no tener que tocar la base de datos a mano, más
-  Editar/Eliminar y "Ver ficha" (abre/edita la ficha de ese alumno).
+  Editar/Eliminar y "Ver ficha" (abre/edita la ficha de ese alumno). Editar y
+  Eliminar siempre piden confirmación en una alerta centrada en pantalla
+  (nunca el `confirm()` nativo del navegador).
+- **Catálogo de cursos**: agrega/edita/elimina los cursos oficiales de cada
+  carrera — esto es lo que ve el alumno en "Cursos por asignarse". **Está
+  vacío a propósito** (no se inventaron nombres de cursos reales): cárgalos
+  aquí antes de que los alumnos empiecen a usar el portal.
 
 ## Notas de diseño
 
