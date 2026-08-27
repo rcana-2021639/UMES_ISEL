@@ -13,11 +13,13 @@ import { SearchSelect, type SearchSelectOption } from "@/components/ui/SearchSel
 const inputClass =
   "w-full rounded-lg border border-isel-line bg-white px-3 py-2 text-sm text-isel-ink transition-colors duration-200 focus:border-isel-navy focus:outline-none focus:ring-2 focus:ring-isel-navy/15";
 
-/** A "cursos adicionales" row — either a free pick from the whole catalog, or a specific repeated course from an earlier trimestre of the same carrera. */
+/** A "cursos adicionales" row — either a free pick from the whole catalog, or a specific repeated course, chosen
+ *  by walking Maestría → Trimestre → Curso on its own (independent of the main "Cursos por asignarse" selection). */
 interface AdditionalEntry {
   id: string;
   mode: "adicional" | "repetir";
   courseId: number | null;
+  repetirCarrera: string | null;
   repetirTrimestre: number | null;
   seccion: string;
   jornada: string;
@@ -36,7 +38,15 @@ function groupLabel(c: Course): string {
 }
 
 function blankAdditionalRow(): AdditionalEntry {
-  return { id: nextRowId(), mode: "adicional", courseId: null, repetirTrimestre: null, seccion: "", jornada: "" };
+  return {
+    id: nextRowId(),
+    mode: "adicional",
+    courseId: null,
+    repetirCarrera: null,
+    repetirTrimestre: null,
+    seccion: "",
+    jornada: "",
+  };
 }
 
 interface CourseAssignmentFormProps {
@@ -133,6 +143,7 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved }: 
           id: nextRowId(),
           mode: "adicional",
           courseId: match?.id ?? null,
+          repetirCarrera: null,
           repetirTrimestre: null,
           seccion: row.seccion ?? "",
           jornada: row.jornada ?? "",
@@ -155,11 +166,6 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved }: 
         .sort((a, b) => (a.carrera + a.trimestre).localeCompare(b.carrera + b.trimestre))
         .map((c) => ({ value: String(c.id), label: c.nombre, group: groupLabel(c) })),
     [allCourses],
-  );
-
-  const earlierTrimestres = useMemo(
-    () => (trimestre === null ? [] : (trimestres ?? []).filter((t) => t < trimestre)),
-    [trimestres, trimestre],
   );
 
   function updateAdditional(id: string, patch: Partial<AdditionalEntry>) {
@@ -337,8 +343,7 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved }: 
               row={row}
               options={additionalCourseOptions}
               allCourses={allCourses}
-              carrera={carrera}
-              earlierTrimestres={earlierTrimestres}
+              mainCarrera={carrera}
               canRemove={additional.length > 1}
               onChange={(patch) => updateAdditional(row.id, patch)}
               onRemove={() => removeAdditionalRow(row.id)}
@@ -430,8 +435,7 @@ function AdditionalRow({
   row,
   options,
   allCourses,
-  carrera,
-  earlierTrimestres,
+  mainCarrera,
   canRemove,
   onChange,
   onRemove,
@@ -439,16 +443,27 @@ function AdditionalRow({
   row: AdditionalEntry;
   options: SearchSelectOption[];
   allCourses: Course[];
-  carrera: string;
-  earlierTrimestres: number[];
+  mainCarrera: string;
   canRemove: boolean;
   onChange: (patch: Partial<AdditionalEntry>) => void;
   onRemove: () => void;
 }) {
-  const repetirCourseOptions = useMemo(
-    () => allCourses.filter((c) => c.carrera === carrera && c.trimestre === row.repetirTrimestre),
-    [allCourses, carrera, row.repetirTrimestre],
+  const catalogCarreras = useMemo(
+    () => Array.from(new Set(allCourses.map((c) => c.carrera))).sort((a, b) => a.localeCompare(b)),
+    [allCourses],
   );
+  const repetirTrimestres = useMemo(
+    () =>
+      Array.from(new Set(allCourses.filter((c) => c.carrera === row.repetirCarrera).map((c) => c.trimestre))).sort(
+        (a, b) => a - b,
+      ),
+    [allCourses, row.repetirCarrera],
+  );
+  const repetirCourseOptions = useMemo(
+    () => allCourses.filter((c) => c.carrera === row.repetirCarrera && c.trimestre === row.repetirTrimestre),
+    [allCourses, row.repetirCarrera, row.repetirTrimestre],
+  );
+  const repetirCourseChoice = row.courseId !== null ? repetirCourseOptions.find((c) => c.id === row.courseId) : undefined;
 
   if (row.fallback) {
     return (
@@ -478,14 +493,14 @@ function AdditionalRow({
         <div className="flex overflow-hidden rounded-full border-2 border-isel-line">
           <button
             type="button"
-            onClick={() => onChange({ mode: "adicional", courseId: null, repetirTrimestre: null })}
+            onClick={() => onChange({ mode: "adicional", courseId: null, repetirCarrera: null, repetirTrimestre: null })}
             className={`px-3 py-1 text-xs font-bold transition-colors duration-200 ${row.mode === "adicional" ? "bg-isel-navy text-white" : "bg-white text-isel-ink/50"}`}
           >
             Curso adicional
           </button>
           <button
             type="button"
-            onClick={() => onChange({ mode: "repetir", courseId: null, repetirTrimestre: null })}
+            onClick={() => onChange({ mode: "repetir", courseId: null, repetirCarrera: mainCarrera, repetirTrimestre: null })}
             className={`px-3 py-1 text-xs font-bold transition-colors duration-200 ${row.mode === "repetir" ? "bg-isel-gold text-isel-navy" : "bg-white text-isel-ink/50"}`}
           >
             Repetir trimestre
@@ -507,42 +522,67 @@ function AdditionalRow({
             placeholder="Buscar curso…"
           />
         </Field>
-      ) : earlierTrimestres.length === 0 ? (
-        <p className="text-sm text-isel-ink/50">
-          Selecciona primero, arriba, tu trimestre principal — "repetir trimestre" solo aplica a trimestres anteriores a
-          ese.
-        </p>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="Trimestre a repetir">
-            <select
-              className={inputClass}
-              value={row.repetirTrimestre ?? ""}
-              onChange={(e) => onChange({ repetirTrimestre: e.target.value ? Number(e.target.value) : null, courseId: null })}
-            >
-              <option value="">Selecciona…</option>
-              {earlierTrimestres.map((t) => (
-                <option key={t} value={t}>
-                  Trimestre {t}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Curso a repetir">
-            <select
-              className={inputClass}
-              value={row.courseId ?? ""}
-              onChange={(e) => onChange({ courseId: e.target.value ? Number(e.target.value) : null })}
-              disabled={row.repetirTrimestre === null}
-            >
-              <option value="">Selecciona…</option>
-              {repetirCourseOptions.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nombre}
-                </option>
-              ))}
-            </select>
-          </Field>
+        <div>
+          <p className="mb-3 text-xs text-isel-ink/50">
+            Elige la maestría, luego el trimestre que necesitas repetir, y por último el curso específico.
+          </p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <Field label="Maestría">
+              <select
+                className={inputClass}
+                value={row.repetirCarrera ?? ""}
+                onChange={(e) =>
+                  onChange({ repetirCarrera: e.target.value || null, repetirTrimestre: null, courseId: null })
+                }
+              >
+                <option value="">Selecciona…</option>
+                {catalogCarreras.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Trimestre a repetir">
+              <select
+                className={inputClass}
+                value={row.repetirTrimestre ?? ""}
+                onChange={(e) => onChange({ repetirTrimestre: e.target.value ? Number(e.target.value) : null, courseId: null })}
+                disabled={row.repetirCarrera === null}
+              >
+                <option value="">Selecciona…</option>
+                {repetirTrimestres.map((t) => (
+                  <option key={t} value={t}>
+                    Trimestre {t}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Curso a repetir">
+              <select
+                className={inputClass}
+                value={row.courseId ?? ""}
+                onChange={(e) => onChange({ courseId: e.target.value ? Number(e.target.value) : null })}
+                disabled={row.repetirTrimestre === null}
+              >
+                <option value="">Selecciona…</option>
+                {repetirCourseOptions.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nombre}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+          {repetirCourseChoice && (
+            <p className="mt-2 flex items-center gap-1.5 text-sm font-semibold text-emerald-700">
+              <span aria-hidden>✔</span> Vas a repetir: {repetirCourseChoice.nombre}
+              <span className="font-normal text-isel-ink/50">
+                ({repetirCourseChoice.carrera} · Trimestre {repetirCourseChoice.trimestre})
+              </span>
+            </p>
+          )}
         </div>
       )}
 
