@@ -35,7 +35,10 @@ function PrintableFicha({ assignment: a, pageBreak }: { assignment: CourseAssign
   // trimestre's pensum realistically never has more than a handful of courses, but if it
   // somehow did, anything past slot 10 still gets its own extra row further down.
   const asignadosSlots = Array.from({ length: Math.max(10, asignados.length) }, (_, i) => asignados[i]);
-  const adicionalesSlots = Array.from({ length: Math.max(5, adicionales.length) }, (_, i) => adicionales[i]);
+  // Unlike the fixed 10-slot "asignados" grid (which mirrors the paper form's numbered layout), "adicionales" only
+  // ever holds a handful of rows the student actually filled in — padding it to a fixed 5 wasted space and pushed
+  // the ficha onto a second printed page even when there was just 1 extra course. Size it to content (min 1 row).
+  const adicionalesSlots = Array.from({ length: Math.max(1, adicionales.length) }, (_, i) => adicionales[i]);
 
   return (
     <section
