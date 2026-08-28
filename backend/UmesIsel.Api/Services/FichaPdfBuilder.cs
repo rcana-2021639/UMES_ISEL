@@ -38,6 +38,25 @@ public class FichaPdfBuilder
     public byte[] BuildOne(CourseAssignmentDto ca) => ConvertXlsxToPdf(_xlsxBuilder.Build(ca));
 
     /// <summary>
+    /// Converts the blank template once, discarding the result, purely to "warm up" the shared
+    /// LibreOffice profile before an admin ever clicks Imprimir — a cold conversion (first-run
+    /// profile setup) takes ~8-9s, a warm one ~2-3s. Call this fire-and-forget right after startup
+    /// (see Program.cs); never let a failure here (e.g. LibreOffice not installed yet) crash startup.
+    /// </summary>
+    public void WarmUp()
+    {
+        try
+        {
+            ConvertXlsxToPdf(_xlsxBuilder.BuildBlankForWarmUp());
+            _logger.LogInformation("LibreOffice quedó listo (perfil compartido calentado) para convertir fichas a PDF.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "No se pudo precalentar LibreOffice al iniciar — la primera ficha impresa tardará más de lo normal.");
+        }
+    }
+
+    /// <summary>
     /// Several fichas → a single combined PDF (each ficha's page(s) appended in order), so "Imprimir
     /// todas" is one print job instead of a folder of separate files.
     /// </summary>
@@ -47,12 +66,20 @@ public class FichaPdfBuilder
         return pdfs.Count == 1 ? pdfs[0] : MergePdfs(pdfs);
     }
 
+    // One profile, reused across every conversion (created once, never deleted) instead of a fresh
+    // one per call. A brand-new profile makes LibreOffice redo first-run setup (font/config caching)
+    // on every single conversion, which was most of the ~8s "Imprimir" was taking; reusing the same
+    // profile lets it skip that after the first call. The tradeoff is losing per-call isolation, but
+    // this is a low-traffic single-admin tool — a rare clash between two simultaneous conversions is
+    // an acceptable cost for routinely-faster prints.
+    private static readonly string SharedProfileDir = Path.Combine(Path.GetTempPath(), "isel-libreoffice-profile");
+
     private byte[] ConvertXlsxToPdf(byte[] xlsxBytes)
     {
         var soffice = FindSoffice();
         var workDir = Path.Combine(Path.GetTempPath(), "isel-ficha-" + Guid.NewGuid().ToString("N"));
-        var profileDir = Path.Combine(workDir, "profile");
-        Directory.CreateDirectory(profileDir);
+        Directory.CreateDirectory(workDir);
+        Directory.CreateDirectory(SharedProfileDir);
         try
         {
             var xlsxPath = Path.Combine(workDir, "ficha.xlsx");
@@ -68,9 +95,11 @@ public class FichaPdfBuilder
             };
             psi.ArgumentList.Add("--headless");
             psi.ArgumentList.Add("--norestore");
-            // A private profile per conversion lets several fichas convert back-to-back (or even
-            // concurrently) without fighting over LibreOffice's single-instance profile lock.
-            psi.ArgumentList.Add($"-env:UserInstallation=file:///{profileDir.Replace('\\', '/')}");
+            psi.ArgumentList.Add("--nologo");
+            psi.ArgumentList.Add("--nofirststartwizard");
+            psi.ArgumentList.Add("--nolockcheck");
+            psi.ArgumentList.Add("--nodefault");
+            psi.ArgumentList.Add($"-env:UserInstallation=file:///{SharedProfileDir.Replace('\\', '/')}");
             psi.ArgumentList.Add("--convert-to");
             psi.ArgumentList.Add("pdf");
             psi.ArgumentList.Add("--outdir");

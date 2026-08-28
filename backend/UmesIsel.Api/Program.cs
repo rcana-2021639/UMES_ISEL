@@ -45,6 +45,11 @@ using (var scope = app.Services.CreateScope())
     DbInitializer.SeedCoursesIfEmpty(db, logger);
 }
 
+// Fire-and-forget: converts the blank template once so LibreOffice's shared profile is already
+// warm by the time an admin actually clicks "Imprimir" — a cold conversion takes ~8-9s, a warm one
+// ~2-3s. Never blocks startup, and a failure here (e.g. LibreOffice not installed) is only logged.
+_ = Task.Run(() => app.Services.GetRequiredService<FichaPdfBuilder>().WarmUp());
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

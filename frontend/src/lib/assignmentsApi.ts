@@ -63,6 +63,17 @@ async function openPdf(path: string, targetWindow: Window | null): Promise<void>
   const url = URL.createObjectURL(blob);
   if (targetWindow && !targetWindow.closed) {
     targetWindow.location.href = url;
+    // Jump straight into the browser's native print dialog once the PDF finishes loading — Chrome's
+    // built-in PDF viewer responds to window.print() same as any other document, so "Imprimir" goes
+    // straight to the print dialog instead of leaving the admin to find the viewer's own print icon.
+    targetWindow.onload = () => {
+      try {
+        targetWindow.print();
+      } catch {
+        // Some browser/PDF-viewer combos don't support triggering print this way — the PDF is still
+        // right there in the tab, just without the automatic step.
+      }
+    };
   } else {
     const a = document.createElement("a");
     a.href = url;
