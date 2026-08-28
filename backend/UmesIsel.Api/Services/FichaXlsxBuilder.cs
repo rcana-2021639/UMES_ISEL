@@ -246,7 +246,6 @@ public class FichaXlsxBuilder
         const long emuPerPixelAt96Dpi = 9525;
         const long boxWidthEmu = 3_800_000; // ~4.15in — columns A:E
         const long boxHeightEmu = 380_000; // ~0.42in — rows 29-30 at the default 15pt row height
-        const long leftPadEmu = 60_000;
 
         var (pngWidthPx, pngHeightPx) = ReadPngDimensions(bytes);
         long extCx, extCy;
@@ -267,10 +266,14 @@ public class FichaXlsxBuilder
         }
 
         var rowOff = Math.Max(0, boxHeightEmu - extCy); // bottom-align within the 2-row box
+        var colOff = Math.Max(0, (boxWidthEmu - extCx) / 2); // horizontally centered within the box — a
+        // small fixed left pad here left most (narrower, real) signatures hugging the left edge instead
+        // of sitting over the middle of the "FIRMA DEL ALUMNO(A)" line, which the user flagged as
+        // looking off.
 
         var anchor =
             "<xdr:oneCellAnchor>" +
-            $"<xdr:from><xdr:col>0</xdr:col><xdr:colOff>{leftPadEmu}</xdr:colOff><xdr:row>28</xdr:row><xdr:rowOff>{rowOff}</xdr:rowOff></xdr:from>" +
+            $"<xdr:from><xdr:col>0</xdr:col><xdr:colOff>{colOff}</xdr:colOff><xdr:row>28</xdr:row><xdr:rowOff>{rowOff}</xdr:rowOff></xdr:from>" +
             $@"<xdr:ext cx=""{extCx}"" cy=""{extCy}""/>" +
             "<xdr:pic>" +
             @"<xdr:nvPicPr><xdr:cNvPr id=""9001"" name=""Firma""/><xdr:cNvPicPr><a:picLocks xmlns:a=""http://schemas.openxmlformats.org/drawingml/2006/main"" noChangeAspect=""1""/></xdr:cNvPicPr></xdr:nvPicPr>" +
