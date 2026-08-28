@@ -63,6 +63,10 @@ public class FichaXlsxBuilder
         return output.ToArray();
     }
 
+    /// <summary>The raw template, completely unfilled — only used by FichaPdfBuilder.WarmUp() to
+    /// exercise the LibreOffice conversion pipeline once at startup; nothing needs to be readable.</summary>
+    public byte[] BuildBlankForWarmUp() => File.ReadAllBytes(_templatePath);
+
     // ---- Cell map -----------------------------------------------------------------------------
     // Row/column references straight from Resources/FichaTemplate.xlsx (A1:L39 sheet). See the
     // XML dump this was built from for the full picture; the short version:
@@ -231,25 +235,66 @@ public class FichaXlsxBuilder
         }
         WriteEntry(archive, "xl/drawings/_rels/drawing1.xml.rels", relsXml);
 
-        // Anchored just above the blank signature line (row 30, 1-indexed) across columns A:E — the
-        // same span as the "FIRMA DEL ALUMNO(A)" caption merge (A31:E31) below it. xdr:row is
-        // 0-indexed, so row 28 (1-idx 29, the blank spacer row) through row 29 (1-idx 30, the line
-        // itself) — NOT row 27, which is still the second Sí/No observación and must stay clear.
+        // Available box: columns A:E, rows 29-30 (1-indexed) — the same span as the "FIRMA DEL
+        // ALUMNO(A)" caption merge (A31:E31) below it. Roughly 4.15in × 0.42in at this template's
+        // actual column widths/default row height (measured once, hardcoded — see the comment on
+        // BoxWidthEmu/BoxHeightEmu). A stretched-to-fill image gets visibly distorted whenever the
+        // real signature's aspect ratio doesn't match that box's, so instead of stretching, this
+        // scales the PNG down (never up) to fit inside the box while keeping its own proportions,
+        // then bottom-aligns it just above the signature line using a oneCellAnchor with an
+        // explicit, aspect-correct <xdr:ext>.
+        const long emuPerPixelAt96Dpi = 9525;
+        const long boxWidthEmu = 3_800_000; // ~4.15in — columns A:E
+        const long boxHeightEmu = 380_000; // ~0.42in — rows 29-30 at the default 15pt row height
+        const long leftPadEmu = 60_000;
+
+        var (pngWidthPx, pngHeightPx) = ReadPngDimensions(bytes);
+        long extCx, extCy;
+        if (pngWidthPx > 0 && pngHeightPx > 0)
+        {
+            var naturalWidthEmu = pngWidthPx * emuPerPixelAt96Dpi;
+            var naturalHeightEmu = pngHeightPx * emuPerPixelAt96Dpi;
+            var scale = Math.Min(1.0, Math.Min((double)boxWidthEmu / naturalWidthEmu, (double)boxHeightEmu / naturalHeightEmu));
+            extCx = (long)(naturalWidthEmu * scale);
+            extCy = (long)(naturalHeightEmu * scale);
+        }
+        else
+        {
+            // Couldn't read the PNG header (unexpected format) — fall back to a fixed, reasonable size
+            // rather than guessing an aspect ratio that might distort it.
+            extCx = boxWidthEmu / 2;
+            extCy = boxHeightEmu;
+        }
+
+        var rowOff = Math.Max(0, boxHeightEmu - extCy); // bottom-align within the 2-row box
+
         var anchor =
-            "<xdr:twoCellAnchor>" +
-            "<xdr:from><xdr:col>0</xdr:col><xdr:colOff>60000</xdr:colOff><xdr:row>28</xdr:row><xdr:rowOff>10000</xdr:rowOff></xdr:from>" +
-            "<xdr:to><xdr:col>4</xdr:col><xdr:colOff>500000</xdr:colOff><xdr:row>29</xdr:row><xdr:rowOff>60000</xdr:rowOff></xdr:to>" +
+            "<xdr:oneCellAnchor>" +
+            $"<xdr:from><xdr:col>0</xdr:col><xdr:colOff>{leftPadEmu}</xdr:colOff><xdr:row>28</xdr:row><xdr:rowOff>{rowOff}</xdr:rowOff></xdr:from>" +
+            $@"<xdr:ext cx=""{extCx}"" cy=""{extCy}""/>" +
             "<xdr:pic>" +
             @"<xdr:nvPicPr><xdr:cNvPr id=""9001"" name=""Firma""/><xdr:cNvPicPr><a:picLocks xmlns:a=""http://schemas.openxmlformats.org/drawingml/2006/main"" noChangeAspect=""1""/></xdr:cNvPicPr></xdr:nvPicPr>" +
             $@"<xdr:blipFill><a:blip xmlns:a=""http://schemas.openxmlformats.org/drawingml/2006/main"" xmlns:r=""http://schemas.openxmlformats.org/officeDocument/2006/relationships"" r:embed=""{relId}""/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>" +
-            @"<xdr:spPr><a:xfrm xmlns:a=""http://schemas.openxmlformats.org/drawingml/2006/main""><a:off x=""0"" y=""0""/><a:ext cx=""0"" cy=""0""/></a:xfrm><a:prstGeom xmlns:a=""http://schemas.openxmlformats.org/drawingml/2006/main"" prst=""rect""><a:avLst/></a:prstGeom></xdr:spPr>" +
+            $@"<xdr:spPr><a:xfrm xmlns:a=""http://schemas.openxmlformats.org/drawingml/2006/main""><a:off x=""0"" y=""0""/><a:ext cx=""{extCx}"" cy=""{extCy}""/></a:xfrm><a:prstGeom xmlns:a=""http://schemas.openxmlformats.org/drawingml/2006/main"" prst=""rect""><a:avLst/></a:prstGeom></xdr:spPr>" +
             "</xdr:pic>" +
             "<xdr:clientData/>" +
-            "</xdr:twoCellAnchor>";
+            "</xdr:oneCellAnchor>";
 
         var drawingXml = ReadEntry(archive, "xl/drawings/drawing1.xml");
         drawingXml = drawingXml.Replace("</xdr:wsDr>", anchor + "</xdr:wsDr>");
         WriteEntry(archive, "xl/drawings/drawing1.xml", drawingXml);
+    }
+
+    /// <summary>Reads width/height straight from a PNG's IHDR chunk (bytes 16-23, big-endian). Returns (0, 0) if it doesn't look like a PNG.</summary>
+    private static (int Width, int Height) ReadPngDimensions(byte[] png)
+    {
+        if (png.Length < 24 || png[0] != 0x89 || png[1] != 0x50 || png[2] != 0x4E || png[3] != 0x47)
+        {
+            return (0, 0);
+        }
+        int width = (png[16] << 24) | (png[17] << 16) | (png[18] << 8) | png[19];
+        int height = (png[20] << 24) | (png[21] << 16) | (png[22] << 8) | png[23];
+        return (width, height);
     }
 
     // ---- Zip entry helpers ----------------------------------------------------------------------
