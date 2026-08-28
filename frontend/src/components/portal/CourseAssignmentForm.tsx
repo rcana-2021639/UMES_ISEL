@@ -4,7 +4,6 @@ import type { Student } from "@/types/student";
 import type { CourseAssignment, TipoPago } from "@/types/courseAssignment";
 import { getAssignmentByStudent, saveAssignment } from "@/lib/assignmentsApi";
 import { getCourses, getTrimestres } from "@/lib/coursesApi";
-import { getCarreras } from "@/lib/studentsApi";
 import type { Course } from "@/types/course";
 import { SignaturePad, type SignaturePadHandle } from "@/components/portal/SignaturePad";
 import { RevealOnScroll } from "@/components/ui/RevealOnScroll";
@@ -58,14 +57,19 @@ interface CourseAssignmentFormProps {
 }
 
 export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved }: CourseAssignmentFormProps) {
-  const [carreras, setCarreras] = useState<string[]>([]);
   const [allCourses, setAllCourses] = useState<Course[]>([]);
-  const [carrera, setCarrera] = useState(student.carrera);
+  // Nothing is pre-selected — a student only ever sees a maestría "chosen" here once they (or an
+  // admin) actually confirm one via the picker, or if a ficha was already saved before (see the
+  // "existing ficha" check below). Defaulting this to the student's roster carrera used to make it
+  // look like an assignment already existed when nothing had actually been picked/saved yet.
+  const [carrera, setCarrera] = useState<string | null>(null);
   const [trimestres, setTrimestres] = useState<number[] | null>(null);
-  const [trimestre, setTrimestre] = useState<number | null>(student.trimestre ?? null);
+  const [trimestre, setTrimestre] = useState<number | null>(null);
   const [mainCourses, setMainCourses] = useState<Course[] | null>(null);
   const [assignment, setAssignment] = useState<CourseAssignment | null>(null);
-  const [loadingAssignment, setLoadingAssignment] = useState(true);
+  const [loadingAssignment, setLoadingAssignment] = useState(false);
+  // True only until we've checked whether this student already has ANY saved ficha.
+  const [checkingExisting, setCheckingExisting] = useState(true);
 
   const [seccion, setSeccion] = useState(student.seccion ?? "");
   const [additional, setAdditional] = useState<AdditionalEntry[]>([blankAdditionalRow()]);
@@ -89,14 +93,35 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved }: 
   const [draftCourses, setDraftCourses] = useState<Course[] | null>(null);
   const [draftSeccion, setDraftSeccion] = useState("");
 
-  // Reference catalogs — loaded once.
+  // Reference catalog — loaded once.
   useEffect(() => {
-    getCarreras().then(setCarreras);
     getCourses().then(setAllCourses);
   }, []);
 
+  // Does this student already have ANY saved ficha? If so, open on it (so returning students see
+  // what they already picked) — otherwise leave the picker with nothing selected.
+  useEffect(() => {
+    let active = true;
+    setCheckingExisting(true);
+    getAssignmentByStudent(student.carnet).then((ca) => {
+      if (!active) return;
+      if (ca) {
+        setCarrera(ca.carrera);
+        setTrimestre(ca.trimestre);
+      }
+      setCheckingExisting(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [student.carnet]);
+
   // Trimestres available for the chosen carrera.
   useEffect(() => {
+    if (carrera === null) {
+      setTrimestres(null);
+      return;
+    }
     let active = true;
     setTrimestres(null);
     getTrimestres(carrera).then((list) => {
@@ -112,8 +137,9 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved }: 
 
   // Courses auto-included for carrera+trimestre, and the ficha already saved for that exact combo (if any).
   useEffect(() => {
-    if (trimestre === null) {
+    if (carrera === null || trimestre === null) {
       setMainCourses(null);
+      setAssignment(null);
       return;
     }
     let active = true;
@@ -212,6 +238,17 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved }: 
     [],
   );
 
+  // Only maestrías that actually have a pénsum loaded (i.e. exist in the course catalog) are
+  // selectable here — e.g. a "Diplomado" or a cross-listed cohort group in the student roster has
+  // no trimestre/course data and isn't a real ISEL maestría, so it has no business in this list.
+  const pickableCarreras = useMemo(
+    () =>
+      Array.from(new Set(allCourses.filter((c) => c.carrera !== "Inglés").map((c) => c.carrera))).sort((a, b) =>
+        a.localeCompare(b),
+      ),
+    [allCourses],
+  );
+
   const additionalCourseOptions: SearchSelectOption[] = useMemo(
     () =>
       allCourses
@@ -232,8 +269,8 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved }: 
   }
 
   async function handleSave() {
-    if (trimestre === null) {
-      setError("Selecciona una maestría con pénsum cargado y un trimestre.");
+    if (carrera === null || trimestre === null) {
+      setError("Selecciona una maestría y un trimestre antes de guardar.");
       return;
     }
     setSaving(true);
@@ -324,7 +361,7 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved }: 
         </p>
 
         <div className="overflow-hidden rounded-xl border border-isel-line">
-          {carreras.map((c, i) => {
+          {pickableCarreras.map((c, i) => {
             const isSelected = c === carrera;
             return (
               <button
@@ -357,7 +394,13 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved }: 
         </div>
 
         <div className="mt-4">
-          {loadingAssignment ? (
+          {checkingExisting ? (
+            <p className="py-4 text-sm text-isel-ink/40">Cargando…</p>
+          ) : carrera === null ? (
+            <p className="rounded-lg bg-isel-paper px-4 py-3 text-sm text-isel-ink/60">
+              Aún no has elegido ninguna maestría — toca una de la lista de arriba para empezar.
+            </p>
+          ) : loadingAssignment ? (
             <p className="py-4 text-sm text-isel-ink/40">Cargando…</p>
           ) : trimestres && trimestres.length === 0 ? (
             <p className="rounded-lg bg-isel-paper px-4 py-3 text-sm text-isel-ink/60">
@@ -590,7 +633,7 @@ function AdditionalRow({
   row: AdditionalEntry;
   options: SearchSelectOption[];
   allCourses: Course[];
-  mainCarrera: string;
+  mainCarrera: string | null;
   canRemove: boolean;
   onChange: (patch: Partial<AdditionalEntry>) => void;
   onRemove: () => void;

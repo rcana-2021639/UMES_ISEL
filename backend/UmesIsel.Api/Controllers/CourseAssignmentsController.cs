@@ -18,11 +18,13 @@ public class CourseAssignmentsController : ControllerBase
 {
     private readonly IselDbContext _db;
     private readonly FichaXlsxBuilder _fichaBuilder;
+    private readonly FichaPdfBuilder _fichaPdfBuilder;
 
-    public CourseAssignmentsController(IselDbContext db, FichaXlsxBuilder fichaBuilder)
+    public CourseAssignmentsController(IselDbContext db, FichaXlsxBuilder fichaBuilder, FichaPdfBuilder fichaPdfBuilder)
     {
         _db = db;
         _fichaBuilder = fichaBuilder;
+        _fichaPdfBuilder = fichaPdfBuilder;
     }
 
     private static CourseAssignmentDto ToDto(CourseAssignment ca) => new(
@@ -247,7 +249,60 @@ public class CourseAssignmentsController : ControllerBase
         return File(zipStream.ToArray(), "application/zip", "Fichas.zip");
     }
 
+    private static string FichaFileName(Student? student, string extension) =>
+        Path.ChangeExtension(FichaFileName(student), extension);
+
+    /// <summary>
+    /// GET /api/course-assignments/{id}/ficha.pdf — the same filled ficha as .xlsx, converted to PDF
+    /// (via LibreOffice headless — see FichaPdfBuilder) so "Imprimir" opens something the browser can
+    /// print directly, no need to open Excel first.
+    /// </summary>
+    [HttpGet("{id:int}/ficha.pdf")]
+    public async Task<IActionResult> GetFichaPdf(int id)
+    {
+        var ca = await WithIncludes().AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
+        if (ca is null) return NotFound();
+
+        try
+        {
+            var bytes = _fichaPdfBuilder.BuildOne(ToDto(ca));
+            return File(bytes, PdfContentType, FichaFileName(ca.Student, "pdf"));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Problem(detail: ex.Message, statusCode: StatusCodes.Status500InternalServerError, title: "No se pudo generar el PDF");
+        }
+    }
+
+    /// <summary>
+    /// GET /api/course-assignments/ficha-batch.pdf?from=&amp;to=&amp;tipoPago= — same filters as GetAll,
+    /// one combined PDF with every matching ficha's page(s) in order ("Imprimir todas" — one print job).
+    /// </summary>
+    [HttpGet("ficha-batch.pdf")]
+    public async Task<IActionResult> GetFichaBatchPdf(
+        [FromQuery] DateOnly? from, [FromQuery] DateOnly? to, [FromQuery] string? tipoPago)
+    {
+        var query = WithIncludes().AsNoTracking().AsQueryable();
+        if (from.HasValue) query = query.Where(ca => ca.Fecha >= from.Value);
+        if (to.HasValue) query = query.Where(ca => ca.Fecha <= to.Value);
+        if (!string.IsNullOrWhiteSpace(tipoPago)) query = query.Where(ca => ca.TipoPago == tipoPago);
+
+        var results = await query.OrderBy(ca => ca.Student!.PrimerApellido).ToListAsync();
+        if (results.Count == 0) return NotFound("No hay fichas para ese rango/filtro.");
+
+        try
+        {
+            var bytes = _fichaPdfBuilder.BuildBatch(results.Select(ToDto).ToList());
+            return File(bytes, PdfContentType, "Fichas.pdf");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Problem(detail: ex.Message, statusCode: StatusCodes.Status500InternalServerError, title: "No se pudo generar el PDF");
+        }
+    }
+
     private const string XlsxContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    private const string PdfContentType = "application/pdf";
 
     private static string FichaFileName(Student? student)
     {

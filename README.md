@@ -60,7 +60,10 @@ UMES_PAGISEL/
 
 ## Cómo correrlo
 
-Requisitos: **Node.js LTS**, **pnpm** y **.NET 8 SDK** instalados.
+Requisitos: **Node.js LTS**, **pnpm**, **.NET 8 SDK** y **LibreOffice**
+instalados (LibreOffice solo hace falta para que el admin pueda imprimir
+fichas en PDF — ver más abajo; `winget install TheDocumentFoundation.LibreOffice`
+en Windows).
 
 ### Backend
 ```bash
@@ -122,12 +125,17 @@ Un solo campo de texto decide a dónde va el usuario — no hay contraseña:
 
 ### Alumno (`/portal/estudiante`)
 Ve sus datos (de la base de datos, no editables). **"Cursos por
-asignarse"** es una lista numerada con **todas las maestrías** — al tocar
-una se abre una ventana con su **Trimestre** (cascada según el pénsum real,
-ver `Data/CourseCatalogSeedData.cs`), los **cursos de ese trimestre** (de
-una vez, no seleccionables uno por uno — un trimestre se asigna completo) y
-la **Sección** a mano; el botón **"Listo"** confirma y cierra la ventana, y
-esa maestría queda marcada en verde en la lista con su trimestre.
+asignarse"** es una lista numerada con **solo las maestrías que tienen
+pénsum real cargado** (no diplomados ni grupos de cohorte del roster, como
+"INGLÉS I Y III" — esos no son maestrías seleccionables aquí). Al entrar
+por primera vez **no hay ninguna preseleccionada**; si el alumno ya tiene
+una ficha guardada (de cualquier trimestre), esa es la que aparece marcada
+al volver a entrar. Al tocar una maestría se abre una ventana con su
+**Trimestre** (cascada según el pénsum real, ver `Data/CourseCatalogSeedData.cs`),
+los **cursos de ese trimestre** (de una vez, no seleccionables uno por uno
+— un trimestre se asigna completo) y la **Sección** a mano; el botón
+**"Listo"** confirma y cierra la ventana, y esa maestría queda marcada en
+verde en la lista con su trimestre.
 
 En **"Cursos adicionales o cambio de sección"** empieza con un solo campo y
 un botón **"+ Agregar otro"** para sumar más solo si hace falta. Cada fila
@@ -148,14 +156,16 @@ Vuelve a entrar con el mismo carné para ver/editar lo guardado.
 - **Impresión de asignaciones**: por fecha exacta (como antes, "Cargar día")
   o con los atajos **HOY / SEMANA / MES**, más un filtro de **tipo de
   pago** (Todas / Link de pago / Presencial) — si no hay fichas de ese tipo
-  en el rango, lo dice explícitamente. "Imprimir" (una fila) descarga el
-  **.xlsx oficial real** (`Resources/FichaTemplate.xlsx`) ya lleno con los
-  datos de ese alumno — no una recreación en HTML, sino una copia literal
-  de la plantilla del usuario con solo las celdas de datos rellenadas (ver
-  `Services/FichaXlsxBuilder.cs`), lista para abrir en Excel e imprimir tal
-  cual. "Imprimir todas" descarga un `.zip` con un `.xlsx` así por cada
-  ficha del rango/filtro. El tipo de pago nunca se escribe en el archivo —
-  es admin-only.
+  en el rango, lo dice explícitamente. "Imprimir" (una fila) abre un
+  **PDF listo para imprimir** en una pestaña nueva — el propio visor de PDF
+  del navegador ya trae su botón de imprimir, sin tener que abrir Excel.
+  Ese PDF sale de la **plantilla .xlsx oficial real**
+  (`Resources/FichaTemplate.xlsx`, ver `Services/FichaXlsxBuilder.cs` — solo
+  se rellenan las celdas de datos, nada de la plantilla se recrea a mano),
+  convertida a PDF en el servidor con LibreOffice headless
+  (`Services/FichaPdfBuilder.cs`). "Imprimir todas" abre un solo PDF
+  combinado con todas las fichas del rango/filtro, una por página. El tipo
+  de pago nunca se escribe en el archivo — es admin-only.
 - **Alumnos**: tabla filtrable por carné, con **Agregar alumno** (pide todos
   los campos del Excel — carné, nombres, carrera, sección, trimestre,
   correos, celular) para no tener que tocar la base de datos a mano, más
