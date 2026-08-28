@@ -69,7 +69,12 @@ async function openPdf(path: string): Promise<void> {
   iframe.style.height = "0";
   iframe.style.border = "0";
   iframe.setAttribute("aria-hidden", "true");
+  // A guard, not just tidiness: without it, two print dialogs could pop up back-to-back — see the
+  // src-before-append note below for why that happened.
+  let printed = false;
   iframe.onload = () => {
+    if (printed) return;
+    printed = true;
     try {
       iframe.contentWindow?.focus();
       iframe.contentWindow?.print();
@@ -78,8 +83,16 @@ async function openPdf(path: string): Promise<void> {
       // loaded, just without the automatic step; rare in practice on Chromium-based browsers.
     }
   };
-  document.body.appendChild(iframe);
+  // Set `src` BEFORE inserting the iframe into the document, not after. An iframe inserted with no
+  // `src` yet immediately starts loading "about:blank" and fires its own `load` event a moment
+  // later; setting `src` only after insertion raced that empty-document load against the real PDF
+  // load, so `onload` fired twice — once for "about:blank" (at that point the iframe has no real
+  // content, so Chrome fell back to printing the whole tab behind it: a blank print of the admin
+  // page) and once, correctly, moments later for the actual PDF, once the admin cancelled the first
+  // dialog. Setting `src` first means the iframe navigates straight to the PDF on insertion, with no
+  // separate "about:blank" load in between.
   iframe.src = url;
+  document.body.appendChild(iframe);
 
   // Keep the blob URL and iframe alive long enough for the admin to actually use the print dialog
   // (pick a printer, hit Imprimir) before cleaning up — closing either too soon can cancel the job.
