@@ -123,7 +123,7 @@ export function StudentFormModal({ open, onClose, student, onSaved }: StudentFor
         </div>
 
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-          <Field label="Sección">
+          <Field label="Sección (opcional)">
             <input className={inputClass} value={form.seccion ?? ""} onChange={(e) => set("seccion", e.target.value)} />
           </Field>
           <Field label="Sem/Trim">

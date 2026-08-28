@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import type { Student } from "@/types/student";
 import type { CourseAssignment, TipoPago } from "@/types/courseAssignment";
@@ -54,9 +55,14 @@ interface CourseAssignmentFormProps {
   /** Present when an admin (not the student) is saving — recorded as an audit trail, not a real auth token. */
   autorizadoPorCodigo?: string | null;
   onSaved?: (assignment: CourseAssignment) => void;
+  /** Called when the post-save summary modal's primary button is pressed. Passed by the admin panel
+   *  (closes the "Ver ficha" modal, since there's no separate "menú principal" to send an admin back
+   *  to); when omitted — the student flow — the button instead navigates to the site's home page. */
+  onDismissSaved?: () => void;
 }
 
-export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved }: CourseAssignmentFormProps) {
+export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved, onDismissSaved }: CourseAssignmentFormProps) {
+  const navigate = useNavigate();
   const [allCourses, setAllCourses] = useState<Course[]>([]);
   // Nothing is pre-selected — a student only ever sees a maestría "chosen" here once they (or an
   // admin) actually confirm one via the picker, or if a ficha was already saved before (see the
@@ -81,7 +87,10 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved }: 
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [savedAt, setSavedAt] = useState<string | null>(null);
+  // Shown once, right after a successful save — replaces the old "Guardado ✓" text next to the
+  // button, which gave no clear sense of being "done" and led to the same ficha being submitted over
+  // and over. The modal blocks the button underneath it, and its own primary action leaves the page.
+  const [savedSummary, setSavedSummary] = useState<CourseAssignment | null>(null);
   const signatureRef = useRef<SignaturePadHandle>(null);
 
   // "Cursos por asignarse" picker — a numbered list of maestrías; tapping one opens a modal to pick
@@ -268,9 +277,36 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved }: 
     setAdditional((rows) => rows.filter((r) => r.id !== id));
   }
 
+  /**
+   * A "Cursos adicionales" row is only required to be complete once the student has actually started
+   * filling it in — an untouched blank row (the default one, or an unused extra one) is simply
+   * skipped, same as always. Sección and Jornada are the one exception: some students genuinely have
+   * neither, so those two never count toward "started" and are never required — but if a row has
+   * anything else in it (a course chosen, or "Repetir trimestre" begun), the course itself IS
+   * required, so an incomplete row never gets silently dropped without telling the student. Returns
+   * the 1-indexed row number of the first incomplete row, or null if all rows are fine.
+   */
+  function findIncompleteAdditionalRow(): number | null {
+    for (let i = 0; i < additional.length; i++) {
+      const row = additional[i];
+      if (row.fallback) continue; // already complete — came from a previously-saved ficha
+      const started =
+        row.courseId !== null || (row.mode === "repetir" && (row.repetirCarrera !== null || row.repetirTrimestre !== null));
+      if (started && row.courseId === null) return i + 1;
+    }
+    return null;
+  }
+
   async function handleSave() {
     if (carrera === null || trimestre === null) {
       setError("Selecciona una maestría y un trimestre antes de guardar.");
+      return;
+    }
+    const incompleteRow = findIncompleteAdditionalRow();
+    if (incompleteRow !== null) {
+      setError(
+        `Falta elegir el curso en la fila ${incompleteRow} de "Cursos adicionales" — sección y jornada son opcionales, pero el curso no. Complétalo, o bórralo con "Quitar este campo".`,
+      );
       return;
     }
     setSaving(true);
@@ -312,12 +348,21 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved }: 
         autorizadoPorCodigo: autorizadoPorCodigo ?? null,
       });
       setAssignment(saved);
-      setSavedAt(new Date().toLocaleTimeString("es-GT"));
+      setSavedSummary(saved);
       onSaved?.(saved);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo guardar la asignación.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  function handleDismissSaved() {
+    setSavedSummary(null);
+    if (onDismissSaved) {
+      onDismissSaved();
+    } else {
+      navigate("/");
     }
   }
 
@@ -457,7 +502,7 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved }: 
                 ))}
               </select>
             </Field>
-            <Field label="Sección">
+            <Field label="Sección (opcional)">
               <input
                 className={inputClass}
                 value={draftSeccion}
@@ -614,9 +659,58 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved }: 
         >
           💾 {saving ? "Guardando…" : "Guardar asignación"}
         </motion.button>
-        {savedAt && <span className="text-sm text-isel-navy/70">Guardado a las {savedAt} ✓</span>}
         {error && <span className="text-sm font-semibold text-red-600">{error}</span>}
       </div>
+
+      <Modal open={savedSummary !== null} onClose={handleDismissSaved} title="✔ Ficha guardada" widthClassName="max-w-md">
+        {savedSummary && (
+          <div className="space-y-4">
+            <p className="text-sm text-isel-ink">
+              La ficha de asignación de cursos de <strong>{savedSummary.nombreCompleto}</strong> se envió exitosamente. Resumen
+              de lo que se guardó:
+            </p>
+            <ul className="space-y-1.5 rounded-lg bg-isel-paper p-4 text-sm text-isel-ink">
+              <li>
+                <strong>Carrera:</strong> {savedSummary.carrera}
+              </li>
+              <li>
+                <strong>Trimestre:</strong> {savedSummary.trimestre}
+              </li>
+              <li>
+                <strong>Sección:</strong> {savedSummary.seccion || "No especificada"}
+              </li>
+              <li>
+                <strong>Cursos asignados:</strong> {savedSummary.cursosAsignados.length}
+              </li>
+              <li>
+                <strong>Cursos adicionales:</strong> {savedSummary.cursosAdicionales.length}
+              </li>
+              <li>
+                <strong>Firma:</strong> {savedSummary.firmaBase64 ? "Registrada ✔" : "No registrada"}
+              </li>
+            </ul>
+            <p className="text-xs text-isel-ink/50">
+              Ya no es necesario volver a guardar — si necesitas corregir algo, edita el formulario y guarda de nuevo.
+            </p>
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setSavedSummary(null)}
+                className="rounded-full border-2 border-isel-line px-4 py-2 text-sm font-semibold text-isel-ink/70 transition-colors duration-200 hover:border-isel-navy hover:text-isel-navy"
+              >
+                Seguir editando
+              </button>
+              <button
+                type="button"
+                onClick={handleDismissSaved}
+                className="rounded-full bg-isel-navy px-5 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-isel-gold hover:text-isel-navy"
+              >
+                {onDismissSaved ? "Cerrar" : "Volver al menú principal"}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
@@ -670,8 +764,8 @@ function AdditionalRow({
           </button>
         </div>
         <div className="mt-3 grid grid-cols-2 gap-3">
-          <input className={`${inputClass} bg-white`} placeholder="Sección" value={row.seccion} onChange={(e) => onChange({ seccion: e.target.value })} />
-          <input className={`${inputClass} bg-white`} placeholder="Jornada" value={row.jornada} onChange={(e) => onChange({ jornada: e.target.value })} />
+          <input className={`${inputClass} bg-white`} placeholder="Sección (opcional)" value={row.seccion} onChange={(e) => onChange({ seccion: e.target.value })} />
+          <input className={`${inputClass} bg-white`} placeholder="Jornada (opcional)" value={row.jornada} onChange={(e) => onChange({ jornada: e.target.value })} />
         </div>
       </div>
     );
@@ -777,8 +871,8 @@ function AdditionalRow({
       )}
 
       <div className="mt-3 grid grid-cols-2 gap-3">
-        <input className={`${inputClass} bg-white`} placeholder="Sección" value={row.seccion} onChange={(e) => onChange({ seccion: e.target.value })} />
-        <input className={`${inputClass} bg-white`} placeholder="Jornada" value={row.jornada} onChange={(e) => onChange({ jornada: e.target.value })} />
+        <input className={`${inputClass} bg-white`} placeholder="Sección (opcional)" value={row.seccion} onChange={(e) => onChange({ seccion: e.target.value })} />
+        <input className={`${inputClass} bg-white`} placeholder="Jornada (opcional)" value={row.jornada} onChange={(e) => onChange({ jornada: e.target.value })} />
       </div>
     </div>
   );

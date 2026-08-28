@@ -405,6 +405,7 @@ export function AdminPortalPage() {
             onSaved={() => {
               if (rangeMode) loadAssignments(rangeMode);
             }}
+            onDismissSaved={() => setFichaStudent(null)}
           />
         </Modal>
       )}
