@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getSession } from "@/lib/auth";
 import { useSession } from "@/hooks/useSession";
-import { getAssignments, toDateParam, deleteAssignment } from "@/lib/assignmentsApi";
+import { getAssignments, toDateParam, deleteAssignment, downloadFichaXlsx, downloadFichaBatchZip } from "@/lib/assignmentsApi";
 import { getStudents, deleteStudent } from "@/lib/studentsApi";
 import { rangeFor, type RangeMode } from "@/lib/dateRanges";
 import type { CourseAssignment, TipoPago } from "@/types/courseAssignment";
@@ -10,7 +10,6 @@ import type { Student } from "@/types/student";
 import { Modal } from "@/components/ui/Modal";
 import { StudentFormModal } from "@/components/portal/StudentFormModal";
 import { CourseAssignmentForm } from "@/components/portal/CourseAssignmentForm";
-import { PrintableFichaBatch } from "@/components/portal/PrintableFicha";
 import { useConfirm } from "@/hooks/useConfirm";
 
 const inputClass =
@@ -111,19 +110,29 @@ export function AdminPortalPage() {
     if (rangeMode) loadAssignments(rangeMode);
   }
 
-  // ---- Impresión ----
-  const [printItems, setPrintItems] = useState<CourseAssignment[] | null>(null);
+  // ---- Impresión — descarga el .xlsx real (plantilla oficial rellenada), no una vista HTML aparte ----
+  const [printingId, setPrintingId] = useState<number | "batch" | null>(null);
 
-  useEffect(() => {
-    if (!printItems) return;
-    const timer = setTimeout(() => window.print(), 150);
-    const handleAfterPrint = () => setPrintItems(null);
-    window.addEventListener("afterprint", handleAfterPrint);
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener("afterprint", handleAfterPrint);
-    };
-  }, [printItems]);
+  async function handlePrintOne(a: CourseAssignment) {
+    setPrintingId(a.id);
+    try {
+      await downloadFichaXlsx(a.id);
+    } finally {
+      setPrintingId(null);
+    }
+  }
+
+  async function handlePrintAll() {
+    if (!rangeMode) return;
+    setPrintingId("batch");
+    try {
+      const anchor = new Date(`${dateInput}T00:00:00`);
+      const { from, to } = rangeFor(rangeMode, anchor);
+      await downloadFichaBatchZip(from, to, tipoPagoFilter === "todas" ? undefined : tipoPagoFilter);
+    } finally {
+      setPrintingId(null);
+    }
+  }
 
   const rangeLabel = useMemo(() => {
     if (!rangeMode) return null;
@@ -137,8 +146,7 @@ export function AdminPortalPage() {
   }, [tipoPagoFilter, rangeLabel]);
 
   return (
-    <>
-    <main className="min-h-screen bg-isel-paper pb-24 print:hidden">
+    <main className="min-h-screen bg-isel-paper pb-24">
       <header className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 border-b border-isel-line bg-white/90 px-6 py-4 backdrop-blur">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-isel-gold2">Panel administrativo</p>
@@ -183,11 +191,11 @@ export function AdminPortalPage() {
             </div>
             <button
               type="button"
-              disabled={assignments.length === 0}
-              onClick={() => setPrintItems(assignments)}
+              disabled={assignments.length === 0 || printingId !== null}
+              onClick={handlePrintAll}
               className="rounded-full bg-isel-navy px-4 py-2 text-sm font-semibold text-white transition-colors duration-300 hover:bg-isel-gold hover:text-isel-navy disabled:cursor-not-allowed disabled:opacity-40"
             >
-              🖨️ Imprimir todas
+              🖨️ {printingId === "batch" ? "Generando…" : "Imprimir todas"}
             </button>
           </div>
 
@@ -256,8 +264,13 @@ export function AdminPortalPage() {
                       </td>
                       <td className="py-2">
                         <div className="flex gap-2">
-                          <button type="button" onClick={() => setPrintItems([a])} className="text-xs font-semibold text-isel-navy hover:underline">
-                            Imprimir
+                          <button
+                            type="button"
+                            disabled={printingId !== null}
+                            onClick={() => handlePrintOne(a)}
+                            className="text-xs font-semibold text-isel-navy hover:underline disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            {printingId === a.id ? "Generando…" : "Imprimir"}
                           </button>
                           <button type="button" onClick={() => handleDeleteAssignment(a)} className="text-xs font-semibold text-red-600 hover:underline">
                             Eliminar
@@ -383,13 +396,5 @@ export function AdminPortalPage() {
       )}
       {confirmDialog}
     </main>
-
-    {/* Print-only region — hidden on screen, shown only inside window.print() (sibling of `main`, which is print:hidden) */}
-    {printItems && (
-      <div className="hidden print:block">
-        <PrintableFichaBatch assignments={printItems} />
-      </div>
-    )}
-    </>
   );
 }

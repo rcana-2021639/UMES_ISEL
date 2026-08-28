@@ -121,21 +121,22 @@ Un solo campo de texto decide a dónde va el usuario — no hay contraseña:
   entra al panel administrativo. Cámbialo ahí cuando quieras.
 
 ### Alumno (`/portal/estudiante`)
-Ve sus datos (de la base de datos, no editables). En **"Cursos por
-asignarse"** elige su **Maestría** (todas las que existen) y, al elegirla,
-aparecen sus **trimestres**; al elegir un trimestre se listan — de una
-vez, no seleccionables uno por uno — todos los cursos oficiales de ese
-trimestre (vienen del pénsum real, ver `Data/CourseCatalogSeedData.cs`):
-un trimestre se asigna completo, no a la carta. Solo falta poner la
-**Sección**.
+Ve sus datos (de la base de datos, no editables). **"Cursos por
+asignarse"** es una lista numerada con **todas las maestrías** — al tocar
+una se abre una ventana con su **Trimestre** (cascada según el pénsum real,
+ver `Data/CourseCatalogSeedData.cs`), los **cursos de ese trimestre** (de
+una vez, no seleccionables uno por uno — un trimestre se asigna completo) y
+la **Sección** a mano; el botón **"Listo"** confirma y cierra la ventana, y
+esa maestría queda marcada en verde en la lista con su trimestre.
 
 En **"Cursos adicionales o cambio de sección"** empieza con un solo campo y
 un botón **"+ Agregar otro"** para sumar más solo si hace falta. Cada fila
 tiene dos modos: **"Curso adicional"** (buscador sobre el catálogo
 completo, agrupado por Maestría · Trimestre — los encabezados de grupo no
-se pueden seleccionar, solo los cursos) y **"Repetir trimestre"** (elige
-primero un trimestre *anterior* al principal de su propia carrera, y luego
-el curso específico de ese trimestre que necesita repetir).
+se pueden seleccionar, solo los cursos) y **"Repetir trimestre"** (elige su
+propia mini-cascada Maestría → Trimestre → Curso, independiente de la
+selección principal — así se puede repetir un curso de cualquier
+maestría/trimestre, no solo uno anterior de la carrera actual).
 
 También marca las dos observaciones Sí/No, el **tipo de pago** (Link de
 pago / Presencial — uso interno del admin, nunca aparece en la ficha
@@ -147,10 +148,14 @@ Vuelve a entrar con el mismo carné para ver/editar lo guardado.
 - **Impresión de asignaciones**: por fecha exacta (como antes, "Cargar día")
   o con los atajos **HOY / SEMANA / MES**, más un filtro de **tipo de
   pago** (Todas / Link de pago / Presencial) — si no hay fichas de ese tipo
-  en el rango, lo dice explícitamente. "Imprimir" (una fila) o "Imprimir
-  todas" abre el diálogo de impresión del navegador con una ficha por
-  alumno, en el mismo formato que el PDF original (el tipo de pago nunca
-  sale impreso — es admin-only).
+  en el rango, lo dice explícitamente. "Imprimir" (una fila) descarga el
+  **.xlsx oficial real** (`Resources/FichaTemplate.xlsx`) ya lleno con los
+  datos de ese alumno — no una recreación en HTML, sino una copia literal
+  de la plantilla del usuario con solo las celdas de datos rellenadas (ver
+  `Services/FichaXlsxBuilder.cs`), lista para abrir en Excel e imprimir tal
+  cual. "Imprimir todas" descarga un `.zip` con un `.xlsx` así por cada
+  ficha del rango/filtro. El tipo de pago nunca se escribe en el archivo —
+  es admin-only.
 - **Alumnos**: tabla filtrable por carné, con **Agregar alumno** (pide todos
   los campos del Excel — carné, nombres, carrera, sección, trimestre,
   correos, celular) para no tener que tocar la base de datos a mano, más

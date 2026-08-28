@@ -22,6 +22,12 @@
     <Content Update="Data\Seed\students.seed.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- The official "Ficha de Asignación de Cursos" workbook — FichaXlsxBuilder fills a copy of
+         this exact file cell-by-cell for printing, instead of approximating its layout in HTML.
+         (Include, not Update: .xlsx isn't picked up by the SDK's implicit Content glob.) -->
+    <Content Include="Resources\FichaTemplate.xlsx">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>

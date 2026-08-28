@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using UmesIsel.Api.Data;
+using UmesIsel.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,6 +13,9 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<IselDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("IselDb")));
 
+// Fills a copy of the official ficha .xlsx template per student — see Services/FichaXlsxBuilder.cs.
+builder.Services.AddSingleton<FichaXlsxBuilder>();
+
 // The React dev server (Vite) runs on 5173 by default; add your deployed
 // frontend origin here too once it exists.
 builder.Services.AddCors(options =>
@@ -20,7 +24,9 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins("http://localhost:5173", "http://127.0.0.1:5173")
               .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              // So the frontend can read the real filename off the ficha download responses.
+              .WithExposedHeaders("Content-Disposition");
     });
 });
 

@@ -1,8 +1,10 @@
+using System.IO.Compression;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using UmesIsel.Api.Data;
 using UmesIsel.Api.Models.Dtos;
 using UmesIsel.Api.Models.Entities;
+using UmesIsel.Api.Services;
 
 namespace UmesIsel.Api.Controllers;
 
@@ -15,8 +17,13 @@ namespace UmesIsel.Api.Controllers;
 public class CourseAssignmentsController : ControllerBase
 {
     private readonly IselDbContext _db;
+    private readonly FichaXlsxBuilder _fichaBuilder;
 
-    public CourseAssignmentsController(IselDbContext db) => _db = db;
+    public CourseAssignmentsController(IselDbContext db, FichaXlsxBuilder fichaBuilder)
+    {
+        _db = db;
+        _fichaBuilder = fichaBuilder;
+    }
 
     private static CourseAssignmentDto ToDto(CourseAssignment ca) => new(
         ca.Id,
@@ -185,6 +192,68 @@ public class CourseAssignmentsController : ControllerBase
 
         var saved = await WithIncludes().AsNoTracking().FirstAsync(x => x.Id == ca.Id);
         return Ok(ToDto(saved));
+    }
+
+    /// <summary>
+    /// GET /api/course-assignments/{id}/ficha.xlsx — a filled copy of the official ficha template
+    /// (Resources/FichaTemplate.xlsx), ready to open and print from Excel with the exact design.
+    /// </summary>
+    [HttpGet("{id:int}/ficha.xlsx")]
+    public async Task<IActionResult> GetFichaXlsx(int id)
+    {
+        var ca = await WithIncludes().AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
+        if (ca is null) return NotFound();
+
+        var bytes = _fichaBuilder.Build(ToDto(ca));
+        return File(bytes, XlsxContentType, FichaFileName(ca.Student));
+    }
+
+    /// <summary>
+    /// GET /api/course-assignments/ficha-batch.zip?from=&amp;to=&amp;tipoPago= — same filters as GetAll,
+    /// but returns one filled .xlsx per matching ficha inside a single .zip ("Imprimir todas").
+    /// </summary>
+    [HttpGet("ficha-batch.zip")]
+    public async Task<IActionResult> GetFichaBatchZip(
+        [FromQuery] DateOnly? from, [FromQuery] DateOnly? to, [FromQuery] string? tipoPago)
+    {
+        var query = WithIncludes().AsNoTracking().AsQueryable();
+        if (from.HasValue) query = query.Where(ca => ca.Fecha >= from.Value);
+        if (to.HasValue) query = query.Where(ca => ca.Fecha <= to.Value);
+        if (!string.IsNullOrWhiteSpace(tipoPago)) query = query.Where(ca => ca.TipoPago == tipoPago);
+
+        var results = await query.OrderBy(ca => ca.Student!.PrimerApellido).ToListAsync();
+        if (results.Count == 0) return NotFound("No hay fichas para ese rango/filtro.");
+
+        using var zipStream = new MemoryStream();
+        using (var zip = new ZipArchive(zipStream, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var ca in results)
+            {
+                var bytes = _fichaBuilder.Build(ToDto(ca));
+                var name = FichaFileName(ca.Student);
+                var dedupedName = name;
+                var suffix = 2;
+                while (!usedNames.Add(dedupedName))
+                {
+                    dedupedName = $"{Path.GetFileNameWithoutExtension(name)} ({suffix++}){Path.GetExtension(name)}";
+                }
+                var entry = zip.CreateEntry(dedupedName, CompressionLevel.Optimal);
+                using var entryStream = entry.Open();
+                entryStream.Write(bytes, 0, bytes.Length);
+            }
+        }
+
+        return File(zipStream.ToArray(), "application/zip", "Fichas.zip");
+    }
+
+    private const string XlsxContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+    private static string FichaFileName(Student? student)
+    {
+        var label = student is null ? "ficha" : $"{student.Carnet} - {student.PrimerApellido} {student.PrimerNombre}";
+        var sanitized = string.Concat(label.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
+        return $"Ficha - {sanitized}.xlsx";
     }
 
     [HttpDelete("{id:int}")]

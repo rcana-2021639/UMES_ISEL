@@ -9,6 +9,7 @@ import type { Course } from "@/types/course";
 import { SignaturePad, type SignaturePadHandle } from "@/components/portal/SignaturePad";
 import { RevealOnScroll } from "@/components/ui/RevealOnScroll";
 import { SearchSelect, type SearchSelectOption } from "@/components/ui/SearchSelect";
+import { Modal } from "@/components/ui/Modal";
 
 const inputClass =
   "w-full rounded-lg border border-isel-line bg-white px-3 py-2 text-sm text-isel-ink transition-colors duration-200 focus:border-isel-navy focus:outline-none focus:ring-2 focus:ring-isel-navy/15";
@@ -78,6 +79,15 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved }: 
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const signatureRef = useRef<SignaturePadHandle>(null);
+
+  // "Cursos por asignarse" picker — a numbered list of maestrías; tapping one opens a modal to pick
+  // its trimestre + sección and preview the trimestre's courses before confirming with "Listo".
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [draftCarrera, setDraftCarrera] = useState<string | null>(null);
+  const [draftTrimestre, setDraftTrimestre] = useState<number | null>(null);
+  const [draftTrimestres, setDraftTrimestres] = useState<number[] | null>(null);
+  const [draftCourses, setDraftCourses] = useState<Course[] | null>(null);
+  const [draftSeccion, setDraftSeccion] = useState("");
 
   // Reference catalogs — loaded once.
   useEffect(() => {
@@ -153,6 +163,49 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved }: 
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assignment, allCourses.length]);
+
+  // Trimestres for whichever maestría is open in the picker modal (independent of the committed carrera).
+  useEffect(() => {
+    if (!pickerOpen || !draftCarrera) return;
+    let active = true;
+    setDraftTrimestres(null);
+    getTrimestres(draftCarrera).then((list) => {
+      if (!active) return;
+      setDraftTrimestres(list);
+      setDraftTrimestre((current) => (current && list.includes(current) ? current : (list[0] ?? null)));
+    });
+    return () => {
+      active = false;
+    };
+  }, [pickerOpen, draftCarrera]);
+
+  // Preview of the courses for whichever trimestre is currently picked in the modal.
+  useEffect(() => {
+    if (!pickerOpen || !draftCarrera || draftTrimestre === null) {
+      setDraftCourses(null);
+      return;
+    }
+    let active = true;
+    getCourses(draftCarrera, draftTrimestre).then((list) => active && setDraftCourses(list));
+    return () => {
+      active = false;
+    };
+  }, [pickerOpen, draftCarrera, draftTrimestre]);
+
+  function openPicker(c: string) {
+    setDraftCarrera(c);
+    setDraftTrimestre(c === carrera ? trimestre : null);
+    setDraftSeccion(c === carrera ? seccion : (student.seccion ?? ""));
+    setPickerOpen(true);
+  }
+
+  function confirmPicker() {
+    if (!draftCarrera || draftTrimestre === null) return;
+    setCarrera(draftCarrera);
+    setTrimestre(draftTrimestre);
+    setSeccion(draftSeccion);
+    setPickerOpen(false);
+  }
 
   const fechaHoy = useMemo(
     () => new Date().toLocaleDateString("es-GT", { day: "2-digit", month: "2-digit", year: "numeric" }),
@@ -266,36 +319,41 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved }: 
           <span aria-hidden>💾</span> Cursos por asignarse
         </h3>
         <p className="mb-4 text-sm text-isel-ink/60">
-          Elige tu maestría y el trimestre — los cursos de ese trimestre se asignan todos juntos.
+          Toca tu maestría en la lista para elegir el trimestre y la sección — los cursos de ese trimestre se asignan
+          todos juntos.
         </p>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Field label="Maestría">
-            <select className={inputClass} value={carrera} onChange={(e) => setCarrera(e.target.value)}>
-              {carreras.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Trimestre">
-            <select
-              className={inputClass}
-              value={trimestre ?? ""}
-              onChange={(e) => setTrimestre(e.target.value ? Number(e.target.value) : null)}
-              disabled={!trimestres || trimestres.length === 0}
-            >
-              {(trimestres ?? []).map((t) => (
-                <option key={t} value={t}>
-                  Trimestre {t}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Sección">
-            <input className={inputClass} value={seccion} onChange={(e) => setSeccion(e.target.value)} placeholder="Ej. A" />
-          </Field>
+        <div className="overflow-hidden rounded-xl border border-isel-line">
+          {carreras.map((c, i) => {
+            const isSelected = c === carrera;
+            return (
+              <button
+                key={c}
+                type="button"
+                onClick={() => openPicker(c)}
+                className={`flex w-full items-center gap-3 border-b border-isel-line px-4 py-3 text-left transition-colors duration-200 last:border-b-0 ${
+                  isSelected ? "bg-emerald-50 hover:bg-emerald-100" : "bg-white hover:bg-isel-paper"
+                }`}
+              >
+                <span
+                  className={`flex h-7 w-7 flex-none items-center justify-center rounded-full text-xs font-bold transition-colors duration-200 ${
+                    isSelected ? "bg-emerald-500 text-white" : "bg-isel-paper text-isel-ink/50"
+                  }`}
+                  aria-hidden
+                >
+                  {isSelected ? "✔" : i + 1}
+                </span>
+                <span className={`flex-1 text-sm ${isSelected ? "font-semibold text-emerald-800" : "text-isel-ink"}`}>{c}</span>
+                {isSelected ? (
+                  <span className="flex-none rounded-full bg-emerald-500 px-2.5 py-1 text-xs font-bold text-white">
+                    Trimestre {trimestre} ✓
+                  </span>
+                ) : (
+                  <span className="flex-none text-xs text-isel-ink/30">Elegir →</span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
         <div className="mt-4">
@@ -305,29 +363,118 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved }: 
             <p className="rounded-lg bg-isel-paper px-4 py-3 text-sm text-isel-ink/60">
               Aún no hay pénsum cargado para <strong>{carrera}</strong>.
             </p>
-          ) : (mainCourses ?? []).length === 0 ? (
-            <p className="rounded-lg bg-isel-paper px-4 py-3 text-sm text-isel-ink/60">
-              No hay cursos definidos para el trimestre {trimestre}.
-            </p>
           ) : (
-            <>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-isel-ink/50">
-                Cursos del trimestre {trimestre} (se asignan todos)
-              </p>
-              <ul className="divide-y divide-isel-line rounded-lg border border-isel-line">
-                {(mainCourses ?? []).map((c) => (
-                  <li key={c.id} className="flex items-center gap-2 px-4 py-2.5 text-sm">
-                    <span className="text-emerald-600" aria-hidden>
-                      ✔
-                    </span>
-                    <span className="text-isel-ink">{c.nombre}</span>
-                  </li>
-                ))}
-              </ul>
-            </>
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-emerald-800">
+                  {carrera} — Trimestre {trimestre} — Sección {seccion || "(sin definir)"}
+                </p>
+                <button type="button" onClick={() => openPicker(carrera)} className="text-xs font-semibold text-isel-navy hover:underline">
+                  Editar
+                </button>
+              </div>
+              {(mainCourses ?? []).length === 0 ? (
+                <p className="text-sm text-isel-ink/60">No hay cursos definidos para el trimestre {trimestre}.</p>
+              ) : (
+                <ul className="divide-y divide-emerald-100 rounded-lg border border-emerald-100 bg-white">
+                  {(mainCourses ?? []).map((c) => (
+                    <li key={c.id} className="flex items-center gap-2 px-4 py-2.5 text-sm">
+                      <span className="text-emerald-600" aria-hidden>
+                        ✔
+                      </span>
+                      <span className="text-isel-ink">{c.nombre}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           )}
         </div>
       </RevealOnScroll>
+
+      <Modal
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        title={draftCarrera ?? "Selecciona maestría"}
+        widthClassName="max-w-xl"
+      >
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Trimestre">
+              <select
+                className={inputClass}
+                value={draftTrimestre ?? ""}
+                onChange={(e) => setDraftTrimestre(e.target.value ? Number(e.target.value) : null)}
+                disabled={!draftTrimestres || draftTrimestres.length === 0}
+              >
+                {(draftTrimestres ?? []).map((t) => (
+                  <option key={t} value={t}>
+                    Trimestre {t}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Sección">
+              <input
+                className={inputClass}
+                value={draftSeccion}
+                onChange={(e) => setDraftSeccion(e.target.value)}
+                placeholder="Ej. A"
+              />
+            </Field>
+          </div>
+
+          <div>
+            {draftTrimestres && draftTrimestres.length === 0 ? (
+              <p className="rounded-lg bg-isel-paper px-4 py-3 text-sm text-isel-ink/60">
+                Aún no hay pénsum cargado para esta maestría.
+              </p>
+            ) : (
+              <>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-isel-ink/50">
+                  Cursos del trimestre {draftTrimestre} (se asignan todos)
+                </p>
+                {draftCourses === null ? (
+                  <p className="py-3 text-sm text-isel-ink/40">Cargando…</p>
+                ) : draftCourses.length === 0 ? (
+                  <p className="rounded-lg bg-isel-paper px-4 py-3 text-sm text-isel-ink/60">
+                    No hay cursos definidos para este trimestre.
+                  </p>
+                ) : (
+                  <ul className="divide-y divide-isel-line rounded-lg border border-isel-line">
+                    {draftCourses.map((c) => (
+                      <li key={c.id} className="flex items-center gap-2 px-4 py-2.5 text-sm">
+                        <span className="text-emerald-600" aria-hidden>
+                          ✔
+                        </span>
+                        <span className="text-isel-ink">{c.nombre}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => setPickerOpen(false)}
+              className="rounded-full border-2 border-isel-line px-4 py-2 text-sm font-semibold text-isel-ink/70 transition-colors duration-200 hover:border-isel-navy hover:text-isel-navy"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={confirmPicker}
+              disabled={draftTrimestre === null}
+              className="rounded-full bg-isel-navy px-5 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-isel-gold hover:text-isel-navy disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              ✔ Listo
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       <RevealOnScroll delay={0.1} className="rounded-2xl bg-white p-6 shadow-card">
         <h3 className="mb-1 font-display text-lg font-semibold text-isel-navy">Cursos adicionales o cambio de sección</h3>
