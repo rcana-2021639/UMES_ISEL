@@ -21,6 +21,21 @@ function todayInput(): string {
   return toDateParam(d);
 }
 
+/** Lowercased, accent-stripped, so typing "jose" finds a name with an accented "e" and "gonzalez"
+ *  finds one with an accented "a". NFD-decomposes each accented letter into a base letter plus a
+ *  separate combining-mark codepoint, then drops every codepoint in the Unicode "Combining
+ *  Diacritical Marks" block (hex 0x0300 to 0x036F) by numeric comparison rather than a regex range,
+ *  which is easy to mis-paste as literal accented characters instead of the codepoints themselves. */
+function normalize(s: string): string {
+  return Array.from(s.normalize("NFD"))
+    .filter((ch) => {
+      const code = ch.codePointAt(0) ?? 0;
+      return code < 0x0300 || code > 0x036f;
+    })
+    .join("")
+    .toLowerCase();
+}
+
 export function AdminPortalPage() {
   const { logout } = useSession();
   const navigate = useNavigate();
@@ -43,6 +58,10 @@ export function AdminPortalPage() {
   const [assignments, setAssignments] = useState<CourseAssignment[]>([]);
   const [loadingAssignments, setLoadingAssignments] = useState(false);
   const [assignmentsLoaded, setAssignmentsLoaded] = useState(false);
+  // Finds one ficha among however many HOY/SEMANA/MES loaded — client-side over what's already on
+  // screen, so it's instant and doesn't touch "Imprimir todas", which still prints the full loaded
+  // range regardless of what's typed here.
+  const [assignmentSearch, setAssignmentSearch] = useState("");
 
   async function loadAssignments(mode: RangeMode, tipoPago: TipoPago | "todas" = tipoPagoFilter) {
     setRangeMode(mode);
@@ -155,6 +174,16 @@ export function AdminPortalPage() {
     return `No hay fichas${suffix} para ${rangeLabel?.toLowerCase()}.`;
   }, [tipoPagoFilter, rangeLabel]);
 
+  // Matches carné, nombre, or carrera — whichever the admin is most likely to remember about the
+  // one ficha they're looking for among however many the date range pulled in.
+  const filteredAssignments = useMemo(() => {
+    const q = normalize(assignmentSearch.trim());
+    if (!q) return assignments;
+    return assignments.filter(
+      (a) => normalize(a.carnet).includes(q) || normalize(a.nombreCompleto).includes(q) || normalize(a.carrera).includes(q),
+    );
+  }, [assignments, assignmentSearch]);
+
   return (
     <main className="min-h-screen bg-isel-paper pb-24">
       <header className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 border-b border-isel-line bg-white/90 px-6 py-4 backdrop-blur">
@@ -229,6 +258,35 @@ export function AdminPortalPage() {
             <p className="mt-3 rounded-lg bg-red-50 px-4 py-2 text-sm font-semibold text-red-600">⚠️ {printError}</p>
           )}
 
+          {assignmentsLoaded && assignments.length > 0 && (
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <div className="relative flex-1 min-w-[220px]">
+                <input
+                  type="text"
+                  value={assignmentSearch}
+                  onChange={(e) => setAssignmentSearch(e.target.value)}
+                  placeholder="🔎 Buscar por carné, nombre o carrera…"
+                  className={`${inputClass} w-full pr-8`}
+                />
+                {assignmentSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setAssignmentSearch("")}
+                    aria-label="Limpiar búsqueda"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-isel-ink/40 hover:text-isel-ink"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+              <span className="text-xs text-isel-ink/50">
+                {assignmentSearch
+                  ? `${filteredAssignments.length} de ${assignments.length} fichas`
+                  : `${assignments.length} ficha${assignments.length === 1 ? "" : "s"}`}
+              </span>
+            </div>
+          )}
+
           <div className="mt-4 overflow-x-auto">
             <table className="w-full min-w-[760px] border-collapse text-sm">
               <thead>
@@ -260,8 +318,14 @@ export function AdminPortalPage() {
                       {emptyAssignmentsMessage}
                     </td>
                   </tr>
+                ) : filteredAssignments.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-6 text-center text-isel-ink/50">
+                      Ninguna ficha coincide con "{assignmentSearch}".
+                    </td>
+                  </tr>
                 ) : (
-                  assignments.map((a) => (
+                  filteredAssignments.map((a) => (
                     <tr key={a.id}>
                       <td className="py-2 pr-2">{a.carnet}</td>
                       <td className="py-2 pr-2">{a.nombreCompleto}</td>
