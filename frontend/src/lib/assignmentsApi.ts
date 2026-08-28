@@ -35,20 +35,19 @@ export function deleteAssignment(id: number): Promise<void> {
 
 /**
  * Fetches a PDF from the backend (the real ficha template, filled in and converted server-side —
- * see FichaXlsxBuilder/FichaPdfBuilder) and loads it into an already-open tab. The browser's own PDF
- * viewer already has a print button/shortcut, so this is "click Imprimir → it's ready to print" with
- * no extra step (no Excel to open first, no file to download and then open).
+ * see FichaXlsxBuilder/FichaPdfBuilder) and sends it straight to the browser's native print dialog —
+ * entirely inside the current tab, no external/new tab or window involved.
  *
- * `targetWindow` must come from a `window.open("", "_blank")` called synchronously inside the click
- * handler, *before* this async function runs — calling `window.open` only after an `await` (e.g.
- * after the fetch resolves) loses the browser's "this came from a real click" signal and gets
- * silently popup-blocked. If the caller couldn't open a tab at all (blocked even then, or an older
- * browser), this falls back to a plain download instead of losing the PDF.
+ * How: load the PDF into a hidden `<iframe>` and call `.print()` on the iframe's own window once it
+ * finishes loading. Chrome's (and Edge's) built-in PDF viewer honors that exactly like it would for a
+ * full-page PDF, so the OS print dialog (e.g. "Microsoft Print to PDF") opens automatically — the
+ * admin never sees a blank loading tab, just their same page and then the print dialog. This avoids
+ * the popup-blocker dance a `window.open("", "_blank")` approach needs entirely: appending a hidden
+ * iframe is never blocked, so there's no "must be a synchronous click, before any await" constraint.
  */
-async function openPdf(path: string, targetWindow: Window | null): Promise<void> {
+async function openPdf(path: string): Promise<void> {
   const res = await fetch(`${API_BASE}${path}`);
   if (!res.ok) {
-    targetWindow?.close();
     const text = await res.text();
     let message = text || `Error ${res.status}`;
     try {
@@ -61,40 +60,43 @@ async function openPdf(path: string, targetWindow: Window | null): Promise<void>
   }
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
-  if (targetWindow && !targetWindow.closed) {
-    targetWindow.location.href = url;
-    // Jump straight into the browser's native print dialog once the PDF finishes loading — Chrome's
-    // built-in PDF viewer responds to window.print() same as any other document, so "Imprimir" goes
-    // straight to the print dialog instead of leaving the admin to find the viewer's own print icon.
-    targetWindow.onload = () => {
-      try {
-        targetWindow.print();
-      } catch {
-        // Some browser/PDF-viewer combos don't support triggering print this way — the PDF is still
-        // right there in the tab, just without the automatic step.
-      }
-    };
-  } else {
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "ficha.pdf";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  }
-  // The tab needs the blob URL to still be valid while it loads — release it a bit later instead
-  // of immediately, rather than trying to guess exactly when that load finishes.
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+
+  const iframe = document.createElement("iframe");
+  iframe.style.position = "fixed";
+  iframe.style.right = "0";
+  iframe.style.bottom = "0";
+  iframe.style.width = "0";
+  iframe.style.height = "0";
+  iframe.style.border = "0";
+  iframe.setAttribute("aria-hidden", "true");
+  iframe.onload = () => {
+    try {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+    } catch {
+      // Some browser/PDF-viewer combos don't support triggering print this way — the PDF is still
+      // loaded, just without the automatic step; rare in practice on Chromium-based browsers.
+    }
+  };
+  document.body.appendChild(iframe);
+  iframe.src = url;
+
+  // Keep the blob URL and iframe alive long enough for the admin to actually use the print dialog
+  // (pick a printer, hit Imprimir) before cleaning up — closing either too soon can cancel the job.
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+    iframe.remove();
+  }, 5 * 60_000);
 }
 
 /** One ficha as a ready-to-print PDF (the real template, filled in) — see the "{id}/ficha.pdf" endpoint. */
-export function openFichaPdf(assignmentId: number, targetWindow: Window | null): Promise<void> {
-  return openPdf(`/api/course-assignments/${assignmentId}/ficha.pdf`, targetWindow);
+export function openFichaPdf(assignmentId: number): Promise<void> {
+  return openPdf(`/api/course-assignments/${assignmentId}/ficha.pdf`);
 }
 
 /** Every ficha in a date range (+ optional tipoPago filter), combined into one printable PDF. */
-export function openFichaBatchPdf(from: Date, to: Date, tipoPago: TipoPago | undefined, targetWindow: Window | null): Promise<void> {
+export function openFichaBatchPdf(from: Date, to: Date, tipoPago: TipoPago | undefined): Promise<void> {
   const params = new URLSearchParams({ from: toDateParam(from), to: toDateParam(to) });
   if (tipoPago) params.set("tipoPago", tipoPago);
-  return openPdf(`/api/course-assignments/ficha-batch.pdf?${params.toString()}`, targetWindow);
+  return openPdf(`/api/course-assignments/ficha-batch.pdf?${params.toString()}`);
 }
