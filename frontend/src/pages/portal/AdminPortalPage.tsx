@@ -111,31 +111,18 @@ export function AdminPortalPage() {
     if (rangeMode) loadAssignments(rangeMode);
   }
 
-  // ---- Impresión — abre un PDF real (plantilla oficial rellenada y convertida en el servidor)
-  // en una pestaña nueva, listo para imprimir con el propio botón del visor del navegador ----
+  // ---- Impresión — genera un PDF real (plantilla oficial rellenada y convertida en el servidor) y
+  // lo manda directo al diálogo de impresión nativo del navegador, todo dentro de la misma pestaña
+  // (ningún tab/ventana externa) — ver el comentario de openPdf en assignmentsApi.ts ----
   const [printingId, setPrintingId] = useState<number | "batch" | null>(null);
   const [printError, setPrintError] = useState<string | null>(null);
 
-  /** Opens a blank tab with a small loading notice — must happen synchronously on the click, before
-   *  any `await`, or the browser's popup blocker silently eats the tab once the PDF is actually ready. */
-  function openLoadingTab(): Window | null {
-    const win = window.open("", "_blank");
-    if (win) {
-      win.document.title = "Generando ficha…";
-      win.document.body.innerHTML =
-        '<p style="font:15px sans-serif;padding:2rem;color:#334155">Generando el PDF de la ficha…</p>';
-    }
-    return win;
-  }
-
   async function handlePrintOne(a: CourseAssignment) {
-    const win = openLoadingTab();
     setPrintingId(a.id);
     setPrintError(null);
     try {
-      await openFichaPdf(a.id, win);
+      await openFichaPdf(a.id);
     } catch (e) {
-      win?.close();
       setPrintError(e instanceof ApiError ? e.message : "No se pudo generar el PDF de la ficha.");
     } finally {
       setPrintingId(null);
@@ -144,15 +131,13 @@ export function AdminPortalPage() {
 
   async function handlePrintAll() {
     if (!rangeMode) return;
-    const win = openLoadingTab();
     setPrintingId("batch");
     setPrintError(null);
     try {
       const anchor = new Date(`${dateInput}T00:00:00`);
       const { from, to } = rangeFor(rangeMode, anchor);
-      await openFichaBatchPdf(from, to, tipoPagoFilter === "todas" ? undefined : tipoPagoFilter, win);
+      await openFichaBatchPdf(from, to, tipoPagoFilter === "todas" ? undefined : tipoPagoFilter);
     } catch (e) {
-      win?.close();
       setPrintError(e instanceof ApiError ? e.message : "No se pudo generar el PDF de las fichas.");
     } finally {
       setPrintingId(null);
