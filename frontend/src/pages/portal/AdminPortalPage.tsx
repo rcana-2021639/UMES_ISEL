@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getSession } from "@/lib/auth";
 import { useSession } from "@/hooks/useSession";
-import { getAssignments, toDateParam, deleteAssignment, downloadFichaXlsx, downloadFichaBatchZip } from "@/lib/assignmentsApi";
+import { getAssignments, toDateParam, deleteAssignment, openFichaPdf, openFichaBatchPdf } from "@/lib/assignmentsApi";
+import { ApiError } from "@/lib/http";
 import { getStudents, deleteStudent } from "@/lib/studentsApi";
 import { rangeFor, type RangeMode } from "@/lib/dateRanges";
 import type { CourseAssignment, TipoPago } from "@/types/courseAssignment";
@@ -110,13 +111,32 @@ export function AdminPortalPage() {
     if (rangeMode) loadAssignments(rangeMode);
   }
 
-  // ---- Impresión — descarga el .xlsx real (plantilla oficial rellenada), no una vista HTML aparte ----
+  // ---- Impresión — abre un PDF real (plantilla oficial rellenada y convertida en el servidor)
+  // en una pestaña nueva, listo para imprimir con el propio botón del visor del navegador ----
   const [printingId, setPrintingId] = useState<number | "batch" | null>(null);
+  const [printError, setPrintError] = useState<string | null>(null);
+
+  /** Opens a blank tab with a small loading notice — must happen synchronously on the click, before
+   *  any `await`, or the browser's popup blocker silently eats the tab once the PDF is actually ready. */
+  function openLoadingTab(): Window | null {
+    const win = window.open("", "_blank");
+    if (win) {
+      win.document.title = "Generando ficha…";
+      win.document.body.innerHTML =
+        '<p style="font:15px sans-serif;padding:2rem;color:#334155">Generando el PDF de la ficha…</p>';
+    }
+    return win;
+  }
 
   async function handlePrintOne(a: CourseAssignment) {
+    const win = openLoadingTab();
     setPrintingId(a.id);
+    setPrintError(null);
     try {
-      await downloadFichaXlsx(a.id);
+      await openFichaPdf(a.id, win);
+    } catch (e) {
+      win?.close();
+      setPrintError(e instanceof ApiError ? e.message : "No se pudo generar el PDF de la ficha.");
     } finally {
       setPrintingId(null);
     }
@@ -124,11 +144,16 @@ export function AdminPortalPage() {
 
   async function handlePrintAll() {
     if (!rangeMode) return;
+    const win = openLoadingTab();
     setPrintingId("batch");
+    setPrintError(null);
     try {
       const anchor = new Date(`${dateInput}T00:00:00`);
       const { from, to } = rangeFor(rangeMode, anchor);
-      await downloadFichaBatchZip(from, to, tipoPagoFilter === "todas" ? undefined : tipoPagoFilter);
+      await openFichaBatchPdf(from, to, tipoPagoFilter === "todas" ? undefined : tipoPagoFilter, win);
+    } catch (e) {
+      win?.close();
+      setPrintError(e instanceof ApiError ? e.message : "No se pudo generar el PDF de las fichas.");
     } finally {
       setPrintingId(null);
     }
@@ -214,6 +239,10 @@ export function AdminPortalPage() {
               </button>
             ))}
           </div>
+
+          {printError && (
+            <p className="mt-3 rounded-lg bg-red-50 px-4 py-2 text-sm font-semibold text-red-600">⚠️ {printError}</p>
+          )}
 
           <div className="mt-4 overflow-x-auto">
             <table className="w-full min-w-[760px] border-collapse text-sm">

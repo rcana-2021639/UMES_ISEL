@@ -43,7 +43,9 @@ public class FichaXlsxBuilder
 
         using (var archive = new ZipArchive(output, ZipArchiveMode.Update, leaveOpen: true))
         {
-            var sheetXml = ApplyCellValues(ReadEntry(archive, "xl/worksheets/sheet1.xml"), ca);
+            var sheetXml = ReadEntry(archive, "xl/worksheets/sheet1.xml");
+            sheetXml = ApplyCellValues(sheetXml, ca);
+            sheetXml = ForceFitToOnePage(sheetXml);
             WriteEntry(archive, "xl/worksheets/sheet1.xml", sheetXml);
 
             var vmlXml = ApplyCheckboxes(
@@ -147,6 +149,23 @@ public class FichaXlsxBuilder
     private static string XmlEscapeText(string s) =>
         s.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
 
+    /// <summary>
+    /// The template's own print setup has no "fit to page" scaling — printed at 100%, the last row
+    /// (the footer) spills onto an almost-blank second page in both Excel and LibreOffice. The actual
+    /// paper form is one page, so we force that here: fitToWidth/fitToHeight=1 on &lt;pageSetup&gt;,
+    /// plus the &lt;sheetPr&gt; flag Excel/LibreOffice both require to honor it. This only changes print
+    /// scaling, never the cell design itself.
+    /// </summary>
+    private static string ForceFitToOnePage(string xml)
+    {
+        if (!xml.Contains("<sheetPr>") && !xml.Contains("<sheetPr/>"))
+        {
+            xml = Regex.Replace(xml, @"(<worksheet[^>]*>)", "$1<sheetPr><pageSetUpPr fitToPage=\"1\"/></sheetPr>");
+        }
+        xml = Regex.Replace(xml, @"<pageSetup ", "<pageSetup fitToWidth=\"1\" fitToHeight=\"1\" ");
+        return xml;
+    }
+
     // ---- Checkboxes -----------------------------------------------------------------------------
     // Shapes appear in vmlDrawing1.vml in this fixed order: s1199="No"(fila27) s1201="Sí"(fila27)
     // s1203="No"(fila28) s1204="Sí"(fila28). They're unlinked Form controls (no cell drives them),
@@ -167,6 +186,11 @@ public class FichaXlsxBuilder
         if (!match.Success) return vml;
 
         var block = Regex.Replace(match.Value, @"<x:Checked>\d+</x:Checked>", "");
+        // LibreOffice's PDF export renders a "Sí" shape (which the template gives an alt="SI"
+        // attribute, presumably just for accessibility) as a large solid black box once it's checked
+        // — a LibreOffice-specific rendering bug, not how it looks in real Excel. The `alt` text isn't
+        // load-bearing for anything else, so dropping it sidesteps the bug entirely.
+        block = Regex.Replace(block, @"\s+alt=""[^""]*""", "");
         if (@checked)
         {
             block = block.Replace("</x:ClientData>", "<x:Checked>1</x:Checked></x:ClientData>");
@@ -207,11 +231,13 @@ public class FichaXlsxBuilder
         }
         WriteEntry(archive, "xl/drawings/_rels/drawing1.xml.rels", relsXml);
 
-        // Anchored just above the blank signature line (row 30, 1-indexed) across columns A:E —
-        // the same span as the "FIRMA DEL ALUMNO(A)" caption merge (A31:E31) below it.
+        // Anchored just above the blank signature line (row 30, 1-indexed) across columns A:E — the
+        // same span as the "FIRMA DEL ALUMNO(A)" caption merge (A31:E31) below it. xdr:row is
+        // 0-indexed, so row 28 (1-idx 29, the blank spacer row) through row 29 (1-idx 30, the line
+        // itself) — NOT row 27, which is still the second Sí/No observación and must stay clear.
         var anchor =
             "<xdr:twoCellAnchor>" +
-            "<xdr:from><xdr:col>0</xdr:col><xdr:colOff>60000</xdr:colOff><xdr:row>27</xdr:row><xdr:rowOff>10000</xdr:rowOff></xdr:from>" +
+            "<xdr:from><xdr:col>0</xdr:col><xdr:colOff>60000</xdr:colOff><xdr:row>28</xdr:row><xdr:rowOff>10000</xdr:rowOff></xdr:from>" +
             "<xdr:to><xdr:col>4</xdr:col><xdr:colOff>500000</xdr:colOff><xdr:row>29</xdr:row><xdr:rowOff>60000</xdr:rowOff></xdr:to>" +
             "<xdr:pic>" +
             @"<xdr:nvPicPr><xdr:cNvPr id=""9001"" name=""Firma""/><xdr:cNvPicPr><a:picLocks xmlns:a=""http://schemas.openxmlformats.org/drawingml/2006/main"" noChangeAspect=""1""/></xdr:cNvPicPr></xdr:nvPicPr>" +

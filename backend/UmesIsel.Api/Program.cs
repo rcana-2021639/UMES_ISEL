@@ -15,6 +15,8 @@ builder.Services.AddDbContext<IselDbContext>(options =>
 
 // Fills a copy of the official ficha .xlsx template per student — see Services/FichaXlsxBuilder.cs.
 builder.Services.AddSingleton<FichaXlsxBuilder>();
+// Converts that filled .xlsx to a ready-to-print PDF via LibreOffice headless — see Services/FichaPdfBuilder.cs.
+builder.Services.AddSingleton<FichaPdfBuilder>();
 
 // The React dev server (Vite) runs on 5173 by default; add your deployed
 // frontend origin here too once it exists.
