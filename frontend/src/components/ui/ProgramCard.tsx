@@ -4,6 +4,7 @@ import type { MasterProgram } from "@/types/program";
 import { accentFor } from "@/data/accents";
 import { ImageSlot } from "./ImageSlot";
 import { SNAP } from "./RevealOnScroll";
+import { ActionButton } from "./ActionButton";
 
 interface ProgramCardProps {
   program: MasterProgram;
@@ -41,7 +42,7 @@ export function ProgramCard({ program, index, variant = "tall", delay = 0 }: Pro
       viewport={{ once: true, amount: 0.16 }}
       transition={{ duration: 1.05, delay, ease: SNAP }}
       style={{ ["--accent" as string]: accent, ["--accent-soft" as string]: soft }}
-      className={`group relative flex overflow-hidden rounded-[1.8rem] border border-isel-line bg-white transition-[transform,box-shadow,border-color] duration-700 ease-snap hover:-translate-y-2 hover:border-transparent hover:shadow-accent ${
+      className={`group relative flex w-full overflow-hidden rounded-[1.8rem] border border-isel-line bg-white transition-[transform,box-shadow,border-color] duration-700 ease-snap hover:-translate-y-2 hover:border-transparent hover:shadow-accent ${
         wide ? "flex-col md:flex-row" : "h-full flex-col"
       }`}
     >
@@ -142,16 +143,15 @@ export function ProgramCard({ program, index, variant = "tall", delay = 0 }: Pro
             />
           </span>
 
-          <Link
+          <ActionButton
             to={`/portal/login?programa=${program.slug}`}
-            className="group/ins relative z-20 inline-flex items-center gap-2 overflow-hidden rounded-full bg-[var(--accent-soft)] px-4 py-2 text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--accent)] transition-colors duration-500 ease-snap hover:text-white"
+            tone="accent"
+            size="sm"
+            arrow="none"
+            className="relative z-20"
           >
-            <span
-              aria-hidden
-              className="absolute inset-0 origin-bottom scale-y-0 bg-[var(--accent)] transition-transform duration-500 ease-snap group-hover/ins:scale-y-100"
-            />
-            <span className="relative">Inscripción</span>
-          </Link>
+            Inscripción
+          </ActionButton>
         </div>
       </div>
 

@@ -55,25 +55,6 @@
     opacity: 0.55;
   }
 
-  /**
-   * Etiqueta cinética: al pasar el cursor, el texto sube y su copia entra
-   * desde abajo. Reemplaza el cambio de color plano en los CTA principales.
-   */
-  .kinetic {
-    @apply relative inline-block overflow-hidden align-middle;
-  }
-  .kinetic > span {
-    @apply block transition-transform duration-500 ease-snap;
-  }
-  .kinetic > span:last-child {
-    @apply absolute inset-0 translate-y-full;
-  }
-  .group\/btn:hover .kinetic > span:first-child {
-    transform: translateY(-100%);
-  }
-  .group\/btn:hover .kinetic > span:last-child {
-    transform: translateY(0);
-  }
 }
 
 @layer utilities {
