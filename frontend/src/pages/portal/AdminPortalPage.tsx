@@ -13,7 +13,8 @@ import { StudentFormModal } from "@/components/portal/StudentFormModal";
 import { CourseAssignmentForm } from "@/components/portal/CourseAssignmentForm";
 import { useConfirm } from "@/hooks/useConfirm";
 import { Icon } from "@/components/portal/Icon";
-import { PortalBand, PortalPanel, PortalTopBar, StatTile } from "@/components/portal/PortalShell";
+import { FichaStack } from "@/components/portal/FichaCard";
+import { PortalBand, PortalPanel, PortalTopBar } from "@/components/portal/PortalShell";
 import { Alert, Chip, EmptyState, IconButton, Loading, PortalButton, Segmented, fieldClass } from "@/components/portal/kit";
 
 /**
@@ -30,10 +31,11 @@ import { Alert, Chip, EmptyState, IconButton, Loading, PortalButton, Segmented, 
  * mirar para saber cuántas fichas hay, ni cuántas son de link y cuántas
  * presenciales sin contarlas a mano.
  *
- * Ahora: una banda de identidad con las cifras del rango cargado, un solo
- * control segmentado por decisión, tablas con cabecera fija y acciones con
- * peso propio, y estados de vacío/carga/error diseñados en vez de una línea de
- * texto gris.
+ * Ahora: una banda de identidad con la pila de fichas del rango cargado, un
+ * solo control segmentado por decisión, tablas con cabecera propia y acciones
+ * con peso, y estados de vacío/carga/error diseñados en vez de una línea de
+ * texto gris. La ficha de un alumno se abre en consulta; editarla es un clic
+ * aparte.
  */
 
 function todayInput(): string {
@@ -136,7 +138,22 @@ export function AdminPortalPage() {
   }
 
   // ---- Ver / editar ficha de un alumno ----
+  // Se abre SIEMPRE en solo lectura. Consultar una ficha es lo que se hace
+  // veinte veces al día; modificar la de otra persona tiene que ser una
+  // decisión explícita, no el estado por defecto con "Guardar asignación"
+  // esperando al final del scroll.
   const [fichaStudent, setFichaStudent] = useState<Student | null>(null);
+  const [fichaEditing, setFichaEditing] = useState(false);
+
+  function openFicha(s: Student) {
+    setFichaStudent(s);
+    setFichaEditing(false);
+  }
+
+  function closeFicha() {
+    setFichaStudent(null);
+    setFichaEditing(false);
+  }
 
   async function handleDeleteAssignment(a: CourseAssignment) {
     const ok = await confirm({
@@ -225,21 +242,18 @@ export function AdminPortalPage() {
         eyebrow="Fichas de asignación"
         title="Panel administrativo"
         meta={
-          <>
-            <Chip tone="onDark" icon="calendar">
-              {rangeLabel ?? "Sin rango cargado"}
-            </Chip>
-            <Chip tone="onDark" icon="users">
-              {students.length} {students.length === 1 ? "alumno" : "alumnos"} en la lista
-            </Chip>
-          </>
+          <Chip tone="onDark" icon="users">
+            {students.length} {students.length === 1 ? "alumno" : "alumnos"} en la lista
+          </Chip>
         }
         aside={
-          <div className="grid w-full grid-cols-2 gap-3 sm:w-auto sm:grid-cols-3">
-            <StatTile icon="file" label="Fichas" value={assignmentsLoaded ? assignments.length : "—"} />
-            <StatTile icon="card" label="Link" value={assignmentsLoaded ? linkCount : "—"} tone="sky" />
-            <StatTile icon="users" label="Presencial" value={assignmentsLoaded ? presencialCount : "—"} tone="plum" />
-          </div>
+          <FichaStack
+            loaded={assignmentsLoaded}
+            rangeLabel={rangeLabel}
+            total={assignments.length}
+            link={linkCount}
+            presencial={presencialCount}
+          />
         }
       />
 
@@ -247,6 +261,7 @@ export function AdminPortalPage() {
         {/* ------------------------------------------ fichas / impresión */}
         <PortalPanel
           step="01"
+          accent="#B8791F"
           title="Impresión de asignaciones"
           description="Elige una fecha ancla y el rango que quieres revisar. La impresión masiva usa el rango cargado, no el texto que busques."
           actions={
@@ -377,8 +392,14 @@ export function AdminPortalPage() {
                   </thead>
                   <tbody className="divide-y divide-isel-line/70">
                     {filteredAssignments.map((a) => (
-                      <tr key={a.id} className="transition-colors duration-200 ease-crisp hover:bg-isel-paper/60">
-                        <Td className="tabular font-semibold text-isel-navy">{a.carnet}</Td>
+                      <tr key={a.id} className="group/tr relative transition-colors duration-200 ease-crisp hover:bg-isel-paper/60">
+                        <Td className="tabular relative font-semibold text-isel-navy">
+                          <span
+                            aria-hidden
+                            className="absolute inset-y-0 left-0 w-[3px] origin-center scale-y-0 bg-[var(--accent)] transition-transform duration-300 ease-snap group-hover/tr:scale-y-100"
+                          />
+                          {a.carnet}
+                        </Td>
                         <Td>{a.nombreCompleto}</Td>
                         <Td className="text-isel-ink/65">{a.carrera}</Td>
                         <Td className="tabular text-center text-isel-ink/65">{a.trimestre}</Td>
@@ -423,6 +444,7 @@ export function AdminPortalPage() {
         {/* ------------------------------------------------------ alumnos */}
         <PortalPanel
           step="02"
+          accent="#12855C"
           title="Alumnos"
           description="La lista de la que sale todo: quien no está aquí, no puede entrar al portal ni firmar una ficha."
           actions={
@@ -482,15 +504,21 @@ export function AdminPortalPage() {
                   </thead>
                   <tbody className="divide-y divide-isel-line/70">
                     {students.map((s) => (
-                      <tr key={s.id} className="transition-colors duration-200 ease-crisp hover:bg-isel-paper/60">
-                        <Td className="tabular font-semibold text-isel-navy">{s.carnet}</Td>
+                      <tr key={s.id} className="group/tr relative transition-colors duration-200 ease-crisp hover:bg-isel-paper/60">
+                        <Td className="tabular relative font-semibold text-isel-navy">
+                          <span
+                            aria-hidden
+                            className="absolute inset-y-0 left-0 w-[3px] origin-center scale-y-0 bg-[var(--accent)] transition-transform duration-300 ease-snap group-hover/tr:scale-y-100"
+                          />
+                          {s.carnet}
+                        </Td>
                         <Td>{s.nombreCompleto}</Td>
                         <Td className="text-isel-ink/65">{s.carrera}</Td>
                         <Td className="text-center text-isel-ink/65">{s.seccion || "—"}</Td>
                         <Td className="tabular text-center text-isel-ink/65">{s.trimestre ?? "—"}</Td>
                         <Td>
                           <div className="flex items-center justify-end gap-1">
-                            <PortalButton tone="ghost" size="sm" icon="eye" onClick={() => setFichaStudent(s)}>
+                            <PortalButton tone="ghost" size="sm" icon="eye" onClick={() => openFicha(s)}>
                               Ver ficha
                             </PortalButton>
                             <IconButton
@@ -527,14 +555,44 @@ export function AdminPortalPage() {
       />
 
       {fichaStudent && (
-        <Modal open onClose={() => setFichaStudent(null)} title={`Ficha — ${fichaStudent.nombreCompleto}`} widthClassName="max-w-4xl">
+        <Modal open onClose={closeFicha} title={`Ficha — ${fichaStudent.nombreCompleto}`} widthClassName="max-w-4xl">
+          {/* Barra de modo. Mientras diga "consulta", nada de dentro se puede
+              tocar y no hay botón de guardar; pasar a edición es un clic
+              deliberado, y se nota porque la barra cambia de color. */}
+          <div
+            className={`mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 transition-colors duration-500 ease-crisp ${
+              fichaEditing
+                ? "border-isel-gold/40 bg-isel-gold/10"
+                : "border-isel-line bg-isel-paper/70"
+            }`}
+          >
+            <p className="flex items-center gap-2.5 text-[13px] font-semibold text-isel-navy">
+              <Icon name={fichaEditing ? "pencil" : "eye"} size={16} className="text-isel-gold2" />
+              {fichaEditing ? "Estás editando esta ficha" : "Estás consultando esta ficha"}
+              <span className="font-normal text-isel-ink/45">
+                {fichaEditing ? "— los cambios se guardan al final" : "— nada se puede modificar"}
+              </span>
+            </p>
+            {fichaEditing ? (
+              <PortalButton tone="ghost" size="sm" icon="close" onClick={() => setFichaEditing(false)}>
+                Salir de edición
+              </PortalButton>
+            ) : (
+              <PortalButton tone="primary" size="sm" icon="pencil" onClick={() => setFichaEditing(true)}>
+                Editar ficha
+              </PortalButton>
+            )}
+          </div>
+
           <CourseAssignmentForm
+            key={fichaEditing ? "edit" : "view"}
             student={fichaStudent}
+            readOnly={!fichaEditing}
             autorizadoPorCodigo={session?.role === "admin" ? "ADMIN" : null}
             onSaved={() => {
               if (rangeMode) loadAssignments(rangeMode);
             }}
-            onDismissSaved={() => setFichaStudent(null)}
+            onDismissSaved={closeFicha}
           />
         </Modal>
       )}

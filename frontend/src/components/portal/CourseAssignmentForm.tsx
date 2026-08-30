@@ -6,8 +6,8 @@ import { getAssignmentByStudent, saveAssignment } from "@/lib/assignmentsApi";
 import { getCourses, getTrimestres } from "@/lib/coursesApi";
 import type { Course } from "@/types/course";
 import { SignaturePad, type SignaturePadHandle } from "@/components/portal/SignaturePad";
-import { SearchSelect, type SearchSelectOption } from "@/components/ui/SearchSelect";
 import { Modal } from "@/components/ui/Modal";
+import { CoursePickerModal } from "@/components/portal/CoursePickerModal";
 import { Icon } from "@/components/portal/Icon";
 import { PortalPanel } from "@/components/portal/PortalShell";
 import { Alert, Chip, EmptyState, Field, Loading, PortalButton, Segmented, fieldClass } from "@/components/portal/kit";
@@ -51,10 +51,6 @@ function nextRowId() {
   return `row-${rowIdSeq}`;
 }
 
-function groupLabel(c: Course): string {
-  return c.carrera === "Inglés" ? "Inglés" : `${c.carrera} · Trimestre ${c.trimestre}`;
-}
-
 function blankAdditionalRow(): AdditionalEntry {
   return {
     id: nextRowId(),
@@ -76,9 +72,21 @@ interface CourseAssignmentFormProps {
    *  (closes the "Ver ficha" modal, since there's no separate "menú principal" to send an admin back
    *  to); when omitted — the student flow — the button instead navigates to the site's home page. */
   onDismissSaved?: () => void;
+  /**
+   * Solo lectura. El panel abre la ficha así: consultarla es lo habitual y
+   * editar la de otra persona tiene que ser una decisión, no el estado por
+   * defecto con el botón de guardar esperando al final del scroll.
+   */
+  readOnly?: boolean;
 }
 
-export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved, onDismissSaved }: CourseAssignmentFormProps) {
+export function CourseAssignmentForm({
+  student,
+  autorizadoPorCodigo,
+  onSaved,
+  onDismissSaved,
+  readOnly = false,
+}: CourseAssignmentFormProps) {
   const navigate = useNavigate();
   const [allCourses, setAllCourses] = useState<Course[]>([]);
   // Nothing is pre-selected — a student only ever sees a maestría "chosen" here once they (or an
@@ -94,7 +102,11 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved, on
   // True only until we've checked whether this student already has ANY saved ficha.
   const [checkingExisting, setCheckingExisting] = useState(true);
 
-  const [seccion, setSeccion] = useState(student.seccion ?? "");
+  // La sección NO se precarga del padrón: cambia de un trimestre a otro y
+  // muchos estudiantes no la tienen asignada todavía. Se muestra vacía para
+  // que la escriba quien sí la sepa. Solo se recupera si ya venía en una ficha
+  // guardada (ver la rehidratación de abajo).
+  const [seccion, setSeccion] = useState("");
   const [additional, setAdditional] = useState<AdditionalEntry[]>([blankAdditionalRow()]);
   const [pendientesTrimestres, setPendientesTrimestres] = useState(false);
   const [pendientesMaterias, setPendientesMaterias] = useState(false);
@@ -185,7 +197,7 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved, on
 
   // Re-hydrate the rest of the form whenever the loaded ficha (for this carrera+trimestre) changes.
   useEffect(() => {
-    setSeccion(assignment?.seccion ?? student.seccion ?? "");
+    setSeccion(assignment?.seccion ?? "");
     setPendientesTrimestres(assignment?.tienePendientesTrimestres ?? false);
     setPendientesMaterias(assignment?.tienePendientesMaterias ?? false);
     setTipoPago(assignment?.tipoPago ?? "");
@@ -247,7 +259,7 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved, on
   function openPicker(c: string) {
     setDraftCarrera(c);
     setDraftTrimestre(c === carrera ? trimestre : null);
-    setDraftSeccion(c === carrera ? seccion : (student.seccion ?? ""));
+    setDraftSeccion(c === carrera ? seccion : "");
     setPickerOpen(true);
   }
 
@@ -272,15 +284,6 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved, on
       Array.from(new Set(allCourses.filter((c) => c.carrera !== "Inglés").map((c) => c.carrera))).sort((a, b) =>
         a.localeCompare(b),
       ),
-    [allCourses],
-  );
-
-  const additionalCourseOptions: SearchSelectOption[] = useMemo(
-    () =>
-      allCourses
-        .slice()
-        .sort((a, b) => (a.carrera + a.trimestre).localeCompare(b.carrera + b.trimestre))
-        .map((c) => ({ value: String(c.id), label: c.nombre, group: groupLabel(c) })),
     [allCourses],
   );
 
@@ -392,6 +395,7 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved, on
       <PortalPanel
         id="paso-datos"
         step="01"
+        accent="#12855C"
         title="Tus datos"
         description="Vienen de los registros de la Universidad. Si algo no coincide, avísale a coordinación antes de enviar la ficha."
       >
@@ -409,6 +413,7 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved, on
       <PortalPanel
         id="paso-cursos"
         step="02"
+        accent="#B8791F"
         title="Cursos por asignarse"
         description="Toca tu maestría para elegir el trimestre y la sección. Los cursos de ese trimestre se asignan todos juntos."
       >
@@ -421,9 +426,10 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved, on
                 type="button"
                 onClick={() => openPicker(c)}
                 aria-pressed={isSelected}
-                className={`group/row relative flex w-full items-center gap-4 px-4 py-3.5 text-left transition-colors duration-300 ease-crisp ${
-                  isSelected ? "bg-isel-emerald/[0.07]" : "bg-white hover:bg-isel-paper/70"
-                }`}
+                disabled={readOnly}
+                className={`group/row relative flex w-full items-center gap-4 px-4 py-3.5 text-left transition-colors duration-300 ease-crisp disabled:cursor-default ${
+                  isSelected ? "bg-isel-emerald/[0.07]" : "bg-white hover:enabled:bg-isel-paper/70"
+                } ${readOnly && !isSelected ? "opacity-45" : ""}`}
               >
                 {/* Filo que crece al seleccionar: dice cuál es la elegida sin
                     repintar toda la fila de verde. */}
@@ -452,7 +458,7 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved, on
                   <Chip tone="emerald" icon="check">
                     Trimestre {trimestre}
                   </Chip>
-                ) : (
+                ) : readOnly ? null : (
                   <span className="flex shrink-0 items-center gap-1.5 text-[12px] font-semibold text-isel-ink/30 transition-colors duration-300 ease-crisp group-hover/row:text-isel-navy">
                     Elegir
                     <Icon
@@ -492,9 +498,11 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved, on
                     {cursosCount === 1 ? "curso" : "cursos"}
                   </p>
                 </div>
-                <PortalButton tone="ghost" size="sm" icon="pencil" onClick={() => openPicker(carrera)}>
-                  Cambiar
-                </PortalButton>
+                {!readOnly && (
+                  <PortalButton tone="ghost" size="sm" icon="pencil" onClick={() => openPicker(carrera)}>
+                    Cambiar
+                  </PortalButton>
+                )}
               </div>
 
               {cursosCount === 0 ? (
@@ -593,6 +601,7 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved, on
       <PortalPanel
         id="paso-adicionales"
         step="03"
+        accent="#6D5AA8"
         title="Cursos adicionales o cambio de sección"
         description="Opcional. Agrega un curso extra de cualquier maestría, o marca “Repetir trimestre” si necesitas retomar un curso de un trimestre anterior."
       >
@@ -602,28 +611,31 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved, on
               key={row.id}
               row={row}
               index={i}
-              options={additionalCourseOptions}
               allCourses={allCourses}
               mainCarrera={carrera}
               canRemove={additional.length > 1}
+              readOnly={readOnly}
               onChange={(patch) => updateAdditional(row.id, patch)}
               onRemove={() => removeAdditionalRow(row.id)}
             />
           ))}
         </div>
 
-        <div className="mt-5 flex flex-wrap items-center gap-3">
-          <PortalButton tone="ghost" icon="plus" onClick={addAdditionalRow} disabled={additional.length >= 10}>
-            Agregar otro curso
-          </PortalButton>
-          <span className="tabular text-[12px] text-isel-ink/35">{additional.length} de 10</span>
-        </div>
+        {!readOnly && (
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <PortalButton tone="ghost" icon="plus" onClick={addAdditionalRow} disabled={additional.length >= 10}>
+              Agregar otro curso
+            </PortalButton>
+            <span className="tabular text-[12px] text-isel-ink/35">{additional.length} de 10</span>
+          </div>
+        )}
       </PortalPanel>
 
       {/* -------------------------------------------------- 04 · firma */}
       <PortalPanel
         id="paso-firma"
         step="04"
+        accent="#2C6E8F"
         title="Observaciones y firma"
         description="Lo último: confirma si arrastras pendientes, elige cómo vas a pagar y firma la ficha."
       >
@@ -636,6 +648,7 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved, on
             ]}
             value={pendientesTrimestres ? "si" : "no"}
             onChange={(v) => setPendientesTrimestres(v === "si")}
+            disabled={readOnly}
           />
           <ChoiceRow
             label="Materias de trimestres o semestres anteriores pendientes de cursar"
@@ -645,6 +658,7 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved, on
             ]}
             value={pendientesMaterias ? "si" : "no"}
             onChange={(v) => setPendientesMaterias(v === "si")}
+            disabled={readOnly}
           />
           <ChoiceRow
             label="Tipo de pago"
@@ -654,6 +668,7 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved, on
             ]}
             value={tipoPago === "" ? null : tipoPago}
             onChange={(v) => setTipoPago(v as TipoPago)}
+            disabled={readOnly}
           />
         </div>
 
@@ -663,14 +678,17 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved, on
               <Icon name="pen" size={16} className="text-isel-gold2" />
               Firma digital
             </p>
-            <PortalButton tone="quiet" size="sm" icon="eraser" onClick={() => signatureRef.current?.clear()}>
-              Limpiar firma
-            </PortalButton>
+            {!readOnly && (
+              <PortalButton tone="quiet" size="sm" icon="eraser" onClick={() => signatureRef.current?.clear()}>
+                Limpiar firma
+              </PortalButton>
+            )}
           </div>
           <SignaturePad
             ref={signatureRef}
             initialValue={assignment?.firmaBase64}
             className="max-w-md"
+            readOnly={readOnly}
             key={assignment?.id ?? "blank"}
           />
         </div>
@@ -682,6 +700,7 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved, on
               className={fieldClass}
               placeholder="correo@dominio.com"
               value={correoContacto}
+              disabled={readOnly}
               onChange={(e) => setCorreoContacto(e.target.value)}
             />
           </Field>
@@ -690,18 +709,25 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved, on
               className={fieldClass}
               placeholder="8 dígitos"
               value={telefonoContacto}
+              disabled={readOnly}
               onChange={(e) => setTelefonoContacto(e.target.value)}
             />
           </Field>
         </div>
       </PortalPanel>
 
-      {error && <Alert kind="error">{error}</Alert>}
+      {error && !readOnly && <Alert kind="error">{error}</Alert>}
 
       {/* ------------------------------------------------- barra de envío */}
-      <div className="sticky bottom-4 z-20 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-isel-line bg-white/95 px-5 py-4 shadow-card-hover backdrop-blur">
+      <div
+        className={`sticky bottom-4 z-20 flex flex-wrap items-center justify-between gap-4 rounded-2xl border px-5 py-4 shadow-card-hover backdrop-blur ${
+          readOnly ? "border-isel-line bg-isel-arena/90" : "border-isel-line bg-white/95"
+        }`}
+      >
         <div className="min-w-0">
-          <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-isel-ink/40">Vas a enviar</p>
+          <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-isel-ink/40">
+            {readOnly ? "Ficha guardada" : "Vas a enviar"}
+          </p>
           <p className="mt-1 truncate text-[13.5px] text-isel-ink/75">
             {carrera === null ? (
               <span className="text-isel-ink/40">Falta elegir tu maestría</span>
@@ -720,9 +746,16 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved, on
             )}
           </p>
         </div>
-        <PortalButton tone="accent" icon="save" onClick={handleSave} loading={saving} className="shrink-0">
-          {saving ? "Guardando" : "Guardar asignación"}
-        </PortalButton>
+        {readOnly ? (
+          <span className="flex shrink-0 items-center gap-2 rounded-xl border border-isel-line bg-white px-3.5 py-2 text-[12.5px] font-semibold text-isel-ink/50">
+            <Icon name="lock" size={14} />
+            Solo lectura
+          </span>
+        ) : (
+          <PortalButton tone="accent" icon="save" onClick={handleSave} loading={saving} className="shrink-0">
+            {saving ? "Guardando" : "Guardar asignación"}
+          </PortalButton>
+        )}
       </div>
 
       {/* ------------------------------------------------ resumen guardado */}
@@ -802,16 +835,18 @@ function ChoiceRow({
   options,
   value,
   onChange,
+  disabled = false,
 }: {
   label: string;
   options: { value: string; label: string }[];
   value: string | null;
   onChange: (v: string) => void;
+  disabled?: boolean;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-isel-line bg-isel-paper/60 px-4 py-3">
+    <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-isel-line bg-isel-paper/60 px-4 py-3 transition-colors duration-300 ease-crisp hover:border-isel-ink/20">
       <span className="max-w-[46ch] text-[13.5px] leading-snug text-isel-ink/80">{label}</span>
-      <Segmented options={options} value={value} onChange={onChange} size="sm" className="shrink-0" />
+      <Segmented options={options} value={value} onChange={onChange} size="sm" disabled={disabled} className="shrink-0" />
     </div>
   );
 }
@@ -819,22 +854,23 @@ function ChoiceRow({
 function AdditionalRow({
   row,
   index,
-  options,
   allCourses,
   mainCarrera,
   canRemove,
+  readOnly,
   onChange,
   onRemove,
 }: {
   row: AdditionalEntry;
   index: number;
-  options: SearchSelectOption[];
   allCourses: Course[];
   mainCarrera: string | null;
   canRemove: boolean;
+  readOnly: boolean;
   onChange: (patch: Partial<AdditionalEntry>) => void;
   onRemove: () => void;
 }) {
+  const [pickerOpen, setPickerOpen] = useState(false);
   const catalogCarreras = useMemo(
     () => Array.from(new Set(allCourses.map((c) => c.carrera))).sort((a, b) => a.localeCompare(b)),
     [allCourses],
@@ -851,6 +887,7 @@ function AdditionalRow({
     [allCourses, row.repetirCarrera, row.repetirTrimestre],
   );
   const repetirCourseChoice = row.courseId !== null ? repetirCourseOptions.find((c) => c.id === row.courseId) : undefined;
+  const chosen = row.courseId !== null ? allCourses.find((c) => c.id === row.courseId) : undefined;
 
   const numeral = (
     <span aria-hidden className="tabular text-[11px] font-bold text-isel-ink/25">
@@ -871,21 +908,25 @@ function AdditionalRow({
               </p>
             </div>
           </div>
-          <PortalButton tone="quiet" size="sm" icon="trash" onClick={onRemove}>
-            Quitar
-          </PortalButton>
+          {!readOnly && (
+            <PortalButton tone="quiet" size="sm" icon="trash" onClick={onRemove}>
+              Quitar
+            </PortalButton>
+          )}
         </div>
         <div className="mt-4 grid grid-cols-2 gap-3">
           <input
             className={fieldClass}
             placeholder="Sección (opcional)"
             value={row.seccion}
+            disabled={readOnly}
             onChange={(e) => onChange({ seccion: e.target.value })}
           />
           <input
             className={fieldClass}
             placeholder="Jornada (opcional)"
             value={row.jornada}
+            disabled={readOnly}
             onChange={(e) => onChange({ jornada: e.target.value })}
           />
         </div>
@@ -906,6 +947,7 @@ function AdditionalRow({
           {numeral}
           <Segmented
             size="sm"
+            disabled={readOnly}
             value={row.mode}
             onChange={(mode) =>
               onChange(
@@ -920,7 +962,7 @@ function AdditionalRow({
             ]}
           />
         </div>
-        {canRemove && (
+        {canRemove && !readOnly && (
           <PortalButton tone="quiet" size="sm" icon="trash" onClick={onRemove}>
             Quitar este campo
           </PortalButton>
@@ -928,14 +970,65 @@ function AdditionalRow({
       </div>
 
       {row.mode === "adicional" ? (
-        <Field label="Curso adicional" hint="Busca en el catálogo completo, de cualquier maestría.">
-          <SearchSelect
-            options={options}
-            value={row.courseId !== null ? String(row.courseId) : ""}
-            onChange={(v) => onChange({ courseId: Number(v) })}
-            placeholder="Escribe para buscar un curso…"
+        <div>
+          <span className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-[0.14em] text-isel-ink/45">
+            Curso adicional
+          </span>
+
+          {/* Disparador del selector. Un boton que ensena lo elegido -con su
+              maestria y su trimestre- en vez de un desplegable con el catalogo
+              entero dentro, donde encontrar un curso era cuestion de suerte. */}
+          <button
+            type="button"
+            disabled={readOnly}
+            onClick={() => setPickerOpen(true)}
+            className={`group/pick flex w-full items-center gap-3 rounded-xl border bg-white px-4 py-3 text-left transition-[border-color,box-shadow] duration-300 ease-crisp disabled:cursor-default ${
+              chosen
+                ? "border-isel-emerald/35 shadow-[0_0_0_3px_rgba(18,133,92,0.09)]"
+                : "border-dashed border-isel-line hover:enabled:border-isel-navy/35"
+            }`}
+          >
+            <span
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                chosen ? "bg-isel-emerald/10 text-isel-emerald" : "bg-isel-paper text-isel-ink/35"
+              }`}
+            >
+              <Icon name={chosen ? "check" : "search"} size={17} />
+            </span>
+            <span className="min-w-0 flex-1">
+              {chosen ? (
+                <>
+                  <span className="block truncate text-[14px] font-semibold text-isel-navy">{chosen.nombre}</span>
+                  <span className="mt-0.5 block truncate text-[12px] text-isel-ink/50">
+                    {chosen.carrera === "Inglés" ? "Inglés" : `${chosen.carrera} · Trimestre ${chosen.trimestre}`}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="block text-[14px] font-semibold text-isel-ink/60">Elegir un curso</span>
+                  <span className="mt-0.5 block text-[12px] text-isel-ink/40">
+                    Inglés y las seis maestrías, separadas por trimestre
+                  </span>
+                </>
+              )}
+            </span>
+            {!readOnly && (
+              <Icon
+                name="chevronRight"
+                size={16}
+                className="shrink-0 text-isel-ink/30 transition-transform duration-500 ease-snap group-hover/pick:translate-x-0.5"
+              />
+            )}
+          </button>
+
+          <CoursePickerModal
+            open={pickerOpen}
+            onClose={() => setPickerOpen(false)}
+            courses={allCourses}
+            value={row.courseId}
+            onSelect={(courseId) => onChange({ courseId })}
           />
-        </Field>
+        </div>
       ) : (
         <div>
           <p className="mb-3 flex items-center gap-2 text-[12.5px] text-isel-ink/50">
@@ -946,6 +1039,7 @@ function AdditionalRow({
             <Field label="Maestría">
               <select
                 className={fieldClass}
+                disabled={readOnly}
                 value={row.repetirCarrera ?? ""}
                 onChange={(e) =>
                   onChange({ repetirCarrera: e.target.value || null, repetirTrimestre: null, courseId: null })
@@ -964,7 +1058,7 @@ function AdditionalRow({
                 className={fieldClass}
                 value={row.repetirTrimestre ?? ""}
                 onChange={(e) => onChange({ repetirTrimestre: e.target.value ? Number(e.target.value) : null, courseId: null })}
-                disabled={row.repetirCarrera === null}
+                disabled={readOnly || row.repetirCarrera === null}
               >
                 <option value="">Selecciona…</option>
                 {repetirTrimestres.map((t) => (
@@ -979,7 +1073,7 @@ function AdditionalRow({
                 className={fieldClass}
                 value={row.courseId ?? ""}
                 onChange={(e) => onChange({ courseId: e.target.value ? Number(e.target.value) : null })}
-                disabled={row.repetirTrimestre === null}
+                disabled={readOnly || row.repetirTrimestre === null}
               >
                 <option value="">Selecciona…</option>
                 {repetirCourseOptions.map((c) => (
@@ -1007,12 +1101,14 @@ function AdditionalRow({
           className={fieldClass}
           placeholder="Sección (opcional)"
           value={row.seccion}
+          disabled={readOnly}
           onChange={(e) => onChange({ seccion: e.target.value })}
         />
         <input
           className={fieldClass}
           placeholder="Jornada (opcional)"
           value={row.jornada}
+          disabled={readOnly}
           onChange={(e) => onChange({ jornada: e.target.value })}
         />
       </div>

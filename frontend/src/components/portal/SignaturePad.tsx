@@ -12,6 +12,8 @@ interface SignaturePadProps {
   initialValue?: string | null;
   onChange?: (hasSignature: boolean) => void;
   className?: string;
+  /** Solo lectura: se ve la firma guardada pero no se puede trazar encima. */
+  readOnly?: boolean;
 }
 
 function getPoint(canvas: HTMLCanvasElement, e: PointerEvent | React.PointerEvent) {
@@ -27,7 +29,7 @@ function getPoint(canvas: HTMLCanvasElement, e: PointerEvent | React.PointerEven
  * a PNG the backend stores verbatim on CourseAssignment.FirmaBase64.
  */
 export const SignaturePad = forwardRef<SignaturePadHandle, SignaturePadProps>(function SignaturePad(
-  { initialValue, onChange, className = "" },
+  { initialValue, onChange, className = "", readOnly = false },
   ref,
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -88,6 +90,7 @@ export const SignaturePad = forwardRef<SignaturePadHandle, SignaturePadProps>(fu
   }));
 
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (readOnly) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     canvas.setPointerCapture(e.pointerId);
@@ -96,7 +99,7 @@ export const SignaturePad = forwardRef<SignaturePadHandle, SignaturePadProps>(fu
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!drawing.current) return;
+    if (readOnly || !drawing.current) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -126,7 +129,9 @@ export const SignaturePad = forwardRef<SignaturePadHandle, SignaturePadProps>(fu
     <div className={`relative ${className}`}>
       <canvas
         ref={canvasRef}
-        className="h-44 w-full cursor-crosshair touch-none rounded-xl border border-dashed border-isel-line bg-white transition-colors duration-300 ease-crisp hover:border-isel-emerald/45"
+        className={`h-44 w-full touch-none rounded-xl border border-dashed border-isel-line bg-white transition-colors duration-300 ease-crisp ${
+          readOnly ? "cursor-default opacity-90" : "cursor-crosshair hover:border-isel-emerald/45"
+        }`}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={endStroke}
@@ -136,7 +141,9 @@ export const SignaturePad = forwardRef<SignaturePadHandle, SignaturePadProps>(fu
         <span className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 text-isel-ink/30">
           {/* Renglón de firma: dice dónde va sin escribir "escribe aquí". */}
           <span aria-hidden className="h-px w-2/3 bg-isel-line" />
-          <span className="text-[12.5px]">Firma con el mouse, el lápiz óptico o el dedo</span>
+          <span className="text-[12.5px]">
+            {readOnly ? "Sin firma registrada" : "Firma con el mouse, el lápiz óptico o el dedo"}
+          </span>
         </span>
       )}
     </div>
