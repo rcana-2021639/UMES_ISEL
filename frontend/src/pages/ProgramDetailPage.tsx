@@ -6,7 +6,7 @@ import { getProgramBySlug } from "@/lib/api";
 import type { MasterProgram } from "@/types/program";
 import { accentFor } from "@/data/accents";
 import { ImageSlot } from "@/components/ui/ImageSlot";
-import { MagneticCta } from "@/components/ui/MagneticCta";
+import { ActionButton } from "@/components/ui/ActionButton";
 import {
   MaskReveal,
   RevealOnScroll,
@@ -86,9 +86,9 @@ export function ProgramDetailPage() {
           <div>
             <h1 className="font-display text-3xl font-semibold text-isel-navy">Programa no encontrado</h1>
             <div className="mt-7">
-              <MagneticCta to="/#programas" tone="dark">
+              <ActionButton to="/#programas" tone="solid">
                 Volver a programas
-              </MagneticCta>
+              </ActionButton>
             </div>
           </div>
         </main>
@@ -106,27 +106,24 @@ export function ProgramDetailPage() {
   const num = String(index + 1).padStart(2, "0");
   const otros = localPrograms.filter((p) => p.slug !== program.slug).slice(0, 3);
 
+  // Los tres pasos explican el proceso; las acciones viven una sola vez, en la
+  // columna fija. Repetir aquí Pensum/Entrevista/Inscripción era decir lo mismo
+  // dos veces en la misma pantalla.
   const pasos = [
     {
       n: "01",
       titulo: "Revisa el pensum",
       texto: "Descarga el plan completo del programa y confirma que los cursos encajan con lo que buscas.",
-      cta: "Pensum",
-      href: program.pensumUrl,
     },
     {
       n: "02",
       titulo: "Agenda tu entrevista",
       texto: "Un asesor académico resuelve tus dudas de admisión, horarios y costos antes de que decidas.",
-      cta: "Entrevista",
-      href: program.interviewUrl,
     },
     {
       n: "03",
       titulo: "Completa tu inscripción",
       texto: "Entra al portal ISEL con este programa ya seleccionado y llena tu ficha de asignación.",
-      cta: "Inscripción",
-      to: `/portal/login?programa=${program.slug}`,
     },
   ];
 
@@ -202,23 +199,6 @@ export function ProgramDetailPage() {
               </div>
             </div>
 
-            <dl className="mt-14 grid grid-cols-1 gap-6 border-t border-white/10 pt-9 sm:grid-cols-3">
-              {[
-                { k: "Duración", v: program.plan.duracion },
-                { k: "Modalidad", v: program.plan.modalidad },
-                { k: "Tutorías", v: program.plan.tutorias },
-              ].map((f, i) => (
-                <motion.div
-                  key={f.k}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.7, delay: 0.7 + i * 0.1, ease: SNAP }}
-                >
-                  <dt className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/40">{f.k}</dt>
-                  <dd className="mt-2 text-sm leading-relaxed text-white/80">{f.v}</dd>
-                </motion.div>
-              ))}
-            </dl>
           </div>
         </header>
 
@@ -328,15 +308,15 @@ export function ProgramDetailPage() {
                 <div className="mt-7 flex flex-col items-start gap-3">
                   {/* Escalera de peso: consultar el pensum es lo ligero,
                       inscribirse es la acción que la página persigue. */}
-                  <MagneticCta href={program.pensumUrl} tone="soft" full>
+                  <ActionButton href={program.pensumUrl} tone="outlineLight" full>
                     Pensum
-                  </MagneticCta>
-                  <MagneticCta href={program.interviewUrl} tone="dark" full>
+                  </ActionButton>
+                  <ActionButton href={program.interviewUrl} tone="solid" full>
                     Entrevista
-                  </MagneticCta>
-                  <MagneticCta to={`/portal/login?programa=${program.slug}`} tone="accent" full>
+                  </ActionButton>
+                  <ActionButton to={`/portal/login?programa=${program.slug}`} tone="accent" full>
                     Inscripción
-                  </MagneticCta>
+                  </ActionButton>
                 </div>
               </div>
             </RevealOnScroll>
@@ -361,38 +341,53 @@ export function ProgramDetailPage() {
               className="mt-5 max-w-2xl font-display text-[clamp(1.9rem,4.2vw,3rem)] font-semibold leading-[1.02] tracking-ultratight text-white"
             />
 
-            <div className="mt-14 grid grid-cols-1 gap-5 md:grid-cols-3">
-              {pasos.map((paso, i) => (
-                <motion.div
-                  key={paso.n}
-                  initial={{ opacity: 0, y: 40, clipPath: "inset(12% 0% 0% 0%)" }}
-                  whileInView={{ opacity: 1, y: 0, clipPath: "inset(0% 0% 0% 0%)" }}
-                  viewport={{ once: true, amount: 0.3 }}
-                  transition={{ duration: 0.9, delay: i * 0.12, ease: SNAP }}
-                  className="group flex flex-col rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-7 transition-colors duration-700 ease-snap hover:border-[var(--accent)]/50 hover:bg-white/[0.07]"
-                >
-                  <span
-                    className="flex h-12 w-12 items-center justify-center rounded-full font-display text-sm font-bold text-isel-deep transition-transform duration-500 ease-back group-hover:scale-110"
-                    style={{ backgroundColor: accent }}
+            {/* Línea de tiempo: los tres números cuelgan de un hilo que se
+                traza al entrar. Sin botones — las acciones están arriba. */}
+            <div className="relative mt-16">
+              <span aria-hidden className="absolute left-6 top-6 hidden h-px w-[calc(100%-3rem)] bg-white/12 md:block" />
+              <motion.span
+                aria-hidden
+                initial={{ scaleX: 0 }}
+                whileInView={{ scaleX: 1 }}
+                viewport={{ once: true, amount: 0.5 }}
+                transition={{ duration: 1.4, ease: SNAP }}
+                className="absolute left-6 top-6 hidden h-px w-[calc(100%-3rem)] origin-left md:block"
+                style={{ backgroundColor: accent }}
+              />
+
+              <ol className="grid grid-cols-1 gap-10 md:grid-cols-3 md:gap-8">
+                {pasos.map((paso, i) => (
+                  <motion.li
+                    key={paso.n}
+                    initial={{ opacity: 0, y: 30 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true, amount: 0.4 }}
+                    transition={{ duration: 0.8, delay: 0.25 + i * 0.14, ease: SNAP }}
+                    className="relative md:pr-8"
                   >
-                    {paso.n}
-                  </span>
-                  <h3 className="mt-6 font-display text-xl font-semibold text-white">{paso.titulo}</h3>
-                  <p className="mt-3 flex-1 text-[14.5px] leading-relaxed text-white/60">{paso.texto}</p>
-                  <div className="mt-7">
-                    {paso.to ? (
-                      <MagneticCta to={paso.to} tone="light">
-                        {paso.cta}
-                      </MagneticCta>
-                    ) : (
-                      <MagneticCta href={paso.href} tone="outline">
-                        {paso.cta}
-                      </MagneticCta>
-                    )}
-                  </div>
-                </motion.div>
-              ))}
+                    <span
+                      className="relative z-10 flex h-12 w-12 items-center justify-center rounded-full font-display text-sm font-bold text-isel-deep ring-8 ring-isel-navy"
+                      style={{ backgroundColor: accent }}
+                    >
+                      {paso.n}
+                    </span>
+                    <h3 className="mt-7 font-display text-xl font-semibold text-white">{paso.titulo}</h3>
+                    <p className="mt-3 max-w-[34ch] text-[14.5px] leading-relaxed text-white/60">{paso.texto}</p>
+                  </motion.li>
+                ))}
+              </ol>
             </div>
+
+            <RevealOnScroll delay={0.2}>
+              <div className="mt-14 flex flex-wrap items-center gap-5 border-t border-white/10 pt-9">
+                <ActionButton to={`/portal/login?programa=${program.slug}`} tone="light">
+                  Comenzar mi inscripción
+                </ActionButton>
+                <p className="text-[13px] leading-relaxed text-white/45">
+                  ¿Prefieres hablarlo antes? Agenda la entrevista desde el panel del programa.
+                </p>
+              </div>
+            </RevealOnScroll>
           </div>
         </section>
 

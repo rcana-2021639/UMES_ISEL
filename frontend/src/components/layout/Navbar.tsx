@@ -4,6 +4,7 @@ import { Link, useLocation } from "react-router-dom";
 import { ImageSlot } from "@/components/ui/ImageSlot";
 import { useActiveSection } from "@/hooks/useActiveSection";
 import { SNAP } from "@/components/ui/RevealOnScroll";
+import { ActionButton } from "@/components/ui/ActionButton";
 
 const NAV_LINKS = [
   { label: "Inicio", id: "inicio" },
@@ -113,18 +114,15 @@ export function Navbar() {
             >
               Portal ISEL
             </Link>
-            <a
+            <ActionButton
               href={href("admision")}
-              className="group relative overflow-hidden rounded-full bg-isel-emerald px-5 py-2.5 text-[13px] font-bold tracking-wide text-white"
+              external={false}
+              tone="accent"
+              size="sm"
+              className="[--accent:#12855C] [--accent-soft:rgba(18,133,92,0.25)]"
             >
-              <span
-                aria-hidden
-                className="absolute inset-0 origin-bottom scale-y-0 bg-isel-gold transition-transform duration-500 ease-snap group-hover:scale-y-100"
-              />
-              <span className="relative transition-colors duration-500 ease-snap group-hover:text-isel-deep">
-                Entrevista de admisión
-              </span>
-            </a>
+              Entrevista de admisión
+            </ActionButton>
           </div>
 
           <button

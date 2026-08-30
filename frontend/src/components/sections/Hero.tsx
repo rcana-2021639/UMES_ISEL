@@ -2,7 +2,7 @@ import { useRef } from "react";
 import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
 import { ImageSlot } from "@/components/ui/ImageSlot";
 import { CountUp, SNAP, usePointerParallax } from "@/components/ui/RevealOnScroll";
-import { MagneticCta } from "@/components/ui/MagneticCta";
+import { ActionButton } from "@/components/ui/ActionButton";
 
 /**
  * Hero — el momento de firma de la página.
@@ -201,12 +201,12 @@ export function Hero() {
             transition={{ duration: 0.9, delay: 1.08, ease: SNAP }}
             className="mt-10 flex flex-wrap items-center gap-3"
           >
-            <MagneticCta href="#programas" external={false} tone="light" arrow="down">
+            <ActionButton href="#programas" external={false} tone="light" arrow="down">
               Ver las 6 maestrías
-            </MagneticCta>
-            <MagneticCta href={INTERVIEW_URL} tone="outline">
+            </ActionButton>
+            <ActionButton href={INTERVIEW_URL} tone="outlineDark">
               Solicitar entrevista
-            </MagneticCta>
+            </ActionButton>
           </motion.div>
 
           <motion.dl

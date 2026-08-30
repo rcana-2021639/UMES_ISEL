@@ -1,8 +1,9 @@
-import { motion, useReducedMotion } from "framer-motion";
+import { useReducedMotion } from "framer-motion";
 import type { MasterProgram } from "@/types/program";
 import { programs as localPrograms } from "@/data/programs";
-import { RevealOnScroll, SplitHeading, SNAP } from "@/components/ui/RevealOnScroll";
+import { RevealOnScroll, SplitHeading } from "@/components/ui/RevealOnScroll";
 import { ImageSlot } from "@/components/ui/ImageSlot";
+import { ActionButton } from "@/components/ui/ActionButton";
 
 const INTERVIEW_URL = "https://b24-we8qvv.bitrix24.site/crm_form_2iluh/";
 
@@ -68,29 +69,12 @@ export function AdmissionCta({ programs }: AdmissionCtaProps) {
 
             <RevealOnScroll delay={0.18}>
               <div className="mt-9 flex flex-wrap items-center gap-3">
-                <motion.a
-                  href={INTERVIEW_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  whileTap={{ scale: 0.97 }}
-                  transition={{ duration: 0.3, ease: SNAP }}
-                  className="group relative overflow-hidden rounded-full bg-isel-gold px-8 py-4 text-[13px] font-bold uppercase tracking-[0.1em] text-isel-deep"
-                >
-                  <span
-                    aria-hidden
-                    className="absolute inset-0 origin-bottom scale-y-0 bg-white transition-transform duration-500 ease-snap group-hover:scale-y-100"
-                  />
-                  <span className="relative inline-flex items-center gap-2">
-                    Solicitar entrevista
-                    <span className="transition-transform duration-500 ease-snap group-hover:translate-x-1.5">→</span>
-                  </span>
-                </motion.a>
-                <a
-                  href="#programas"
-                  className="rounded-full border border-white/25 px-8 py-4 text-[13px] font-bold uppercase tracking-[0.1em] text-white/85 transition-colors duration-500 ease-snap hover:border-white/70 hover:text-white"
-                >
+                <ActionButton href={INTERVIEW_URL} tone="light">
+                  Solicitar entrevista
+                </ActionButton>
+                <ActionButton href="#programas" external={false} tone="outlineDark" arrow="down">
                   Revisar programas
-                </a>
+                </ActionButton>
               </div>
             </RevealOnScroll>
 
