@@ -55,6 +55,22 @@
     opacity: 0.55;
   }
 
+  /**
+   * Capitular. Recurso de composición de toda la vida para una semblanza:
+   * marca dónde empieza el texto y le da rango sin necesidad de una etiqueta
+   * en versalita más. Solo se usa una vez en toda la página.
+   */
+  .dropcap::first-letter {
+    float: left;
+    margin: 0.08em 0.12em 0 0;
+    font-family: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+    font-size: 3.6em;
+    font-weight: 600;
+    line-height: 0.78;
+    letter-spacing: -0.04em;
+    color: #12855c;
+  }
+
 }
 
 @layer utilities {
