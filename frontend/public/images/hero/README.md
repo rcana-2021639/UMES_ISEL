@@ -10,3 +10,6 @@ Coloca aquí estos archivos (mismo nombre exacto, minúsculas):
 | `favicon.png` | Ícono de la pestaña del navegador | 512×512 |
 
 Mientras no subas el archivo, esa zona se ve como un recuadro punteado con el nombre esperado — no se ve "rota".
+
+> La extension no importa: se prueba el mismo nombre con .jpg, .jpeg, .png,
+> .webp y .avif. Ver la tabla completa en `frontend/public/images/README.md`.

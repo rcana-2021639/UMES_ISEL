@@ -116,6 +116,23 @@
     text-wrap: balance;
   }
 
+  /* Cifras de ancho fijo: en las tablas del panel los carnés y los totales
+     dejan de bailar de fila en fila al filtrar. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  /* Campo de carné del acceso: dígitos separados, como se lee un carné en voz
+     alta. Es el único input de todo el proyecto con este tratamiento. */
+  .carnet-input {
+    letter-spacing: 0.28em;
+    font-variant-numeric: tabular-nums;
+  }
+  .carnet-input::placeholder {
+    letter-spacing: 0.1em;
+  }
+
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }

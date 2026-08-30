@@ -27,6 +27,14 @@ export default {
           arena: "#EFE7D6", // arena cálida — bandas alternas
           mist: "#EAEFE9", // verde muy lavado — bandas alternas
           line: "#E1DBCD", // hairlines sobre claro
+          /* Señales del portal. Antes venían de la rampa por defecto de
+             Tailwind (sky-100, purple-700, red-600…), que no pertenece a
+             ninguna paleta de la marca y hacía que el portal pareciera
+             otro producto. Estos cuatro sí son ISEL. */
+          sky: "#2C6E8F", // azul acero — "Link de pago"
+          plum: "#6D5AA8", // morado apagado — "Presencial"
+          alert: "#B23A2B", // rojo tierra — destructivo / error
+          alert2: "#8E2A1E", // el mismo, para hover
         },
       },
       fontFamily: {
@@ -73,6 +81,13 @@ export default {
           "0%, 100%": { opacity: "0.5" },
           "50%": { opacity: "1" },
         },
+        /* Barra indeterminada de carga del portal: recorre su carril en vez de
+           girar. Un spinner circular es el gesto por defecto de cualquier
+           plantilla; una barra que barre dice "estamos leyendo una lista". */
+        sweep: {
+          "0%": { transform: "translate3d(-100%,0,0)" },
+          "100%": { transform: "translate3d(300%,0,0)" },
+        },
       },
       animation: {
         drift: "drift 22s cubic-bezier(0.45,0,0.55,1) infinite",
@@ -80,6 +95,7 @@ export default {
         marquee: "marquee 38s linear infinite",
         "spin-slow": "spin-slow 44s linear infinite",
         breathe: "breathe 4.5s cubic-bezier(0.45,0,0.55,1) infinite",
+        sweep: "sweep 1.15s cubic-bezier(0.65,0,0.35,1) infinite",
       },
     },
   },

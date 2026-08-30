@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface ImageSlotProps {
   /** Ruta relativa a /public, p. ej. "/images/programs/fintech.jpg" */
@@ -18,20 +18,47 @@ interface ImageSlotProps {
 }
 
 /**
+ * Formatos que se prueban con el MISMO nombre base antes de dar la imagen por
+ * ausente. Es lo que evita tener que tocar código cuando la foto que llega es
+ * .png y aquí está declarada como .jpg: basta con dejar el archivo en su
+ * carpeta con el nombre correcto, en cualquiera de estas extensiones.
+ */
+const FORMATS = ["jpg", "jpeg", "png", "webp", "avif"];
+
+/** ["/x/foto.jpg", "/x/foto.jpeg", "/x/foto.png", …] — la declarada va primera. */
+function candidates(src: string): string[] {
+  const dot = src.lastIndexOf(".");
+  if (dot < 0) return [src];
+  const base = src.slice(0, dot);
+  const declared = src.slice(dot + 1).toLowerCase();
+  return [src, ...FORMATS.filter((f) => f !== declared).map((f) => `${base}.${f}`)];
+}
+
+/**
  * Muestra la imagen si existe en /public; si no, dibuja un marcador tratado
  * como parte del diseño —no como un error—: campo tintado con el acento
  * vigente, un glifo grande y el nombre exacto del archivo esperado.
  *
  * Para publicar la foto real basta copiarla en frontend/public/images/... con
- * el nombre que indica el marcador. Cero cambios de código.
+ * el nombre que indica el marcador y CUALQUIERA de las extensiones de FORMATS.
+ * Cero cambios de código.
  */
 export function ImageSlot({ src, alt, label, className = "", tone = "light", glyph, decorative = false }: ImageSlotProps) {
-  const [failed, setFailed] = useState(false);
-  const fileName = src.split("/").pop();
+  const [attempt, setAttempt] = useState(0);
+  const list = candidates(src);
+  const current = list[attempt];
 
-  if (failed && decorative) return null;
+  // Si cambia la ruta declarada (p. ej. al navegar a otra maestría) se vuelve a
+  // empezar por su formato original en lugar de arrastrar el intento anterior.
+  useEffect(() => {
+    setAttempt(0);
+  }, [src]);
 
-  if (failed) {
+  const fileBase = (src.split("/").pop() ?? src).replace(/\.[^.]+$/, "");
+
+  if (current === undefined) {
+    if (decorative) return null;
+
     const dark = tone === "dark";
     return (
       <div
@@ -68,7 +95,7 @@ export function ImageSlot({ src, alt, label, className = "", tone = "light", gly
             dark ? "bg-white/10 text-white/60" : "bg-isel-navy/[0.06] text-isel-ink/55"
           }`}
         >
-          {fileName}
+          {fileBase}.jpg · .png · .webp
         </code>
       </div>
     );
@@ -76,10 +103,11 @@ export function ImageSlot({ src, alt, label, className = "", tone = "light", gly
 
   return (
     <img
-      src={src}
+      key={current}
+      src={current}
       alt={alt}
       loading="lazy"
-      onError={() => setFailed(true)}
+      onError={() => setAttempt((n) => n + 1)}
       className={`h-full w-full object-cover ${className}`}
     />
   );

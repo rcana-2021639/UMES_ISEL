@@ -17,3 +17,6 @@ más grande para su página de "Información". Nombres exactos esperados:
 
 Si necesitas cambiar algún nombre, edítalo en `frontend/src/data/programs.ts`
 (campos `cardImage` / `detailImage`) — es el único lugar donde se referencian.
+
+> La extension no importa: se prueba el mismo nombre con .jpg, .jpeg, .png,
+> .webp y .avif. Ver la tabla completa en `frontend/public/images/README.md`.
