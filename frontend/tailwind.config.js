@@ -24,6 +24,7 @@ export default {
           gold2: "#A97B18", // ámbar legible sobre claro
           ink: "#12211D", // texto sobre claro
           paper: "#F6F3EC", // hueso cálido — fondo de página
+          arena: "#EFE7D6", // arena cálida — bandas alternas
           mist: "#EAEFE9", // verde muy lavado — bandas alternas
           line: "#E1DBCD", // hairlines sobre claro
         },
@@ -35,17 +36,21 @@ export default {
       },
       letterSpacing: {
         tightest: "-0.045em",
+        ultratight: "-0.06em",
       },
       boxShadow: {
         card: "0 1px 2px rgba(10,43,36,0.05), 0 10px 30px -12px rgba(10,43,36,0.22)",
         "card-hover": "0 2px 6px rgba(10,43,36,0.08), 0 28px 56px -18px rgba(10,43,36,0.42)",
         lift: "0 24px 60px -24px rgba(10,43,36,0.55)",
+        /* Halo del color del programa — se enciende al enfocar una tarjeta. */
+        accent: "0 30px 70px -28px var(--accent), 0 0 0 1px var(--accent)",
       },
       transitionTimingFunction: {
-        // Curvas propias: nada de `ease` por defecto en toda la página.
-        snap: "cubic-bezier(0.16, 1, 0.3, 1)", // salida suave, larga cola
+        // Curvas propias: nada de `ease`/`ease-in-out` por defecto en la página.
+        snap: "cubic-bezier(0.16, 1, 0.3, 1)", // salida suave, cola larga
         entry: "cubic-bezier(0.32, 0.72, 0, 1)", // entradas decididas
         crisp: "cubic-bezier(0.4, 0, 0.2, 1)",
+        back: "cubic-bezier(0.34, 1.56, 0.64, 1)", // overshoot corto
       },
       keyframes: {
         drift: {
@@ -60,11 +65,21 @@ export default {
           from: { transform: "translate3d(0,0,0)" },
           to: { transform: "translate3d(-50%,0,0)" },
         },
+        "spin-slow": {
+          from: { transform: "rotate(0deg)" },
+          to: { transform: "rotate(360deg)" },
+        },
+        breathe: {
+          "0%, 100%": { opacity: "0.5" },
+          "50%": { opacity: "1" },
+        },
       },
       animation: {
         drift: "drift 22s cubic-bezier(0.45,0,0.55,1) infinite",
         drift2: "drift2 28s cubic-bezier(0.45,0,0.55,1) infinite",
         marquee: "marquee 38s linear infinite",
+        "spin-slow": "spin-slow 44s linear infinite",
+        breathe: "breathe 4.5s cubic-bezier(0.45,0,0.55,1) infinite",
       },
     },
   },
