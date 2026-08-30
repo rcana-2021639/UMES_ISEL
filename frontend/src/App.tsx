@@ -6,7 +6,6 @@ import { LoginPage } from "@/pages/portal/LoginPage";
 import { StudentPortalPage } from "@/pages/portal/StudentPortalPage";
 import { AdminPortalPage } from "@/pages/portal/AdminPortalPage";
 import { RequireRole } from "@/components/portal/RequireRole";
-import { CursorRing } from "@/components/ui/CursorRing";
 
 /**
  * Resets scroll position on route change; if the new URL carries a hash
@@ -33,7 +32,6 @@ export default function App() {
   return (
     <>
       <ScrollToTop />
-      <CursorRing />
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/programas/:slug" element={<ProgramDetailPage />} />
