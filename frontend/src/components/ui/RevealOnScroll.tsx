@@ -48,29 +48,81 @@ export function RevealOnScroll({ children, className, delay = 0, y = 28, scale =
   );
 }
 
+/**
+ * "¿Ya entró en pantalla?" — medición directa, sin IntersectionObserver ni
+ * motor de animación de por medio.
+ *
+ * Se reserva para lo que TAPA contenido (el panel de dirección, las
+ * cortinas). Si el revelado dependiera de la librería de animación o del
+ * observador, cualquier tropiezo dejaría un bloque entero invisible de forma
+ * permanente — que es exactamente lo que pasó con el panel de dirección. Aquí
+ * solo hay `getBoundingClientRect` y un listener pasivo de scroll que se
+ * desconecta en cuanto el bloque se muestra: no hay nada que pueda fallar sin
+ * que falle el navegador entero.
+ *
+ * `amount` es la fracción del elemento que debe verse, con tope en un tercio
+ * de la pantalla para que los bloques más altos que el viewport también
+ * lleguen a cumplirlo.
+ */
+export function useReveal<T extends HTMLElement>(amount = 0.15) {
+  const ref = useRef<T>(null);
+  const [shown, setShown] = useState(false);
+
+  useEffect(() => {
+    if (shown) return;
+
+    function check() {
+      const el = ref.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const vh = window.innerHeight || document.documentElement.clientHeight;
+      const visible = Math.min(r.bottom, vh) - Math.max(r.top, 0);
+      const needed = Math.min(r.height * amount, vh * 0.33);
+      if (visible >= needed) setShown(true);
+    }
+
+    check();
+    window.addEventListener("scroll", check, { passive: true });
+    window.addEventListener("resize", check);
+    return () => {
+      window.removeEventListener("scroll", check);
+      window.removeEventListener("resize", check);
+    };
+  }, [amount, shown]);
+
+  return { ref, shown };
+}
+
 interface MaskRevealProps {
   children: ReactNode;
   className?: string;
   delay?: number;
-  /** Dirección desde la que se descubre el contenido. */
+  /** Lado por el que se retira la cortina. */
   from?: "bottom" | "left" | "right";
+  /** Clase de color de la cortina; debe igualar el fondo que la rodea. */
+  curtain?: string;
   style?: CSSProperties;
 }
 
 /**
- * Revelado por cortina: el bloque se descubre con un `clip-path` que se abre,
- * mientras el contenido sube ligeramente por detrás. Se siente a material que
- * se destapa, no a caja que aparece — y es lo que usan las tarjetas y los
- * retratos, para diferenciarlos del texto (que usa RevealOnScroll).
+ * Revelado por cortina: una lámina del color del fondo cubre el bloque y se
+ * retira al entrar en pantalla, como al destapar un impreso.
+ *
+ * La cortina se mueve con una transición CSS de `transform`, no con
+ * `clip-path` ni con la librería de animación. Regla de la casa: lo que puede
+ * dejar contenido invisible se resuelve con el navegador, que no falla; los
+ * adornos que no tapan nada sí pueden ir por la librería.
  */
-export function MaskReveal({ children, className, delay = 0, from = "bottom", style }: MaskRevealProps) {
+export function MaskReveal({
+  children,
+  className = "",
+  delay = 0,
+  from = "bottom",
+  curtain = "bg-isel-paper",
+  style,
+}: MaskRevealProps) {
   const reduce = useReducedMotion();
-  const closed =
-    from === "bottom"
-      ? "inset(100% 0% 0% 0%)"
-      : from === "left"
-        ? "inset(0% 100% 0% 0%)"
-        : "inset(0% 0% 0% 100%)";
+  const { ref, shown } = useReveal<HTMLDivElement>(0.2);
 
   if (reduce) {
     return (
@@ -80,17 +132,22 @@ export function MaskReveal({ children, className, delay = 0, from = "bottom", st
     );
   }
 
+  const vertical = from === "bottom";
+  const origin = vertical ? "origin-top" : from === "left" ? "origin-right" : "origin-left";
+  const closed = vertical ? "scale-y-100" : "scale-x-100";
+  const open = vertical ? "scale-y-0" : "scale-x-0";
+
   return (
-    <motion.div
-      className={className}
-      style={style}
-      initial={{ clipPath: closed, opacity: 0.4 }}
-      whileInView={{ clipPath: "inset(0% 0% 0% 0%)", opacity: 1 }}
-      viewport={{ once: true, amount: 0.2 }}
-      transition={{ duration: 1.05, delay, ease: SNAP }}
-    >
+    <div ref={ref} className={`relative overflow-hidden ${className}`} style={style}>
       {children}
-    </motion.div>
+      <span
+        aria-hidden
+        style={{ transitionDelay: `${delay}s` }}
+        className={`pointer-events-none absolute inset-0 z-20 transition-transform duration-[1050ms] ease-snap ${origin} ${curtain} ${
+          shown ? open : closed
+        }`}
+      />
+    </div>
   );
 }
 
@@ -120,17 +177,6 @@ export function StaggerGroup({ children, className, staggerDelay = 0.09, style }
 export const staggerItem: Variants = {
   hidden: { opacity: 0, y: 26 },
   show: { opacity: 1, y: 0, transition: { duration: 0.72, ease: SNAP } },
-};
-
-/** Variante de cascada con cortina — para rejillas de tarjetas. */
-export const staggerCard: Variants = {
-  hidden: { opacity: 0, y: 40, clipPath: "inset(12% 0% 0% 0%)" },
-  show: {
-    opacity: 1,
-    y: 0,
-    clipPath: "inset(0% 0% 0% 0%)",
-    transition: { duration: 0.95, ease: SNAP },
-  },
 };
 
 interface SplitHeadingProps {

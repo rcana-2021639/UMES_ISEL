@@ -1,7 +1,12 @@
-import { useRef } from "react";
 import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
 import { ImageSlot } from "@/components/ui/ImageSlot";
-import { RevealOnScroll, ScrollHighlightText, SplitHeading, SNAP } from "@/components/ui/RevealOnScroll";
+import {
+  RevealOnScroll,
+  ScrollHighlightText,
+  SplitHeading,
+  useReveal,
+  SNAP,
+} from "@/components/ui/RevealOnScroll";
 
 const CREDENCIALES = [
   { k: "Área", v: "Coordinación académica" },
@@ -20,7 +25,7 @@ const CREDENCIALES = [
  * convierte en un alto en la lectura y no en una tarjeta de equipo más.
  *
  * Coreografía, de fuera hacia dentro:
- *  1. el panel se abre como un telón (clip-path desde arriba, 1.2s);
+ *  1. el panel entra elevándose y asentándose (1.2s);
  *  2. dentro, el retrato se descubre con una cortina de color mientras la
  *     foto, que arranca ampliada, se asienta — y después deriva con el scroll;
  *  3. el nombre entra palabra por palabra y el sello circular empieza a girar;
@@ -31,8 +36,11 @@ const CREDENCIALES = [
  * está haciendo.
  */
 export function AdvisorSection() {
-  const panelRef = useRef<HTMLDivElement>(null);
   const reduce = useReducedMotion();
+  // Un solo ref sirve para las dos cosas: saber si el panel entró en pantalla
+  // (revelado por CSS) y medir su avance de scroll (parallax por framer).
+  const { ref: panelRef, shown } = useReveal<HTMLDivElement>(0.12);
+  const { ref: portraitRef, shown: portraitShown } = useReveal<HTMLDivElement>(0.25);
 
   const { scrollYProgress } = useScroll({ target: panelRef, offset: ["start end", "end start"] });
   const photoY = useTransform(scrollYProgress, [0, 1], ["-7%", reduce ? "-7%" : "7%"]);
@@ -54,14 +62,12 @@ export function AdvisorSection() {
           </RevealOnScroll>
         </div>
 
-        {/* El panel se abre como un telón. */}
-        <motion.div
+        {/* El panel entra elevándose; la cortina de verdad está dentro, sobre el retrato. */}
+        <div
           ref={panelRef}
-          initial={reduce ? { opacity: 0 } : { opacity: 0, y: 40, clipPath: "inset(0% 0% 100% 0%)" }}
-          whileInView={{ opacity: 1, y: 0, clipPath: "inset(0% 0% 0% 0%)" }}
-          viewport={{ once: true, amount: 0.15 }}
-          transition={{ duration: 1.2, ease: SNAP }}
-          className="grain relative mt-10 overflow-hidden rounded-[2rem] bg-isel-deep lg:rounded-[2.5rem]"
+          className={`grain relative mt-10 overflow-hidden rounded-[2rem] bg-isel-deep transition-[opacity,transform] duration-[1200ms] ease-snap lg:rounded-[2.5rem] ${
+            reduce || shown ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0"
+          }`}
         >
           <div className="grid-lines pointer-events-none absolute inset-0 opacity-60" aria-hidden />
           <motion.div
@@ -76,33 +82,35 @@ export function AdvisorSection() {
 
           <div className="relative grid grid-cols-1 lg:grid-cols-[0.86fr_1.14fr]">
             {/* Retrato a sangre: ocupa su columna de arriba abajo. */}
-            <div className="relative min-h-[26rem] overflow-hidden lg:min-h-[38rem]">
-              <motion.div
-                style={{ y: photoY }}
-                initial={reduce ? {} : { scale: 1.22 }}
-                whileInView={{ scale: 1.12 }}
-                viewport={{ once: true, amount: 0.3 }}
-                transition={{ duration: 1.7, ease: SNAP }}
-                className="absolute inset-0 h-[114%]"
+            <div ref={portraitRef} className="relative min-h-[26rem] overflow-hidden lg:min-h-[38rem]">
+              {/* Dos capas separadas: la de fuera asienta la escala con una
+                  transición CSS, la de dentro lleva el parallax de framer.
+                  Si compartieran elemento, el `transform` inline pisaría a la
+                  clase y la escala no se aplicaría. */}
+              <div
+                className={`absolute inset-0 h-[114%] transition-transform duration-[1700ms] ease-snap ${
+                  reduce || portraitShown ? "scale-[1.12]" : "scale-[1.22]"
+                }`}
               >
-                <ImageSlot
-                  src="/images/advisor/rolando-valdez.jpg"
-                  alt="Mgtr. Rolando Valdez"
-                  label="Mgtr. Rolando Valdez"
-                  tone="dark"
-                  glyph="RV"
-                />
-              </motion.div>
+                <motion.div style={{ y: photoY }} className="h-full w-full">
+                  <ImageSlot
+                    src="/images/advisor/rolando-valdez.jpg"
+                    alt="Mgtr. Rolando Valdez"
+                    label="Mgtr. Rolando Valdez"
+                    tone="dark"
+                    glyph="RV"
+                  />
+                </motion.div>
+              </div>
 
-              {/* Cortina que descubre el retrato. */}
+              {/* Cortina que descubre el retrato — transición CSS, nunca se queda echada. */}
               {!reduce && (
-                <motion.span
+                <span
                   aria-hidden
-                  initial={{ scaleY: 1 }}
-                  whileInView={{ scaleY: 0 }}
-                  viewport={{ once: true, amount: 0.3 }}
-                  transition={{ duration: 1.1, delay: 0.35, ease: SNAP }}
-                  className="absolute inset-0 origin-top bg-isel-emerald"
+                  className={`absolute inset-0 origin-top bg-isel-emerald transition-transform duration-[1100ms] ease-snap ${
+                    portraitShown ? "scale-y-0" : "scale-y-100"
+                  }`}
+                  style={{ transitionDelay: "0.35s" }}
                 />
               )}
 
@@ -197,7 +205,7 @@ export function AdvisorSection() {
               </dl>
             </div>
           </div>
-        </motion.div>
+        </div>
       </div>
     </section>
   );

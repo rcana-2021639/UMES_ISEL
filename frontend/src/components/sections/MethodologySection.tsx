@@ -172,8 +172,8 @@ export function MethodologySection() {
                   style={{ opacity: reduce || isActive ? 1 : 0.5 }}
                 >
                 <motion.article
-                  initial={{ opacity: 0, y: 44, clipPath: "inset(10% 0% 0% 0%)" }}
-                  whileInView={{ opacity: 1, y: 0, clipPath: "inset(0% 0% 0% 0%)" }}
+                  initial={{ opacity: 0, y: 44, scale: 0.99 }}
+                  whileInView={{ opacity: 1, y: 0, scale: 1 }}
                   viewport={{ once: true, amount: 0.15 }}
                   transition={{ duration: 1, ease: SNAP }}
                   className="group relative overflow-hidden rounded-[1.8rem] border bg-white/[0.035] transition-colors duration-700 ease-snap"
