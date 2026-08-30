@@ -1,8 +1,19 @@
-import { motion, useReducedMotion, type Variants } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
+import {
+  motion,
+  useInView,
+  useMotionValue,
+  useReducedMotion,
+  useSpring,
+  type MotionValue,
+  type Variants,
+} from "framer-motion";
 import type { CSSProperties, ReactNode } from "react";
 
-/** Curva propia de entrada — nunca `ease`/`ease-in-out` por defecto. */
-export const SNAP = [0.16, 1, 0.3, 1] as const;
+/** Curvas propias — nunca `ease`/`ease-in-out` por defecto. */
+export const SNAP = [0.16, 1, 0.3, 1] as const; // cola larga, para lo grande
+export const ENTRY = [0.32, 0.72, 0, 1] as const; // decidida, para lo mediano
+export const BACK = [0.34, 1.56, 0.64, 1] as const; // overshoot corto, para lo pequeño
 
 interface RevealOnScrollProps {
   children: ReactNode;
@@ -35,6 +46,52 @@ export function RevealOnScroll({ children, className, delay = 0, y = 28, scale =
   );
 }
 
+interface MaskRevealProps {
+  children: ReactNode;
+  className?: string;
+  delay?: number;
+  /** Dirección desde la que se descubre el contenido. */
+  from?: "bottom" | "left" | "right";
+  style?: CSSProperties;
+}
+
+/**
+ * Revelado por cortina: el bloque se descubre con un `clip-path` que se abre,
+ * mientras el contenido sube ligeramente por detrás. Se siente a material que
+ * se destapa, no a caja que aparece — y es lo que usan las tarjetas y los
+ * retratos, para diferenciarlos del texto (que usa RevealOnScroll).
+ */
+export function MaskReveal({ children, className, delay = 0, from = "bottom", style }: MaskRevealProps) {
+  const reduce = useReducedMotion();
+  const closed =
+    from === "bottom"
+      ? "inset(100% 0% 0% 0%)"
+      : from === "left"
+        ? "inset(0% 100% 0% 0%)"
+        : "inset(0% 0% 0% 100%)";
+
+  if (reduce) {
+    return (
+      <div className={className} style={style}>
+        {children}
+      </div>
+    );
+  }
+
+  return (
+    <motion.div
+      className={className}
+      style={style}
+      initial={{ clipPath: closed, opacity: 0.4 }}
+      whileInView={{ clipPath: "inset(0% 0% 0% 0%)", opacity: 1 }}
+      viewport={{ once: true, amount: 0.2 }}
+      transition={{ duration: 1.05, delay, ease: SNAP }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
 interface StaggerGroupProps {
   children: ReactNode;
   className?: string;
@@ -50,7 +107,7 @@ export function StaggerGroup({ children, className, staggerDelay = 0.09, style }
       style={style}
       initial="hidden"
       whileInView="show"
-      viewport={{ once: true, amount: 0.15 }}
+      viewport={{ once: true, amount: 0.12 }}
       transition={{ staggerChildren: staggerDelay }}
     >
       {children}
@@ -63,21 +120,37 @@ export const staggerItem: Variants = {
   show: { opacity: 1, y: 0, transition: { duration: 0.72, ease: SNAP } },
 };
 
+/** Variante de cascada con cortina — para rejillas de tarjetas. */
+export const staggerCard: Variants = {
+  hidden: { opacity: 0, y: 40, clipPath: "inset(12% 0% 0% 0%)" },
+  show: {
+    opacity: 1,
+    y: 0,
+    clipPath: "inset(0% 0% 0% 0%)",
+    transition: { duration: 0.95, ease: SNAP },
+  },
+};
+
 interface SplitHeadingProps {
   text: string;
   className?: string;
-  /** Retraso base antes de la primera palabra. */
   delay?: number;
   /** `true` anima al montar (hero); `false` espera a entrar en viewport. */
   immediate?: boolean;
   as?: "h1" | "h2" | "h3" | "p";
+  /**
+   * `words` sube cada palabra desde debajo de una máscara.
+   * `chars` añade desenfoque→foco letra a letra: reservado para el titular
+   * del hero, que es el único momento que debe sentirse cinematográfico.
+   */
+  mode?: "words" | "chars";
 }
 
 /**
- * Titular que se revela palabra por palabra desde debajo de una máscara,
- * con cascada irregular (las palabras largas tardan un poco más). Es el
- * gesto tipográfico de la página: nada más usa este efecto, para que el
- * hero y los arranques de sección sean el momento que se recuerda.
+ * Titular que se revela por partes con cascada irregular. Es el gesto
+ * tipográfico de la página: el hero usa el modo `chars` (blur→foco) y las
+ * secciones el modo `words`, de forma que el arranque siempre pesa más que
+ * lo que viene después.
  */
 export function SplitHeading({
   text,
@@ -85,38 +158,161 @@ export function SplitHeading({
   delay = 0,
   immediate = false,
   as: Tag = "h2",
+  mode = "words",
 }: SplitHeadingProps) {
   const reduce = useReducedMotion();
-  const words = text.split(" ");
-
   if (reduce) return <Tag className={className}>{text}</Tag>;
 
-  const container: Variants = {
-    hidden: {},
-    show: { transition: { delayChildren: delay, staggerChildren: 0.055 } },
-  };
-  const word: Variants = {
-    hidden: { y: "108%", opacity: 0 },
-    show: { y: "0%", opacity: 1, transition: { duration: 0.85, ease: SNAP } },
-  };
+  const trigger = immediate
+    ? ({ animate: "show" } as const)
+    : ({ whileInView: "show", viewport: { once: true, amount: 0.35 } } as const);
 
+  if (mode === "chars") {
+    const words = text.split(" ");
+    let i = 0;
+    return (
+      <Tag className={className}>
+        <motion.span
+          initial="hidden"
+          {...trigger}
+          variants={{ hidden: {}, show: { transition: { delayChildren: delay, staggerChildren: 0.026 } } }}
+          className="inline"
+        >
+          {words.map((w, wi) => (
+            <span key={`${w}-${wi}`} className="inline-block whitespace-nowrap">
+              {[...w].map((c) => (
+                <motion.span
+                  key={`${c}-${i++}`}
+                  variants={{
+                    hidden: { opacity: 0, y: "0.42em", filter: "blur(10px)" },
+                    show: {
+                      opacity: 1,
+                      y: "0em",
+                      filter: "blur(0px)",
+                      transition: { duration: 0.95, ease: SNAP },
+                    },
+                  }}
+                  className="inline-block"
+                >
+                  {c}
+                </motion.span>
+              ))}
+              {wi < words.length - 1 && <span className="inline-block">&nbsp;</span>}
+            </span>
+          ))}
+        </motion.span>
+      </Tag>
+    );
+  }
+
+  const words = text.split(" ");
   return (
     <Tag className={className}>
       <motion.span
-        variants={container}
         initial="hidden"
-        {...(immediate ? { animate: "show" } : { whileInView: "show", viewport: { once: true, amount: 0.4 } })}
+        {...trigger}
+        variants={{ hidden: {}, show: { transition: { delayChildren: delay, staggerChildren: 0.055 } } }}
         className="inline"
       >
         {words.map((w, i) => (
           <span key={`${w}-${i}`} className="inline-block overflow-hidden align-bottom">
-            <motion.span variants={word} className="inline-block">
+            <motion.span
+              variants={{
+                hidden: { y: "108%", opacity: 0 },
+                show: { y: "0%", opacity: 1, transition: { duration: 0.85, ease: SNAP } },
+              }}
+              className="inline-block"
+            >
               {w}
-              {i < words.length - 1 ? "\u00A0" : ""}
+              {i < words.length - 1 ? " " : ""}
             </motion.span>
           </span>
         ))}
       </motion.span>
     </Tag>
+  );
+}
+
+/**
+ * Parallax por posición del puntero, normalizado a [-0.5, 0.5] sobre el
+ * elemento. Solo se activa con ratón fino: en táctil devuelve valores
+ * quietos en lugar de forzar un efecto que ahí no existe.
+ */
+export function usePointerParallax(strength = 14): {
+  x: MotionValue<number>;
+  y: MotionValue<number>;
+  onMouseMove: (e: React.MouseEvent<HTMLElement>) => void;
+  onMouseLeave: () => void;
+  active: boolean;
+} {
+  const reduce = useReducedMotion();
+  const [fine, setFine] = useState(false);
+  useEffect(() => {
+    setFine(window.matchMedia("(pointer: fine)").matches);
+  }, []);
+
+  const raw = { stiffness: 140, damping: 22, mass: 0.6 };
+  const mx = useMotionValue(0);
+  const my = useMotionValue(0);
+  const x = useSpring(mx, raw);
+  const y = useSpring(my, raw);
+  const active = fine && !reduce;
+
+  function onMouseMove(e: React.MouseEvent<HTMLElement>) {
+    if (!active) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    mx.set(((e.clientX - r.left) / r.width - 0.5) * strength * 2);
+    my.set(((e.clientY - r.top) / r.height - 0.5) * strength * 2);
+  }
+  function onMouseLeave() {
+    mx.set(0);
+    my.set(0);
+  }
+
+  return { x, y, onMouseMove, onMouseLeave, active };
+}
+
+interface CountUpProps {
+  /** Valor final. Si es null se muestra `text` tal cual (p. ej. "100%"). */
+  to: number;
+  suffix?: string;
+  /** Rellena con ceros a la izquierda hasta esta longitud. */
+  pad?: number;
+  duration?: number;
+  className?: string;
+}
+
+/**
+ * Cifra que cuenta hasta su valor cuando entra en pantalla. Se usa solo en
+ * los datos del hero: son números concretos del programa (6 maestrías, 6
+ * trimestres, 15 días), así que contar los hace legibles como dato, no como
+ * adorno.
+ */
+export function CountUp({ to, suffix = "", pad = 0, duration = 1.4, className = "" }: CountUpProps) {
+  const reduce = useReducedMotion();
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true, amount: 0.6 });
+  const [n, setN] = useState(reduce ? to : 0);
+
+  useEffect(() => {
+    if (!inView || reduce) return;
+    let raf = 0;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min((now - start) / (duration * 1000), 1);
+      // easeOutExpo: rápido al inicio y frenado largo, igual que el resto.
+      const eased = t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
+      setN(Math.round(eased * to));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [inView, to, duration, reduce]);
+
+  return (
+    <span ref={ref} className={className}>
+      {String(n).padStart(pad, "0")}
+      {suffix}
+    </span>
   );
 }

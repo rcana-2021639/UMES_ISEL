@@ -44,7 +44,7 @@
 }
 
 @layer components {
-  /* Etiqueta corta de sección: línea + versalita. Un solo patrón en toda la página. */
+  /* Etiqueta corta de sección: línea + versalita. Un solo patrón en la página. */
   .eyebrow {
     @apply inline-flex items-center gap-3 text-[11px] font-bold uppercase tracking-[0.24em];
   }
@@ -53,6 +53,26 @@
     @apply h-px w-8 shrink-0;
     background: currentColor;
     opacity: 0.55;
+  }
+
+  /**
+   * Etiqueta cinética: al pasar el cursor, el texto sube y su copia entra
+   * desde abajo. Reemplaza el cambio de color plano en los CTA principales.
+   */
+  .kinetic {
+    @apply relative inline-block overflow-hidden align-middle;
+  }
+  .kinetic > span {
+    @apply block transition-transform duration-500 ease-snap;
+  }
+  .kinetic > span:last-child {
+    @apply absolute inset-0 translate-y-full;
+  }
+  .group\/btn:hover .kinetic > span:first-child {
+    transform: translateY(-100%);
+  }
+  .group\/btn:hover .kinetic > span:last-child {
+    transform: translateY(0);
   }
 }
 
@@ -79,6 +99,22 @@
     background-size: 88px 88px;
   }
 
+  /* Misma retícula, en tinta, para las bandas claras. */
+  .grid-lines-ink {
+    background-image: linear-gradient(to right, rgba(10, 43, 36, 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(10, 43, 36, 0.05) 1px, transparent 1px);
+    background-size: 88px 88px;
+  }
+
+  /* Numerales gigantes en contorno: peso visual sin peso de tinta.
+     Se vacía el relleno con -webkit-text-fill-color, no con `color`:
+     poniendo `color: transparent` el trazo (currentColor) se volvería
+     transparente también y el numeral desaparecería. */
+  .numeral-outline {
+    -webkit-text-stroke: 1.5px currentColor;
+    -webkit-text-fill-color: transparent;
+  }
+
   .text-balance {
     text-wrap: balance;
   }
@@ -95,6 +131,45 @@
     -webkit-mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
     mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
   }
+
+  .mask-fade-y {
+    -webkit-mask-image: linear-gradient(to bottom, #000 70%, transparent);
+    mask-image: linear-gradient(to bottom, #000 70%, transparent);
+  }
+}
+
+/* Anillo del cursor: acompaña al puntero nativo (no lo sustituye, para no
+   romper la accesibilidad) y se ensancha sobre lo que es interactivo. */
+.cursor-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9999;
+  pointer-events: none;
+  border-radius: 9999px;
+  mix-blend-mode: difference;
+  will-change: transform;
+}
+
+/* Transición entre páginas: la vista saliente se desvanece hacia atrás y la
+   entrante sube. Solo donde el navegador soporta View Transitions. */
+@keyframes vt-out {
+  to {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+}
+@keyframes vt-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+}
+::view-transition-old(root) {
+  animation: vt-out 260ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+::view-transition-new(root) {
+  animation: vt-in 480ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* Piso de accesibilidad: sin parallax, sin bucles, sin desplazamientos.
@@ -110,5 +185,9 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.12s !important;
     scroll-behavior: auto !important;
+  }
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none !important;
   }
 }

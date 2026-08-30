@@ -28,7 +28,7 @@ const styles: Record<Variant, string> = {
   disabled: "cursor-not-allowed border border-dashed border-isel-ink/20 text-isel-ink/35",
 };
 
-/** Relleno que sube desde abajo al hacer hover — sustituye al típico cambio de color plano. */
+/** Relleno que sube desde abajo al hacer hover — en vez del cambio de color plano. */
 const sweep: Record<Variant, string> = {
   primary: "bg-isel-gold",
   secondary: "bg-isel-navy",
@@ -46,9 +46,10 @@ const sweepText: Record<Variant, string> = {
 };
 
 /**
- * Botón con dos gestos propios: el relleno que barre de abajo hacia arriba y
- * un imán suave que acerca el botón al cursor (radio del propio botón, fuerza
- * 0.28). Sin degradados y sin depender del hover para nada funcional.
+ * Botón con tres gestos propios: el relleno que barre de abajo hacia arriba,
+ * la etiqueta cinética (el texto sube y su copia entra por debajo) y un imán
+ * suave que acerca el botón al cursor. Sin degradados, y nada funcional
+ * depende del hover.
  */
 export function AnimatedButton({
   children,
@@ -73,28 +74,24 @@ export function AnimatedButton({
   function onMove(e: React.MouseEvent) {
     if (!pull || !ref.current) return;
     const r = ref.current.getBoundingClientRect();
-    mx.set((e.clientX - (r.left + r.width / 2)) * 0.28);
-    my.set((e.clientY - (r.top + r.height / 2)) * 0.28);
+    mx.set((e.clientX - (r.left + r.width / 2)) * 0.3);
+    my.set((e.clientY - (r.top + r.height / 2)) * 0.3);
   }
   function onLeave() {
     mx.set(0);
     my.set(0);
   }
 
-  const inner = (
-    <>
-      {variant !== "disabled" && (
-        <span
-          aria-hidden
-          className={`absolute inset-0 origin-bottom scale-y-0 transition-transform duration-500 ease-snap group-hover/btn:scale-y-100 ${sweep[variant]}`}
-        />
-      )}
-      <span className={`relative z-10 inline-flex items-center gap-2 transition-colors duration-500 ease-snap ${sweepText[variant]}`}>
-        {icon}
-        {children}
+  // La etiqueta cinética necesita el texto duplicado: solo aplica a strings.
+  const label =
+    typeof children === "string" && !reduce ? (
+      <span className="kinetic">
+        <span>{children}</span>
+        <span aria-hidden>{children}</span>
       </span>
-    </>
-  );
+    ) : (
+      children
+    );
 
   if (variant === "disabled") {
     return (
@@ -106,6 +103,21 @@ export function AnimatedButton({
       </span>
     );
   }
+
+  const inner = (
+    <>
+      <span
+        aria-hidden
+        className={`absolute inset-0 origin-bottom scale-y-0 transition-transform duration-500 ease-snap group-hover/btn:scale-y-100 ${sweep[variant]}`}
+      />
+      <span
+        className={`relative z-10 inline-flex items-center gap-2 transition-colors duration-500 ease-snap ${sweepText[variant]}`}
+      >
+        {icon}
+        {label}
+      </span>
+    </>
+  );
 
   const wrapper = (child: ReactNode) => (
     <motion.span
