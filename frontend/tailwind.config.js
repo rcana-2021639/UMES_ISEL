@@ -4,27 +4,67 @@ export default {
   theme: {
     extend: {
       colors: {
-        // ISEL brand palette — solid colors only, no gradients anywhere.
+        /**
+         * ISEL 2.0 — la raíz institucional sigue siendo verde (UMES), pero
+         * el verde ya no carga la página solo: cada maestría tiene su propio
+         * acento (ver src/data/accents.ts) y el ámbar salesiano se reserva
+         * para señales, no para rellenar.
+         *
+         * Los nombres de token se conservan (isel-navy / gold / paper / ...)
+         * porque el portal los usa en ~240 lugares; solo cambian los valores,
+         * así que portal y sitio público quedan en la misma paleta.
+         */
         isel: {
-          navy: "#0B2545",     // primary institutional blue (headers, nav, dark sections)
-          navy2: "#123B6D",    // secondary blue (hover / raised surfaces)
-          gold: "#D4A62A",     // Salesian accent gold (CTAs, highlights, underlines)
-          gold2: "#B98A17",    // gold hover/active
-          ink: "#0F172A",      // body text on light backgrounds
-          paper: "#F7F7F5",    // warm off-white page background
-          line: "#E4E1D8",     // hairline borders on light sections
+          navy: "#0A2B24", // verde pino profundo — superficies oscuras
+          navy2: "#11463A", // verde elevado — hover / capas
+          deep: "#061a16", // casi negro verdoso — fondo de hero
+          emerald: "#12855C", // verde vivo — acción primaria
+          emerald2: "#0D6B49", // verde vivo hover
+          gold: "#E8B33D", // ámbar salesiano — señales y subrayados
+          gold2: "#A97B18", // ámbar legible sobre claro
+          ink: "#12211D", // texto sobre claro
+          paper: "#F6F3EC", // hueso cálido — fondo de página
+          mist: "#EAEFE9", // verde muy lavado — bandas alternas
+          line: "#E1DBCD", // hairlines sobre claro
         },
       },
       fontFamily: {
-        display: ["'Fraunces'", "ui-serif", "Georgia", "serif"],
-        sans: ["'Inter'", "ui-sans-serif", "system-ui", "sans-serif"],
+        display: ["'Bricolage Grotesque'", "ui-sans-serif", "system-ui", "sans-serif"],
+        serif: ["'Instrument Serif'", "ui-serif", "Georgia", "serif"],
+        sans: ["'Plus Jakarta Sans'", "ui-sans-serif", "system-ui", "sans-serif"],
+      },
+      letterSpacing: {
+        tightest: "-0.045em",
       },
       boxShadow: {
-        card: "0 1px 2px rgba(15,23,42,0.06), 0 8px 24px -8px rgba(15,23,42,0.18)",
-        "card-hover": "0 2px 4px rgba(15,23,42,0.08), 0 20px 40px -12px rgba(11,37,69,0.35)",
+        card: "0 1px 2px rgba(10,43,36,0.05), 0 10px 30px -12px rgba(10,43,36,0.22)",
+        "card-hover": "0 2px 6px rgba(10,43,36,0.08), 0 28px 56px -18px rgba(10,43,36,0.42)",
+        lift: "0 24px 60px -24px rgba(10,43,36,0.55)",
       },
       transitionTimingFunction: {
-        snap: "cubic-bezier(0.22, 1, 0.36, 1)",
+        // Curvas propias: nada de `ease` por defecto en toda la página.
+        snap: "cubic-bezier(0.16, 1, 0.3, 1)", // salida suave, larga cola
+        entry: "cubic-bezier(0.32, 0.72, 0, 1)", // entradas decididas
+        crisp: "cubic-bezier(0.4, 0, 0.2, 1)",
+      },
+      keyframes: {
+        drift: {
+          "0%, 100%": { transform: "translate3d(0,0,0) scale(1)" },
+          "50%": { transform: "translate3d(4%, -6%, 0) scale(1.08)" },
+        },
+        drift2: {
+          "0%, 100%": { transform: "translate3d(0,0,0) scale(1.05)" },
+          "50%": { transform: "translate3d(-5%, 5%, 0) scale(0.95)" },
+        },
+        marquee: {
+          from: { transform: "translate3d(0,0,0)" },
+          to: { transform: "translate3d(-50%,0,0)" },
+        },
+      },
+      animation: {
+        drift: "drift 22s cubic-bezier(0.45,0,0.55,1) infinite",
+        drift2: "drift2 28s cubic-bezier(0.45,0,0.55,1) infinite",
+        marquee: "marquee 38s linear infinite",
       },
     },
   },

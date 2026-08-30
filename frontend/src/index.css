@@ -3,31 +3,84 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    /* Acento activo de la sección/tarjeta en curso. Cada maestría lo
+       sobreescribe inline (ver src/data/accents.ts), así el mismo componente
+       cambia de personalidad cromática sin duplicar clases. */
+    --accent: #12855c;
+    --accent-soft: #12855c1a;
+  }
+
   html {
     scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
   }
 
   body {
     @apply bg-isel-paper text-isel-ink antialiased;
-    font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+    font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+    font-feature-settings: "ss01", "cv11";
+    overflow-x: hidden;
   }
 
   h1,
   h2,
   h3,
   h4 {
-    font-family: "Fraunces", ui-serif, Georgia, serif;
+    font-family: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: -0.03em;
   }
 
   ::selection {
-    @apply bg-isel-gold/30 text-isel-navy;
+    background: var(--accent);
+    color: #fff;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+}
+
+@layer components {
+  /* Etiqueta corta de sección: línea + versalita. Un solo patrón en toda la página. */
+  .eyebrow {
+    @apply inline-flex items-center gap-3 text-[11px] font-bold uppercase tracking-[0.24em];
+  }
+  .eyebrow::before {
+    content: "";
+    @apply h-px w-8 shrink-0;
+    background: currentColor;
+    opacity: 0.55;
   }
 }
 
 @layer utilities {
-  /* Perspective wrapper for 3D cursor-tilt cards. */
   .preserve-3d {
     transform-style: preserve-3d;
+  }
+
+  /* Grano fino sobre superficies oscuras: rompe el plano digital sin pesar. */
+  .grain::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.42;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+  }
+
+  /* Retícula muy tenue — da escala arquitectónica a las bandas oscuras. */
+  .grid-lines {
+    background-image: linear-gradient(to right, rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+    background-size: 88px 88px;
+  }
+
+  .text-balance {
+    text-wrap: balance;
   }
 
   .no-scrollbar::-webkit-scrollbar {
@@ -36,5 +89,26 @@
   .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
+  }
+
+  .mask-fade-x {
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
+    mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
+  }
+}
+
+/* Piso de accesibilidad: sin parallax, sin bucles, sin desplazamientos.
+   Las transiciones funcionales (hover, foco) se conservan pero muy cortas. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.12s !important;
+    scroll-behavior: auto !important;
   }
 }

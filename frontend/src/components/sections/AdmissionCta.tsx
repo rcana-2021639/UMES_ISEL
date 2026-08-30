@@ -1,58 +1,144 @@
-import { motion } from "framer-motion";
-import { RevealOnScroll } from "@/components/ui/RevealOnScroll";
-import { AnimatedButton } from "@/components/ui/AnimatedButton";
+import { motion, useReducedMotion } from "framer-motion";
+import type { MasterProgram } from "@/types/program";
+import { programs as localPrograms } from "@/data/programs";
+import { RevealOnScroll, SplitHeading, SNAP } from "@/components/ui/RevealOnScroll";
 import { ImageSlot } from "@/components/ui/ImageSlot";
 
 const INTERVIEW_URL = "https://b24-we8qvv.bitrix24.site/crm_form_2iluh/";
 
-export function AdmissionCta() {
+interface AdmissionCtaProps {
+  programs?: MasterProgram[];
+}
+
+/**
+ * Cierre de página: la banda de admisión.
+ *
+ * Arriba corre una cinta con los nombres de las maestrías (transform puro, se
+ * detiene con prefers-reduced-motion), y debajo el llamado real a agendar la
+ * entrevista, la nota de integridad académica con Turnitin y los datos de
+ * contacto —todo el contenido de la página original, ordenado como un cierre.
+ */
+export function AdmissionCta({ programs }: AdmissionCtaProps) {
+  const reduce = useReducedMotion();
+  const list = (programs?.length ? programs : localPrograms).map((p) => p.title);
+  const strip = [...list, ...list];
+
   return (
-    <section id="admision" className="relative overflow-hidden bg-isel-navy px-6 py-24">
-      {/* Decorative floating rings — solid strokes only, no gradients. */}
-      <motion.div
+    <section id="admision" className="grain relative overflow-hidden bg-isel-deep">
+      <div className="grid-lines pointer-events-none absolute inset-0 opacity-40" aria-hidden />
+      <div
         aria-hidden
-        animate={{ rotate: 360 }}
-        transition={{ duration: 60, repeat: Infinity, ease: "linear" }}
-        className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full border border-isel-gold/20"
-      />
-      <motion.div
-        aria-hidden
-        animate={{ rotate: -360 }}
-        transition={{ duration: 80, repeat: Infinity, ease: "linear" }}
-        className="pointer-events-none absolute -bottom-32 -left-16 h-96 w-96 rounded-full border border-white/10"
+        className="pointer-events-none absolute -left-40 top-1/3 h-[40rem] w-[40rem] animate-drift rounded-full bg-isel-emerald/20 blur-[140px]"
       />
 
-      <div className="relative mx-auto flex max-w-5xl flex-col items-center gap-12 text-center">
-        <div className="grid w-full grid-cols-1 items-center gap-10 lg:grid-cols-2 lg:text-left">
-          <RevealOnScroll className="flex flex-col items-center gap-5 lg:items-start">
-            <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-isel-gold">
-              <span className="h-px w-8 bg-isel-gold" />
-              Siguiente paso
-            </span>
-            <h2 className="text-3xl font-semibold text-white sm:text-4xl">Solicita tu entrevista de admisión</h2>
-            <p className="max-w-xl text-base leading-relaxed text-white/70">
-              Da el primer paso hacia tu maestría en línea. Agenda tu entrevista de admisión y un asesor académico te
-              acompañará durante todo el proceso.
-            </p>
-            <AnimatedButton href={INTERVIEW_URL} variant="ghost" className="mt-2">
-              Solicitar entrevista
-            </AnimatedButton>
-          </RevealOnScroll>
+      {/* Cinta de programas: da movimiento continuo sin robarle foco al CTA. */}
+      <div className="relative border-y border-white/10 py-6">
+        <div className="mask-fade-x overflow-hidden">
+          <div className={`flex w-max items-center gap-10 ${reduce ? "" : "animate-marquee"}`}>
+            {strip.map((title, i) => (
+              <span key={`${title}-${i}`} className="flex items-center gap-10 whitespace-nowrap">
+                <span className="font-display text-sm font-semibold uppercase tracking-[0.16em] text-white/45">
+                  {title}
+                </span>
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-isel-gold" aria-hidden />
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
 
-          <RevealOnScroll
-            delay={0.1}
-            className="aspect-[4/3] w-full overflow-hidden rounded-2xl border border-white/10 shadow-card"
-          >
-            <ImageSlot
-              src="/images/admission/entrevista-admision.jpg"
-              alt="Entrevista de admisión"
-              label="Imagen — Entrevista de admisión"
+      <div className="relative mx-auto max-w-7xl px-6 py-24 lg:py-32">
+        <div className="grid grid-cols-1 items-center gap-14 lg:grid-cols-[1.1fr_0.9fr] lg:gap-20">
+          <div>
+            <RevealOnScroll y={12}>
+              <span className="eyebrow text-isel-gold">Siguiente paso</span>
+            </RevealOnScroll>
+
+            <SplitHeading
+              text="Solicita tu entrevista de admisión"
+              className="mt-6 max-w-[14ch] font-display text-[clamp(2.3rem,5.4vw,4rem)] font-semibold leading-[1] tracking-tightest text-white"
             />
+
+            <RevealOnScroll delay={0.12}>
+              <p className="mt-7 max-w-xl text-[15px] leading-relaxed text-white/60 sm:text-lg">
+                Da el primer paso hacia tu maestría en línea. Agenda tu entrevista de admisión y un asesor académico
+                te acompañará durante todo el proceso.
+              </p>
+            </RevealOnScroll>
+
+            <RevealOnScroll delay={0.18}>
+              <div className="mt-9 flex flex-wrap items-center gap-3">
+                <motion.a
+                  href={INTERVIEW_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  whileTap={{ scale: 0.97 }}
+                  transition={{ duration: 0.3, ease: SNAP }}
+                  className="group relative overflow-hidden rounded-full bg-isel-gold px-8 py-4 text-[13px] font-bold uppercase tracking-[0.1em] text-isel-deep"
+                >
+                  <span
+                    aria-hidden
+                    className="absolute inset-0 origin-bottom scale-y-0 bg-white transition-transform duration-500 ease-snap group-hover:scale-y-100"
+                  />
+                  <span className="relative inline-flex items-center gap-2">
+                    Solicitar entrevista
+                    <span className="transition-transform duration-500 ease-snap group-hover:translate-x-1.5">→</span>
+                  </span>
+                </motion.a>
+                <a
+                  href="#programas"
+                  className="rounded-full border border-white/25 px-8 py-4 text-[13px] font-bold uppercase tracking-[0.1em] text-white/85 transition-colors duration-500 ease-snap hover:border-white/70 hover:text-white"
+                >
+                  Revisar programas
+                </a>
+              </div>
+            </RevealOnScroll>
+
+            <RevealOnScroll delay={0.24}>
+              <div className="mt-12 flex flex-wrap gap-x-12 gap-y-6 border-t border-white/10 pt-8">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/40">Correo</p>
+                  <a
+                    href="mailto:info@umes.edu.gt"
+                    className="mt-1 block text-[15px] text-white transition-colors hover:text-isel-gold"
+                  >
+                    info@umes.edu.gt
+                  </a>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/40">Teléfono</p>
+                  <a
+                    href="tel:+50224138021"
+                    className="mt-1 block text-[15px] text-white transition-colors hover:text-isel-gold"
+                  >
+                    2413 8021
+                  </a>
+                </div>
+              </div>
+            </RevealOnScroll>
+          </div>
+
+          <RevealOnScroll delay={0.1} scale className="relative">
+            <div className="aspect-[4/5] w-full overflow-hidden rounded-[2rem] border border-white/10 shadow-lift">
+              <ImageSlot
+                src="/images/admission/entrevista-admision.jpg"
+                alt="Entrevista de admisión ISEL"
+                label="Entrevista de admisión"
+                tone="dark"
+                glyph="→"
+              />
+            </div>
+            <div className="absolute -bottom-6 left-6 right-6 rounded-2xl border border-white/10 bg-isel-navy/95 px-6 py-5 shadow-lift backdrop-blur-md">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-white/45">Admisión</p>
+              <p className="mt-1 font-display text-lg font-semibold text-white">
+                Un asesor te acompaña de principio a fin
+              </p>
+            </div>
           </RevealOnScroll>
         </div>
 
-        <RevealOnScroll delay={0.15} className="border-t border-white/10 pt-8 text-xs leading-relaxed text-white/45">
-          <p>
+        <RevealOnScroll delay={0.1}>
+          <p className="mt-24 max-w-4xl border-t border-white/10 pt-8 text-[13px] leading-relaxed text-white/40">
             La promoción de la integridad académica, honestidad intelectual, la consistencia del pensamiento crítico y
             el rigor del ejercicio pedagógico de la comunidad académica de la Universidad Mesoamericana está
             acompañada por{" "}
@@ -60,7 +146,7 @@ export function AdmissionCta() {
               href="https://www.turnitin.com/products/originality/"
               target="_blank"
               rel="noopener noreferrer"
-              className="font-semibold text-isel-gold hover:underline"
+              className="font-semibold text-isel-gold underline-offset-4 hover:underline"
             >
               Originality Check de Turnitin
             </a>
