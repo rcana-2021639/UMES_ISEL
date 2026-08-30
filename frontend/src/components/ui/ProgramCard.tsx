@@ -1,15 +1,17 @@
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { Link } from "react-router-dom";
 import type { MasterProgram } from "@/types/program";
 import { accentFor } from "@/data/accents";
 import { ImageSlot } from "./ImageSlot";
-import { staggerCard } from "./RevealOnScroll";
+import { SNAP } from "./RevealOnScroll";
 
 interface ProgramCardProps {
   program: MasterProgram;
   index: number;
   /** `wide` cambia a composición horizontal (foto a la izquierda). */
   variant?: "tall" | "wide";
+  /** Retraso de entrada; la rejilla los reparte de forma irregular. */
+  delay?: number;
 }
 
 /**
@@ -17,14 +19,16 @@ interface ProgramCardProps {
  *
  * Cada programa llega con su propio acento (--accent) y lo usa en el numeral
  * gigante, la etiqueta de campo, el velo sobre la foto y el halo de sombra que
- * se enciende al enfocarla. Es lo que impide que seis tarjetas verdes se lean
- * como una sola mancha.
+ * se enciende al enfocarla.
  *
- * Toda la tarjeta es el enlace a "Información" (capa estirada), y encima queda
- * "Inscripción" con su propia zona de clic — dos acciones reales, un solo
- * bloque. El anillo del cursor muestra "Ver" al pasar por encima.
+ * Entrada en dos tiempos: la tarjeta se descubre con cortina mientras la foto
+ * arranca ampliada (1.16) y se asienta en su sitio — el mismo gesto de una
+ * imagen que "aterriza" en la maqueta, no un fade más. Al pasar el cursor
+ * aparece el disco con la flecha sobre la foto, que anuncia que la tarjeta
+ * entera es el enlace al detalle; "Inscripción" conserva su propia zona.
  */
-export function ProgramCard({ program, index, variant = "tall" }: ProgramCardProps) {
+export function ProgramCard({ program, index, variant = "tall", delay = 0 }: ProgramCardProps) {
+  const reduce = useReducedMotion();
   const { accent, soft, campo } = accentFor(program.slug, index);
   const cuota = program.plan?.costos?.[program.plan.costos.length - 1];
   const num = String(index + 1).padStart(2, "0");
@@ -32,8 +36,10 @@ export function ProgramCard({ program, index, variant = "tall" }: ProgramCardPro
 
   return (
     <motion.article
-      variants={staggerCard}
-      data-cursor="Ver"
+      initial={reduce ? { opacity: 0 } : { opacity: 0, y: 56, clipPath: "inset(14% 0% 0% 0%)" }}
+      whileInView={{ opacity: 1, y: 0, clipPath: "inset(0% 0% 0% 0%)" }}
+      viewport={{ once: true, amount: 0.16 }}
+      transition={{ duration: 1.05, delay, ease: SNAP }}
       style={{ ["--accent" as string]: accent, ["--accent-soft" as string]: soft }}
       className={`group relative flex overflow-hidden rounded-[1.8rem] border border-isel-line bg-white transition-[transform,box-shadow,border-color] duration-700 ease-snap hover:-translate-y-2 hover:border-transparent hover:shadow-accent ${
         wide ? "flex-col md:flex-row" : "h-full flex-col"
@@ -46,15 +52,21 @@ export function ProgramCard({ program, index, variant = "tall" }: ProgramCardPro
       />
 
       <div className={`relative overflow-hidden ${wide ? "md:w-[42%]" : ""}`}>
-        <div className={wide ? "aspect-[16/10] h-full w-full md:aspect-auto md:min-h-[19rem]" : "aspect-[16/11] w-full"}>
+        <motion.div
+          initial={reduce ? {} : { scale: 1.16 }}
+          whileInView={{ scale: 1 }}
+          viewport={{ once: true, amount: 0.16 }}
+          transition={{ duration: 1.5, delay: delay + 0.1, ease: SNAP }}
+          className={wide ? "aspect-[16/10] h-full w-full md:aspect-auto md:min-h-[19rem]" : "aspect-[16/11] w-full"}
+        >
           <ImageSlot
             src={program.cardImage}
             alt={program.title}
             label={campo}
             glyph={num}
-            className="transition-transform duration-[1100ms] ease-snap group-hover:scale-[1.08]"
+            className="transition-transform duration-[1100ms] ease-snap group-hover:scale-[1.07]"
           />
-        </div>
+        </motion.div>
 
         {/* Velo del color del programa: se retira al pasar el cursor. */}
         <span
@@ -75,12 +87,21 @@ export function ProgramCard({ program, index, variant = "tall" }: ProgramCardPro
         >
           {num}
         </span>
+
+        {/* Disco con la flecha: aparece al enfocar y dice que la tarjeta es el enlace. */}
+        <span
+          aria-hidden
+          className="absolute bottom-5 left-5 z-20 flex h-12 w-12 scale-0 items-center justify-center rounded-full text-lg text-white opacity-0 transition-all duration-500 ease-back group-hover:scale-100 group-hover:opacity-100"
+          style={{ backgroundColor: accent }}
+        >
+          →
+        </span>
       </div>
 
       <div className={`flex flex-1 flex-col p-6 sm:p-7 ${wide ? "md:justify-center md:p-10" : ""}`}>
         <div className="flex items-center gap-3">
           <span className="font-display text-[13px] font-bold tracking-[0.18em] text-[var(--accent)]">{num}</span>
-          <span className="h-px flex-1 bg-isel-line transition-colors duration-700 ease-snap group-hover:bg-[var(--accent)]/40" />
+          <span className="h-px flex-1 origin-left bg-isel-line transition-colors duration-700 ease-snap group-hover:bg-[var(--accent)]/40" />
           <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-isel-ink/35">
             {program.tagline}
           </span>
@@ -112,19 +133,17 @@ export function ProgramCard({ program, index, variant = "tall" }: ProgramCardPro
         )}
 
         <div className="mt-auto flex flex-wrap items-center gap-x-5 gap-y-3 pt-8">
-          <span className="inline-flex items-center gap-2 text-[13px] font-bold uppercase tracking-[0.1em] text-isel-navy transition-colors duration-500 ease-snap group-hover:text-[var(--accent)]">
-            Información
+          <span className="relative inline-flex items-center gap-2 text-[13px] font-bold uppercase tracking-[0.1em] text-isel-navy transition-colors duration-500 ease-snap group-hover:text-[var(--accent)]">
+            Ver el programa
+            {/* Subrayado que se traza al enfocar la tarjeta. */}
             <span
               aria-hidden
-              className="inline-block transition-transform duration-500 ease-snap group-hover:translate-x-1.5"
-            >
-              →
-            </span>
+              className="absolute -bottom-1 left-0 h-px w-full origin-left scale-x-0 bg-[var(--accent)] transition-transform duration-500 ease-snap group-hover:scale-x-100"
+            />
           </span>
 
           <Link
             to={`/portal/login?programa=${program.slug}`}
-            data-cursor="Inscribirse"
             className="group/ins relative z-20 inline-flex items-center gap-2 overflow-hidden rounded-full bg-[var(--accent-soft)] px-4 py-2 text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--accent)] transition-colors duration-500 ease-snap hover:text-white"
           >
             <span
@@ -139,7 +158,7 @@ export function ProgramCard({ program, index, variant = "tall" }: ProgramCardPro
       {/* Capa estirada: la tarjeta entera lleva al detalle del programa. */}
       <Link
         to={`/programas/${program.slug}`}
-        aria-label={`Información sobre ${program.title}`}
+        aria-label={`Ver el programa: ${program.title}`}
         className="absolute inset-0 z-10"
       />
     </motion.article>

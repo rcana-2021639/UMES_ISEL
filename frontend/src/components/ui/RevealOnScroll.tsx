@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import {
   motion,
   useInView,
+  useScroll,
+  useTransform,
   useMotionValue,
   useReducedMotion,
   useSpring,
@@ -271,6 +273,79 @@ export function usePointerParallax(strength = 14): {
 
   return { x, y, onMouseMove, onMouseLeave, active };
 }
+
+
+interface ScrollHighlightTextProps {
+  text: string;
+  className?: string;
+  /** Opacidad de partida de las palabras aún "no leídas". */
+  dim?: number;
+}
+
+/** Una palabra del párrafo: se enciende cuando el scroll llega a su tramo. */
+function HighlightWord({
+  word,
+  progress,
+  start,
+  end,
+  dim,
+}: {
+  word: string;
+  progress: MotionValue<number>;
+  start: number;
+  end: number;
+  dim: number;
+}) {
+  const opacity = useTransform(progress, [start, end], [dim, 1]);
+  return (
+    <motion.span style={{ opacity }} className="mr-[0.26em] inline-block">
+      {word}
+    </motion.span>
+  );
+}
+
+/**
+ * Texto que se enciende al leerlo.
+ *
+ * El párrafo empieza atenuado y cada palabra sube a opacidad plena conforme el
+ * bloque atraviesa la pantalla: el scroll marca el renglón, como un dedo
+ * siguiendo la línea. Es lo que convierte un párrafo largo en algo que apetece
+ * leer, y por eso se reserva a los textos que de verdad hay que leer
+ * (metodología y la reseña de dirección), nunca a etiquetas sueltas.
+ */
+export function ScrollHighlightText({ text, className = "", dim = 0.22 }: ScrollHighlightTextProps) {
+  const ref = useRef<HTMLParagraphElement>(null);
+  const reduce = useReducedMotion();
+  const { scrollYProgress } = useScroll({ target: ref, offset: ["start 0.85", "end 0.55"] });
+  const words = text.split(" ");
+
+  if (reduce) return <p className={className}>{text}</p>;
+
+  return (
+    <p ref={ref} className={className}>
+      {words.map((w, i) => {
+        const start = i / words.length;
+        return (
+          <HighlightWord
+            key={`${w}-${i}`}
+            word={w}
+            progress={scrollYProgress}
+            start={start}
+            end={Math.min(start + 1.6 / words.length, 1)}
+            dim={dim}
+          />
+        );
+      })}
+    </p>
+  );
+}
+
+/**
+ * Cascadas irregulares. Un stagger constante suena a metrónomo; estos saltos
+ * desiguales (y la pausa mayor antes de la última pieza) hacen que la entrada
+ * parezca compuesta por alguien.
+ */
+export const IRREGULAR = [0, 0.09, 0.15, 0.26, 0.34, 0.48, 0.55, 0.63];
 
 interface CountUpProps {
   /** Valor final. Si es null se muestra `text` tal cual (p. ej. "100%"). */

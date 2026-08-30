@@ -138,19 +138,6 @@
   }
 }
 
-/* Anillo del cursor: acompaña al puntero nativo (no lo sustituye, para no
-   romper la accesibilidad) y se ensancha sobre lo que es interactivo. */
-.cursor-ring {
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 9999;
-  pointer-events: none;
-  border-radius: 9999px;
-  mix-blend-mode: difference;
-  will-change: transform;
-}
-
 /* Transición entre páginas: la vista saliente se desvanece hacia atrás y la
    entrante sube. Solo donde el navegador soporta View Transitions. */
 @keyframes vt-out {

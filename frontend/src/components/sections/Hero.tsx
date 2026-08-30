@@ -2,6 +2,7 @@ import { useRef } from "react";
 import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
 import { ImageSlot } from "@/components/ui/ImageSlot";
 import { CountUp, SNAP, usePointerParallax } from "@/components/ui/RevealOnScroll";
+import { MagneticCta } from "@/components/ui/MagneticCta";
 
 /**
  * Hero — el momento de firma de la página.
@@ -200,33 +201,12 @@ export function Hero() {
             transition={{ duration: 0.9, delay: 1.08, ease: SNAP }}
             className="mt-10 flex flex-wrap items-center gap-3"
           >
-            <a
-              href="#programas"
-              className="group/btn relative overflow-hidden rounded-full bg-white px-8 py-4 text-[13px] font-bold uppercase tracking-[0.1em] text-isel-deep"
-            >
-              <span
-                aria-hidden
-                className="absolute inset-0 origin-bottom scale-y-0 bg-isel-gold transition-transform duration-500 ease-snap group-hover/btn:scale-y-100"
-              />
-              <span className="relative inline-flex items-center gap-2">
-                <span className="kinetic">
-                  <span>Ver las 6 maestrías</span>
-                  <span aria-hidden>Ver las 6 maestrías</span>
-                </span>
-                <span className="transition-transform duration-500 ease-snap group-hover/btn:translate-y-1">↓</span>
-              </span>
-            </a>
-            <a
-              href={INTERVIEW_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group/btn relative overflow-hidden rounded-full border border-white/25 px-8 py-4 text-[13px] font-bold uppercase tracking-[0.1em] text-white/85 transition-colors duration-500 ease-snap hover:border-white/60 hover:text-white"
-            >
-              <span className="kinetic">
-                <span>Solicitar entrevista</span>
-                <span aria-hidden>Solicitar entrevista</span>
-              </span>
-            </a>
+            <MagneticCta href="#programas" external={false} tone="light" arrow="down">
+              Ver las 6 maestrías
+            </MagneticCta>
+            <MagneticCta href={INTERVIEW_URL} tone="outline">
+              Solicitar entrevista
+            </MagneticCta>
           </motion.div>
 
           <motion.dl

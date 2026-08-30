@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ImageSlot } from "@/components/ui/ImageSlot";
-import { RevealOnScroll, SplitHeading, SNAP } from "@/components/ui/RevealOnScroll";
+import { RevealOnScroll, ScrollHighlightText, SplitHeading, SNAP } from "@/components/ui/RevealOnScroll";
 
 const ITEMS = [
   {
@@ -203,14 +203,26 @@ export function MethodologySection() {
 
                   <div className="p-7 sm:p-10">
                     <div className="flex flex-wrap items-baseline justify-between gap-3">
-                      <h3 className="font-display text-2xl font-semibold tracking-tightest text-white sm:text-[1.8rem]">
+                      <h3 className="font-display text-[1.9rem] font-semibold tracking-ultratight text-white sm:text-[2.4rem]">
                         {item.title}
                       </h3>
                       <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--accent)]">
                         {item.dato}
                       </span>
                     </div>
-                    <p className="mt-5 text-[15px] leading-relaxed text-white/60">{item.text}</p>
+
+                    {/* Entradilla en serif: da un punto de entrada a la lectura
+                        antes del párrafo largo. */}
+                    <p className="mt-4 font-serif text-[1.35rem] italic leading-snug text-[var(--accent)] sm:text-[1.6rem]">
+                      {item.resumen}
+                    </p>
+
+                    {/* El párrafo se enciende palabra a palabra con el scroll. */}
+                    <ScrollHighlightText
+                      text={item.text}
+                      className="mt-6 max-w-[52ch] text-[16px] leading-[1.75] text-white sm:text-[17px]"
+                      dim={0.26}
+                    />
                   </div>
                 </motion.article>
                 </div>
