@@ -37,7 +37,7 @@ export function HomePage() {
         <MethodologySection />
         <ObjectivesSection />
         <AdvisorSection />
-        <AdmissionCta />
+        <AdmissionCta programs={programs} />
       </main>
       <Footer />
     </>

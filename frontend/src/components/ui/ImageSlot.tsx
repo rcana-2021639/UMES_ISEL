@@ -1,47 +1,73 @@
 import { useState } from "react";
 
 interface ImageSlotProps {
-  /** Path relative to /public, e.g. "/images/programs/fintech.jpg" */
+  /** Ruta relativa a /public, p. ej. "/images/programs/fintech.jpg" */
   src: string;
   alt: string;
   label?: string;
   className?: string;
+  /** Sobre fondo oscuro el marcador se invierte para no abrir un hueco blanco. */
+  tone?: "light" | "dark";
+  /** Texto grande del marcador (inicial, número de programa…). */
+  glyph?: string;
+  /**
+   * Imagen puramente decorativa (fondos): si el archivo no existe no dibuja
+   * marcador alguno — el fondo se queda limpio en lugar de mostrar un cartel.
+   */
+  decorative?: boolean;
 }
 
 /**
- * Renders the image if it exists in /public; otherwise renders a labeled
- * placeholder showing the exact file name/path expected — so the layout
- * never looks "broken" before real photos are dropped in, and whoever
- * uploads them knows precisely where each one goes.
+ * Muestra la imagen si existe en /public; si no, dibuja un marcador tratado
+ * como parte del diseño —no como un error—: campo tintado con el acento
+ * vigente, un glifo grande y el nombre exacto del archivo esperado.
  *
- * Usage: drop the real file into frontend/public/images/... using the
- * exact name shown in the placeholder, no code changes needed.
+ * Para publicar la foto real basta copiarla en frontend/public/images/... con
+ * el nombre que indica el marcador. Cero cambios de código.
  */
-export function ImageSlot({ src, alt, label, className = "" }: ImageSlotProps) {
+export function ImageSlot({ src, alt, label, className = "", tone = "light", glyph, decorative = false }: ImageSlotProps) {
   const [failed, setFailed] = useState(false);
   const fileName = src.split("/").pop();
 
+  if (failed && decorative) return null;
+
   if (failed) {
+    const dark = tone === "dark";
     return (
       <div
-        className={`flex h-full w-full flex-col items-center justify-center gap-3 border-2 border-dashed border-isel-navy/25 bg-isel-navy/[0.035] px-6 py-10 text-center ${className}`}
+        className={`relative flex h-full w-full flex-col items-center justify-center overflow-hidden px-6 py-10 text-center ${
+          dark ? "bg-white/[0.04]" : "bg-[var(--accent-soft)]"
+        } ${className}`}
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={1.5}
-          className="h-8 w-8 text-isel-navy/35"
+        <div
+          aria-hidden
+          className="absolute inset-0 opacity-[0.5]"
+          style={{
+            backgroundImage: `repeating-linear-gradient(135deg, ${
+              dark ? "rgba(255,255,255,0.05)" : "var(--accent)"
+            } 0 1px, transparent 1px 12px)`,
+            opacity: dark ? 1 : 0.09,
+          }}
+        />
+        <span
+          className={`relative font-display text-6xl font-semibold leading-none tracking-tightest ${
+            dark ? "text-white/25" : "text-[var(--accent)] opacity-30"
+          }`}
         >
-          <rect x="3" y="3" width="18" height="18" rx="2" />
-          <circle cx="9" cy="9" r="2" />
-          <path d="m21 15-5-5-9 9" />
-        </svg>
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-isel-navy/55">
+          {glyph ?? "ISEL"}
+        </span>
+        <p
+          className={`relative mt-4 max-w-[22ch] text-[11px] font-semibold uppercase tracking-[0.16em] ${
+            dark ? "text-white/50" : "text-isel-ink/45"
+          }`}
+        >
           {label ?? "Imagen pendiente"}
         </p>
-        <code className="rounded bg-isel-navy/10 px-2 py-1 text-[11px] leading-relaxed text-isel-navy/70 break-all">
+        <code
+          className={`relative mt-2 rounded-full px-3 py-1 text-[10px] leading-relaxed ${
+            dark ? "bg-white/10 text-white/60" : "bg-isel-navy/[0.06] text-isel-ink/55"
+          }`}
+        >
           {fileName}
         </code>
       </div>
