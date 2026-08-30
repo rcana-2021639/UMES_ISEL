@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Icon, Sweep } from "./Icon";
 
 /**
@@ -123,7 +123,7 @@ export function PortalButton({
       title={title}
       className={`group/pb relative inline-flex select-none items-center justify-center font-semibold
         transition-[background-color,color,border-color,box-shadow,transform] duration-[400ms] ease-crisp
-        hover:-translate-y-px active:translate-y-0
+        hover:-translate-y-px active:translate-y-0 active:scale-[0.985]
         disabled:pointer-events-none disabled:opacity-45
         ${sizeClass[size]} ${toneClass[tone]} ${full ? "w-full" : ""} ${className}`}
     >
@@ -176,47 +176,77 @@ export function IconButton({
 /* ------------------------------------------------------- control segmentado */
 
 /**
- * Elección entre 2–3 opciones. El indicador es una pastilla que se desliza
- * bajo la etiqueta activa (translate puro), no un fondo que aparece y
- * desaparece: se ve de dónde viene la selección.
+ * Elección entre 2–4 opciones.
+ *
+ * La pastilla activa se MIDE (offsetLeft / offsetWidth del botón real) en vez
+ * de repartir el ancho a partes iguales. Ese era el fallo del panel: las
+ * etiquetas no miden lo mismo ("Todas" contra "Presencial"), `flex-1` no puede
+ * encoger un botón por debajo de su contenido, y la pastilla calculada como
+ * 100/n quedaba corrida y el texto se salía. Midiendo, da igual lo que midan
+ * las etiquetas.
  */
 export function Segmented<T extends string | number>({
   options,
   value,
   onChange,
   size = "md",
+  disabled = false,
   className = "",
 }: {
   options: { value: T; label: string }[];
   value: T | null;
   onChange: (v: T) => void;
   size?: "sm" | "md";
+  disabled?: boolean;
   className?: string;
 }) {
   const index = options.findIndex((o) => o.value === value);
   const pad = size === "sm" ? "px-3 py-1.5 text-[12px]" : "px-4 py-2 text-[13px]";
+  const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  const [pill, setPill] = useState<{ x: number; w: number } | null>(null);
+
+  useLayoutEffect(() => {
+    function measure() {
+      const el = refs.current[index];
+      if (!el) {
+        setPill(null);
+        return;
+      }
+      setPill({ x: el.offsetLeft, w: el.offsetWidth });
+    }
+    measure();
+    window.addEventListener("resize", measure);
+    // Las fuentes llegan después del primer pintado y cambian los anchos.
+    const fonts = (document as Document & { fonts?: FontFaceSet }).fonts;
+    fonts?.ready.then(measure).catch(() => {});
+    return () => window.removeEventListener("resize", measure);
+  }, [index, options.length, size]);
 
   return (
     <div
-      className={`relative inline-flex rounded-xl border border-isel-line bg-white p-1 ${className}`}
-      style={{ ["--seg" as string]: String(options.length) }}
+      role="group"
+      className={`relative inline-flex rounded-xl border border-isel-line bg-white p-1 ${
+        disabled ? "opacity-55" : ""
+      } ${className}`}
     >
-      {index >= 0 && (
+      {pill && (
         <span
           aria-hidden
-          className="absolute inset-y-1 left-1 rounded-lg bg-isel-navy transition-transform duration-500 ease-snap"
-          style={{
-            width: `calc((100% - 0.5rem) / ${options.length})`,
-            transform: `translateX(${index * 100}%)`,
-          }}
+          className="absolute inset-y-1 left-0 rounded-lg bg-isel-navy transition-[transform,width] duration-500 ease-snap"
+          style={{ width: pill.w, transform: `translateX(${pill.x}px)` }}
         />
       )}
-      {options.map((o) => (
+      {options.map((o, i) => (
         <button
           key={String(o.value)}
           type="button"
+          ref={(el) => {
+            refs.current[i] = el;
+          }}
+          disabled={disabled}
+          aria-pressed={o.value === value}
           onClick={() => onChange(o.value)}
-          className={`relative z-10 flex-1 whitespace-nowrap rounded-lg font-semibold transition-colors duration-300 ease-crisp ${pad} ${
+          className={`relative z-10 whitespace-nowrap rounded-lg font-semibold transition-colors duration-300 ease-crisp disabled:cursor-default ${pad} ${
             o.value === value ? "text-white" : "text-isel-ink/55 hover:text-isel-navy"
           }`}
         >

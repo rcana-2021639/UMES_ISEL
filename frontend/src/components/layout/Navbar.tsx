@@ -112,7 +112,7 @@ export function Navbar() {
               to="/portal/login"
               className="rounded-full px-4 py-2.5 text-[13px] font-semibold text-white/75 transition-colors duration-300 ease-snap hover:text-white"
             >
-              Portal ISEL
+              Inscripciones
             </Link>
             <ActionButton
               href={href("admision")}
@@ -197,7 +197,7 @@ export function Navbar() {
                 onClick={() => setMobileOpen(false)}
                 className="rounded-full border border-white/25 px-6 py-4 text-center text-sm font-bold uppercase tracking-[0.12em] text-white/85"
               >
-                Portal ISEL
+                Inscripciones
               </Link>
             </motion.div>
           </motion.div>
