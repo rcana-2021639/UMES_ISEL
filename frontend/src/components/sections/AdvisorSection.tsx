@@ -1,208 +1,178 @@
 import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
 import { ImageSlot } from "@/components/ui/ImageSlot";
-import {
-  RevealOnScroll,
-  ScrollHighlightText,
-  SplitHeading,
-  useReveal,
-  SNAP,
-} from "@/components/ui/RevealOnScroll";
-
-const CREDENCIALES = [
-  { k: "Área", v: "Coordinación académica" },
-  { k: "Enfoque", v: "Innovación educativa" },
-  { k: "Ámbito", v: "Educación superior" },
-  { k: "Trayectoria", v: "Gestión de proyectos" },
-];
+import { RevealOnScroll, SplitHeading, useReveal, SNAP } from "@/components/ui/RevealOnScroll";
 
 /**
  * Dirección académica.
  *
- * Es el único bloque de la página dedicado a una persona, así que se trata
- * como una portada: un panel oscuro a sangre sobre el fondo claro, con el
- * retrato ocupando su propia columna de arriba abajo y el nombre en blanco
- * sobre negro. El contraste con las bandas claras que lo rodean es lo que lo
- * convierte en un alto en la lectura y no en una tarjeta de equipo más.
+ * Registro: retrato editorial de publicación académica. Autoridad tranquila,
+ * mucho aire y el rostro como protagonista — no una tarjeta de equipo ni un
+ * panel oscuro que se lo traga.
  *
- * Coreografía, de fuera hacia dentro:
- *  1. el panel entra elevándose y asentándose (1.2s);
- *  2. dentro, el retrato se descubre con una cortina de color mientras la
- *     foto, que arranca ampliada, se asienta — y después deriva con el scroll;
- *  3. el nombre entra palabra por palabra y el sello circular empieza a girar;
- *  4. la cita se subraya con un trazo dibujado y la reseña se enciende al
- *     leerla.
+ * Decisiones que sostienen la sección:
  *
- * Sin efectos de cursor: todo depende del scroll, que es lo que la persona ya
- * está haciendo.
+ *  · Fondo blanco. Es la única banda realmente clara de la página (hero,
+ *    metodología y admisión son oscuras; objetivos, arena), así que el
+ *    silencio la destaca más de lo que lo haría otro bloque negro.
+ *  · El retrato va montado sobre un bloque verde desplazado, como una
+ *    fotografía sobre su passe-partout: enmarca sin recortar.
+ *  · Una sola etiqueta en versalita en toda la sección. El cargo va en serif
+ *    itálica, que rompe la cadena de mayúsculas y suena a nombramiento.
+ *  · La semblanza arranca con capitular y se lee en tinta sobre claro, a 62
+ *    caracteres por línea. Es el texto más largo de la página: aquí manda la
+ *    lectura, no el efecto.
+ *  · Cierra con el monograma y su rúbrica trazándose, como al pie de una
+ *    carta. Ese es el momento de la sección, y es de esta persona: no se
+ *    puede pegar en ninguna otra página.
+ *
+ * Fuera quedaron el sello giratorio (adorno sin contenido), la cita que
+ * repetía una frase de la propia semblanza, y las cuatro "credenciales" que
+ * no salían de ninguna fuente.
  */
 export function AdvisorSection() {
   const reduce = useReducedMotion();
-  // Un solo ref sirve para las dos cosas: saber si el panel entró en pantalla
-  // (revelado por CSS) y medir su avance de scroll (parallax por framer).
-  const { ref: panelRef, shown } = useReveal<HTMLDivElement>(0.12);
-  const { ref: portraitRef, shown: portraitShown } = useReveal<HTMLDivElement>(0.25);
-
-  const { scrollYProgress } = useScroll({ target: panelRef, offset: ["start end", "end start"] });
-  const photoY = useTransform(scrollYProgress, [0, 1], ["-7%", reduce ? "-7%" : "7%"]);
-  const glowY = useTransform(scrollYProgress, [0, 1], ["12%", reduce ? "12%" : "-12%"]);
+  const { ref: portraitRef, shown } = useReveal<HTMLDivElement>(0.25);
+  // La semblanza también se revela por CSS: es el contenido de la sección y no
+  // puede depender de que arranque nada. Los retrasos van desiguales a
+  // propósito (0, 90, 210, 330, 480ms) para que la entrada no suene a metrónomo.
+  const { ref: textRef, shown: textShown } = useReveal<HTMLDivElement>(0.2);
+  const beat = "transition-[opacity,transform] duration-[900ms] ease-snap";
+  const beatState = reduce || textShown ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0";
+  /** El retraso va en estilo inline: Tailwind no genera clases construidas al vuelo. */
+  const delay = (ms: number) => ({ transitionDelay: reduce ? "0ms" : `${ms}ms` });
+  const { scrollYProgress } = useScroll({ target: portraitRef, offset: ["start end", "end start"] });
+  const photoY = useTransform(scrollYProgress, [0, 1], ["-5%", reduce ? "-5%" : "5%"]);
 
   return (
-    <section id="direccion" className="relative overflow-hidden bg-isel-paper px-6 py-24 lg:py-32">
-      <div className="grid-lines-ink pointer-events-none absolute inset-0 opacity-50" aria-hidden />
+    <section id="direccion" className="relative overflow-hidden bg-white px-6 py-28 lg:py-40">
+      <div className="grid-lines-ink pointer-events-none absolute inset-0 opacity-40" aria-hidden />
 
-      <div className="relative mx-auto max-w-7xl">
-        <div className="flex flex-wrap items-end justify-between gap-6">
-          <RevealOnScroll y={12}>
-            <span className="eyebrow text-isel-gold2">Dirección académica</span>
-          </RevealOnScroll>
-          <RevealOnScroll y={12} delay={0.08}>
-            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-isel-ink/35">
-              Instituto Salesiano de Educación en Línea
-            </p>
-          </RevealOnScroll>
-        </div>
+      <div className="relative mx-auto max-w-6xl">
+        <RevealOnScroll y={12}>
+          <span className="eyebrow text-isel-gold2">Dirección académica</span>
+        </RevealOnScroll>
 
-        {/* El panel entra elevándose; la cortina de verdad está dentro, sobre el retrato. */}
-        <div
-          ref={panelRef}
-          className={`grain relative mt-10 overflow-hidden rounded-[2rem] bg-isel-deep transition-[opacity,transform] duration-[1200ms] ease-snap lg:rounded-[2.5rem] ${
-            reduce || shown ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0"
-          }`}
-        >
-          <div className="grid-lines pointer-events-none absolute inset-0 opacity-60" aria-hidden />
-          <motion.div
-            aria-hidden
-            style={{ y: glowY }}
-            className="pointer-events-none absolute -right-32 top-0 h-[34rem] w-[34rem] rounded-full bg-isel-emerald/25 blur-[140px]"
-          />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -left-24 bottom-[-20%] h-[26rem] w-[26rem] rounded-full bg-isel-gold/[0.12] blur-[130px]"
-          />
+        <div className="mt-14 grid grid-cols-1 gap-16 lg:grid-cols-[0.72fr_1fr] lg:gap-20">
+          {/* Retrato montado sobre su bloque de color.
+              El envoltorio interior es el que manda: la celda del grid se
+              estira a la altura de la columna de texto, así que el bloque de
+              color medido contra ella se alargaba de más. */}
+          <div ref={portraitRef} className="mx-auto w-full max-w-sm lg:mx-0 lg:max-w-none lg:self-center">
+            <div className="relative">
+            <span
+              aria-hidden
+              className={`absolute -bottom-5 -left-4 top-12 w-full rounded-[1.4rem] bg-isel-navy sm:-bottom-7 sm:-left-7 sm:top-16 transition-transform duration-[1100ms] ease-snap ${
+                reduce || shown ? "translate-x-0 translate-y-0" : "-translate-y-6 translate-x-6"
+              }`}
+            />
 
-          <div className="relative grid grid-cols-1 lg:grid-cols-[0.86fr_1.14fr]">
-            {/* Retrato a sangre: ocupa su columna de arriba abajo. */}
-            <div ref={portraitRef} className="relative min-h-[26rem] overflow-hidden lg:min-h-[38rem]">
-              {/* Dos capas separadas: la de fuera asienta la escala con una
-                  transición CSS, la de dentro lleva el parallax de framer.
-                  Si compartieran elemento, el `transform` inline pisaría a la
-                  clase y la escala no se aplicaría. */}
+            <div className="relative aspect-[4/5] w-full overflow-hidden rounded-[1.4rem] bg-isel-paper shadow-lift">
+              {/* Dos capas: fuera la escala se asienta con CSS, dentro va el
+                  parallax de framer. Juntas se pisarían el `transform`. */}
               <div
-                className={`absolute inset-0 h-[114%] transition-transform duration-[1700ms] ease-snap ${
-                  reduce || portraitShown ? "scale-[1.12]" : "scale-[1.22]"
+                className={`absolute inset-0 h-[110%] transition-transform duration-[1600ms] ease-snap ${
+                  reduce || shown ? "scale-100" : "scale-[1.12]"
                 }`}
               >
                 <motion.div style={{ y: photoY }} className="h-full w-full">
                   <ImageSlot
                     src="/images/advisor/rolando-valdez.jpg"
-                    alt="Mgtr. Rolando Valdez"
+                    alt="Retrato del Mgtr. Rolando Valdez"
                     label="Mgtr. Rolando Valdez"
-                    tone="dark"
                     glyph="RV"
                   />
                 </motion.div>
               </div>
 
-              {/* Cortina que descubre el retrato — transición CSS, nunca se queda echada. */}
+              {/* Cortina: se retira de abajo hacia arriba, por transición CSS. */}
               {!reduce && (
                 <span
                   aria-hidden
-                  className={`absolute inset-0 origin-top bg-isel-emerald transition-transform duration-[1100ms] ease-snap ${
-                    portraitShown ? "scale-y-0" : "scale-y-100"
+                  className={`absolute inset-0 origin-bottom bg-isel-navy transition-transform duration-[1100ms] ease-snap ${
+                    shown ? "scale-y-0" : "scale-y-100"
                   }`}
-                  style={{ transitionDelay: "0.35s" }}
                 />
               )}
-
-              {/* Velo inferior: asegura que el pie se lea sobre cualquier foto. */}
-              <span
-                aria-hidden
-                className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-isel-deep/80"
-                style={{ maskImage: "linear-gradient(to top, #000 35%, transparent)" }}
-              />
-
-              <RevealOnScroll delay={0.7} className="absolute bottom-7 left-7 right-7">
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-isel-gold">
-                  Director · desde la dirección del ISEL
-                </p>
-              </RevealOnScroll>
             </div>
 
-            {/* Columna de texto. */}
-            <div className="relative px-7 py-12 sm:px-12 lg:py-16 lg:pl-16 lg:pr-14">
-              {/* Sello giratorio, montado en el canto entre las dos columnas. */}
-              <div className="absolute -top-11 left-7 hidden h-24 w-24 items-center justify-center rounded-full bg-isel-navy shadow-lift ring-1 ring-white/10 lg:-left-12 lg:top-14 lg:flex">
-                <svg viewBox="0 0 200 200" className="h-full w-full animate-spin-slow" aria-hidden>
-                  <defs>
-                    <path id="advisor-seal" d="M100,100 m-68,0 a68,68 0 1,1 136,0 a68,68 0 1,1 -136,0" />
-                  </defs>
-                  <text className="fill-white/60 text-[18px] font-bold uppercase tracking-[0.24em]">
-                    <textPath href="#advisor-seal">Dirección académica · ISEL · UMES ·</textPath>
-                  </text>
-                </svg>
-                <span className="absolute font-display text-lg font-bold text-isel-gold">RV</span>
-              </div>
-
-              <RevealOnScroll y={12} delay={0.55}>
-                <p className="flex items-center gap-3 text-[11px] font-bold uppercase tracking-[0.18em] text-isel-gold">
-                  <span className="h-px w-10 bg-isel-gold" />
-                  Director del Instituto
-                </p>
-              </RevealOnScroll>
-
-              <SplitHeading
-                text="Mgtr. Rolando Valdez"
-                delay={0.15}
-                className="mt-5 font-display text-[clamp(2.4rem,5.6vw,4.4rem)] font-semibold leading-[0.92] tracking-ultratight text-white"
+              <span
+                aria-hidden
+                className={`absolute -bottom-5 left-0 block h-[3px] w-24 origin-left bg-isel-gold sm:-bottom-7 transition-transform delay-500 duration-[900ms] ease-snap ${
+                  reduce || shown ? "scale-x-100" : "scale-x-0"
+                }`}
               />
+            </div>
+          </div>
 
-              <div className="relative mt-9 max-w-xl">
-                <SplitHeading
-                  as="p"
-                  delay={0.1}
-                  text="“Comprometido con el acompañamiento a jóvenes y la innovación educativa.”"
-                  className="font-serif text-[1.6rem] italic leading-[1.25] text-white sm:text-[2.1rem]"
-                />
+          {/* Semblanza. */}
+          <div ref={textRef} className="flex flex-col justify-center">
+            <SplitHeading
+              text="Mgtr. Rolando Valdez"
+              className="font-display text-[clamp(2.5rem,6.2vw,4.6rem)] font-semibold leading-[0.92] tracking-ultratight text-isel-navy"
+            />
+
+            <p
+              style={delay(90)}
+              className={`mt-5 font-serif text-[1.4rem] italic leading-snug text-isel-gold2 sm:text-[1.7rem] ${beat} ${beatState}`}
+            >
+              Director del Instituto Salesiano de Educación en Línea
+            </p>
+
+            <span
+              aria-hidden
+              style={delay(210)}
+              className={`mt-10 block h-px w-full bg-isel-line ${beat} ${beatState}`}
+            />
+
+            <p
+              style={delay(330)}
+              className={`dropcap mt-10 max-w-[62ch] text-[16.5px] leading-[1.85] text-isel-ink/80 sm:text-[17.5px] ${beat} ${beatState}`}
+            >
+              Educador y administrador con sólida experiencia en coordinación académica, gestión de proyectos y
+              docencia en educación superior. Se ha destacado por liderar equipos, diseñar estrategias educativas y
+              promover entornos de excelencia mediante una comunicación efectiva y pensamiento analítico.
+            </p>
+
+            <p
+              style={delay(480)}
+              className={`mt-6 max-w-[62ch] text-[16.5px] leading-[1.85] text-isel-ink/80 sm:text-[17.5px] ${beat} ${beatState}`}
+            >
+              Comprometido con el acompañamiento a jóvenes y la innovación educativa, impulsa programas que generan
+              impacto significativo en la formación profesional y humana. Actualmente, desempeña funciones directivas
+              con una visión orientada al desarrollo institucional y la transformación educativa.
+            </p>
+
+            {/* Cierre: monograma y rúbrica, como al pie de una carta. */}
+            <div style={delay(620)} className={`mt-16 flex items-end gap-7 ${beat} ${beatState}`}>
+              <div className="relative shrink-0">
+                <span className="font-display text-[2.6rem] font-semibold leading-none tracking-ultratight text-isel-navy">
+                  RV
+                </span>
                 <svg
                   aria-hidden
-                  viewBox="0 0 400 10"
+                  viewBox="0 0 160 26"
                   preserveAspectRatio="none"
-                  className="mt-3 h-2.5 w-1/2 text-isel-gold"
+                  className="absolute -bottom-4 -left-2 h-6 w-[8.5rem] text-isel-gold"
                 >
                   <motion.path
-                    d="M2 7C70 2 160 1 240 4c50 2 100 3 158 1"
+                    d="M3 15c22 8 46 9 68 3 12-3 21-9 31-9 9 0 12 6 21 6 6 0 12-2 16-6"
                     fill="none"
                     stroke="currentColor"
-                    strokeWidth={3}
+                    strokeWidth={2.5}
                     strokeLinecap="round"
                     initial={{ pathLength: 0 }}
                     whileInView={{ pathLength: 1 }}
-                    viewport={{ once: true, amount: 0.6 }}
-                    transition={{ duration: 1.1, delay: 0.5, ease: SNAP }}
+                    viewport={{ once: true, amount: 0.8 }}
+                    transition={{ duration: 1.2, delay: 0.35, ease: SNAP }}
                   />
                 </svg>
               </div>
 
-              <ScrollHighlightText
-                text="Educador y administrador con sólida experiencia en coordinación académica, gestión de proyectos y docencia en educación superior. Se ha destacado por liderar equipos, diseñar estrategias educativas y promover entornos de excelencia mediante una comunicación efectiva y pensamiento analítico. Comprometido con el acompañamiento a jóvenes y la innovación educativa, impulsa programas que generan impacto significativo en la formación profesional y humana. Actualmente, desempeña funciones directivas con una visión orientada al desarrollo institucional y la transformación educativa."
-                className="mt-10 max-w-2xl text-[15.5px] leading-[1.8] text-white sm:text-[16.5px]"
-                dim={0.28}
-              />
-
-              <dl className="mt-12 grid grid-cols-2 gap-x-8 gap-y-8 border-t border-white/10 pt-9 sm:grid-cols-4">
-                {CREDENCIALES.map((c, i) => (
-                  <motion.div
-                    key={c.k}
-                    initial={{ opacity: 0, y: 22 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true, amount: 0.5 }}
-                    transition={{ duration: 0.7, delay: 0.08 + i * 0.09, ease: SNAP }}
-                  >
-                    <dt className="text-[10px] font-bold uppercase tracking-[0.16em] text-isel-gold/70">{c.k}</dt>
-                    <dd className="mt-2 text-sm leading-snug text-white/85">{c.v}</dd>
-                  </motion.div>
-                ))}
-              </dl>
+              <p className="pb-1 text-[13px] leading-relaxed text-isel-ink/45">
+                Mgtr. Rolando Valdez
+                <br />
+                Dirección del ISEL · Universidad Mesoamericana
+              </p>
             </div>
           </div>
         </div>
