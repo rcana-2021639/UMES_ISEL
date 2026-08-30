@@ -37,8 +37,8 @@ export function ProgramCard({ program, index, variant = "tall", delay = 0 }: Pro
 
   return (
     <motion.article
-      initial={reduce ? { opacity: 0 } : { opacity: 0, y: 56, clipPath: "inset(14% 0% 0% 0%)" }}
-      whileInView={{ opacity: 1, y: 0, clipPath: "inset(0% 0% 0% 0%)" }}
+      initial={reduce ? { opacity: 0 } : { opacity: 0, y: 56, scale: 0.985 }}
+      whileInView={{ opacity: 1, y: 0, scale: 1 }}
       viewport={{ once: true, amount: 0.16 }}
       transition={{ duration: 1.05, delay, ease: SNAP }}
       style={{ ["--accent" as string]: accent, ["--accent-soft" as string]: soft }}
