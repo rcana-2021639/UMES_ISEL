@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Icon } from "@/components/portal/Icon";
+import { fieldClass } from "@/components/portal/kit";
 
 export interface SearchSelectOption {
   value: string;
@@ -49,8 +51,13 @@ export function SearchSelect({ options, value, onChange, placeholder = "Buscarâ€
 
   return (
     <div ref={containerRef} className="relative">
+      <Icon
+        name="search"
+        size={15}
+        className="pointer-events-none absolute left-3.5 top-1/2 z-10 -translate-y-1/2 text-isel-ink/30"
+      />
       <input
-        className="w-full rounded-lg border border-isel-line bg-white px-3 py-2 text-sm text-isel-ink transition-colors duration-200 focus:border-isel-navy focus:outline-none focus:ring-2 focus:ring-isel-navy/15"
+        className={`${fieldClass} pl-9`}
         placeholder={placeholder}
         value={open ? query : (selected?.label ?? "")}
         onFocus={() => {
@@ -60,16 +67,16 @@ export function SearchSelect({ options, value, onChange, placeholder = "Buscarâ€
         onChange={(e) => setQuery(e.target.value)}
       />
       {open && (
-        <div className="absolute z-20 mt-1 max-h-64 w-full min-w-[18rem] overflow-y-auto rounded-lg border border-isel-line bg-white shadow-card-hover">
+        <div className="absolute z-20 mt-1.5 max-h-64 w-full min-w-[18rem] overflow-y-auto rounded-xl border border-isel-line bg-white py-1 shadow-card-hover">
           {filtered.length === 0 ? (
-            <p className="px-3 py-2 text-sm text-isel-ink/40">{emptyLabel}</p>
+            <p className="px-4 py-3 text-[13px] text-isel-ink/40">{emptyLabel}</p>
           ) : (
             filtered.map((o, i) => {
               const showGroupHeader = o.group && o.group !== filtered[i - 1]?.group;
               return (
                 <div key={o.value}>
                   {showGroupHeader && (
-                    <div className="sticky top-0 bg-isel-paper px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-isel-navy/70">
+                    <div className="sticky top-0 z-10 bg-isel-paper px-4 py-1.5 text-[10.5px] font-bold uppercase tracking-[0.13em] text-isel-navy/60">
                       {o.group}
                     </div>
                   )}
@@ -80,8 +87,8 @@ export function SearchSelect({ options, value, onChange, placeholder = "Buscarâ€
                       setOpen(false);
                       setQuery("");
                     }}
-                    className={`block w-full px-4 py-2 text-left text-sm transition-colors duration-150 hover:bg-isel-paper ${
-                      o.value === value ? "bg-isel-paper font-semibold text-isel-navy" : "text-isel-ink"
+                    className={`block w-full px-4 py-2 text-left text-[13.5px] transition-colors duration-200 ease-crisp hover:bg-isel-emerald/[0.07] ${
+                      o.value === value ? "bg-isel-emerald/10 font-semibold text-isel-emerald2" : "text-isel-ink"
                     }`}
                   >
                     {o.label}

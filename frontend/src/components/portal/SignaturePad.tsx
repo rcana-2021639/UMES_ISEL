@@ -42,7 +42,7 @@ export const SignaturePad = forwardRef<SignaturePadHandle, SignaturePadProps>(fu
     ctx.lineWidth = 2.4;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    ctx.strokeStyle = "#0B2545"; // isel-navy — matches an ink pen, no gradient
+    ctx.strokeStyle = "#0A2B24"; // isel-navy — tinta de pluma, sin degradado
     return ctx;
   };
 
@@ -126,15 +126,17 @@ export const SignaturePad = forwardRef<SignaturePadHandle, SignaturePadProps>(fu
     <div className={`relative ${className}`}>
       <canvas
         ref={canvasRef}
-        className="h-40 w-full cursor-crosshair touch-none rounded-lg border-2 border-isel-line bg-white"
+        className="h-44 w-full cursor-crosshair touch-none rounded-xl border border-dashed border-isel-line bg-white transition-colors duration-300 ease-crisp hover:border-isel-emerald/45"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={endStroke}
         onPointerLeave={endStroke}
       />
       {isEmpty && (
-        <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-isel-ink/35">
-          Firma aquí con el mouse, lápiz óptico o el dedo
+        <span className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 text-isel-ink/30">
+          {/* Renglón de firma: dice dónde va sin escribir "escribe aquí". */}
+          <span aria-hidden className="h-px w-2/3 bg-isel-line" />
+          <span className="text-[12.5px]">Firma con el mouse, el lápiz óptico o el dedo</span>
         </span>
       )}
     </div>

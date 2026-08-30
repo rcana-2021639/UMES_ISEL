@@ -76,7 +76,7 @@ export function AdvisorSection() {
               >
                 <motion.div style={{ y: photoY }} className="h-full w-full">
                   <ImageSlot
-                    src="/images/advisor/rolando-valdez.jpg"
+                    src="/images/advisor/rolando-valdez.avif"
                     alt="Retrato del Mgtr. Rolando Valdez"
                     label="Mgtr. Rolando Valdez"
                     glyph="RV"

@@ -82,10 +82,14 @@ export function useReveal<T extends HTMLElement>(amount = 0.15) {
     }
 
     check();
-    window.addEventListener("scroll", check, { passive: true });
+    // En captura sobre `document`, no sobre `window`: los eventos de scroll no
+    // burbujean, así que un bloque dentro de un contenedor con scroll propio
+    // (p. ej. el formulario abierto en el modal del panel) nunca se enteraría
+    // y se quedaría invisible para siempre.
+    document.addEventListener("scroll", check, { passive: true, capture: true });
     window.addEventListener("resize", check);
     return () => {
-      window.removeEventListener("scroll", check);
+      document.removeEventListener("scroll", check, true);
       window.removeEventListener("resize", check);
     };
   }, [amount, shown]);
