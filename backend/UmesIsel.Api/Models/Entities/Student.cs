@@ -50,4 +50,7 @@ public class Student
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     public List<CourseAssignment> CourseAssignments { get; set; } = new();
+
+    /// <summary>"Papelería al día" — ver <see cref="StudentDocument"/>.</summary>
+    public List<StudentDocument> Documentos { get; set; } = new();
 }
