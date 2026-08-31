@@ -59,14 +59,46 @@ public static class XlsxCellSurgery
     public static string XmlEscapeText(string s) =>
         s.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
 
-    /// <summary>Fuerza "ajustar a una página" en la impresión, igual que hace FichaXlsxBuilder.</summary>
+    /// <summary>
+    /// Fuerza "ajustar a una página" en la impresión — igual intención que
+    /// <c>FichaXlsxBuilder.ForceFitToOnePage</c>, pero además retira cualquier <c>scale="…"</c> que
+    /// ExcelJS ya haya escrito en &lt;pageSetup&gt;: LibreOffice, al convertir a PDF, imprime al
+    /// porcentaje fijo de <c>scale</c> cuando lo encuentra, aunque <c>fitToWidth</c>/<c>fitToHeight</c>
+    /// también estén presentes — eso es lo que producía páginas de más al armar las plantillas nuevas.
+    /// El template oficial de asignación no tiene ese problema porque nunca trae un <c>scale</c>
+    /// explícito de fábrica.
+    /// </summary>
     public static string ForceFitToOnePage(string xml)
     {
-        if (!xml.Contains("<sheetPr>") && !xml.Contains("<sheetPr/>"))
+        if (!Regex.IsMatch(xml, @"<pageSetUpPr\b[^>]*fitToPage=""1"""))
         {
-            xml = Regex.Replace(xml, @"(<worksheet[^>]*>)", "$1<sheetPr><pageSetUpPr fitToPage=\"1\"/></sheetPr>");
+            if (xml.Contains("<sheetPr/>"))
+            {
+                xml = xml.Replace("<sheetPr/>", "<sheetPr><pageSetUpPr fitToPage=\"1\"/></sheetPr>");
+            }
+            else if (xml.Contains("<sheetPr>"))
+            {
+                xml = xml.Replace("<sheetPr>", "<sheetPr><pageSetUpPr fitToPage=\"1\"/>");
+            }
+            else
+            {
+                xml = Regex.Replace(xml, @"(<worksheet[^>]*>)", "$1<sheetPr><pageSetUpPr fitToPage=\"1\"/></sheetPr>");
+            }
         }
-        xml = Regex.Replace(xml, @"<pageSetup ", "<pageSetup fitToWidth=\"1\" fitToHeight=\"1\" ");
+
+        xml = Regex.Replace(xml, @"<pageSetup\b([^/>]*)/>", m =>
+        {
+            var attrs = Regex.Replace(m.Groups[1].Value, @"\s*(scale|fitToWidth|fitToHeight)=""[^""]*""", "");
+            return $@"<pageSetup{attrs} fitToWidth=""1"" fitToHeight=""1""/>";
+        });
+
+        // Sin esto, LibreOffice imprime su propio encabezado/pie por defecto (nombre de la hoja +
+        // número de página) porque el .xlsx generado por ExcelJS nunca declaró ninguno — un
+        // <headerFooter/> vacío pero presente sí cuenta como "sin encabezado ni pie".
+        if (!xml.Contains("<headerFooter"))
+        {
+            xml = Regex.Replace(xml, @"(<pageSetup\b[^/>]*/>)", "$1<headerFooter/>");
+        }
         return xml;
     }
 
