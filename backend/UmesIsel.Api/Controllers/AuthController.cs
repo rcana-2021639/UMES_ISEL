@@ -46,10 +46,12 @@ public class AuthController : ControllerBase
             return NotFound("No encontramos ese carné. Verifica el número e intenta de nuevo.");
         }
 
+        var documentosSubidos = await _db.StudentDocuments.CountAsync(d => d.StudentId == student.Id);
         var dto = new StudentDto(
             student.Id, student.Carnet, student.PrimerApellido, student.SegundoApellido,
             student.PrimerNombre, student.SegundoNombre, student.NombreCompleto, student.Carrera,
-            student.Seccion, student.Trimestre, student.CorreoInstitucional, student.CorreoPersonal, student.Celular);
+            student.Seccion, student.Trimestre, student.CorreoInstitucional, student.CorreoPersonal, student.Celular,
+            student.PapeleriaEnOrden, documentosSubidos);
 
         return Ok(new LoginResponse("student", dto));
     }

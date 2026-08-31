@@ -19,8 +19,8 @@ builder.Services.AddSingleton<FichaXlsxBuilder>();
 builder.Services.AddSingleton<FichaPdfBuilder>();
 
 // Módulo de Inscripción (aspirantes de nuevo ingreso) — ver Services/InscripcionPdfBuilder.cs.
-builder.Services.AddSingleton<PreinscripcionXlsxBuilder>();
-builder.Services.AddSingleton<CartaCompromisoXlsxBuilder>();
+builder.Services.AddSingleton<PreinscripcionDocxBuilder>();
+builder.Services.AddSingleton<CartaCompromisoDocxBuilder>();
 builder.Services.AddSingleton<InscripcionPdfBuilder>();
 // Documentos en PDF subidos por aspirantes/alumnos — ver Services/DocumentStorageService.cs.
 builder.Services.AddSingleton<DocumentStorageService>();

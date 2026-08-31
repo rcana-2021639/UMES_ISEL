@@ -98,9 +98,12 @@ public class InscripcionesController : ControllerBase
         );
     }
 
+    // Recién migrado: aún no tiene documentos propios (los del aspirante viven aparte) ni respuesta
+    // a "¿papelería al día?" — de ahí el false/0.
     private static StudentDto ToStudentDto(Student s) => new(
         s.Id, s.Carnet, s.PrimerApellido, s.SegundoApellido, s.PrimerNombre, s.SegundoNombre,
-        s.NombreCompleto, s.Carrera, s.Seccion, s.Trimestre, s.CorreoInstitucional, s.CorreoPersonal, s.Celular);
+        s.NombreCompleto, s.Carrera, s.Seccion, s.Trimestre, s.CorreoInstitucional, s.CorreoPersonal, s.Celular,
+        s.PapeleriaEnOrden, 0);
 
     // ---- Acceso / consulta -------------------------------------------------------------------
 

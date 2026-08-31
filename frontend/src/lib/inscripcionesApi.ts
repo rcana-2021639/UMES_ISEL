@@ -63,6 +63,11 @@ export function getDocumentos(applicantId: number): Promise<ApplicantDocument[]>
   return http.get<ApplicantDocument[]>(`/api/inscripciones/${applicantId}/documentos`);
 }
 
+/** URL directa del PDF ya subido — para el botón "Ver" (se abre en una pestaña nueva, no hace falta pasar por fetch). */
+export function getDocumentoUrl(applicantId: number, tipo: DocumentoTipo): string {
+  return `${API_BASE}/api/inscripciones/${applicantId}/documentos/${tipo}/archivo`;
+}
+
 /** Sube un PDF para un tipo de documento — reemplaza cualquier subida anterior de ese mismo tipo. */
 export async function uploadDocumento(applicantId: number, tipo: DocumentoTipo, file: File): Promise<ApplicantDocument> {
   const form = new FormData();

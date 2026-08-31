@@ -23,6 +23,11 @@ export function deleteStudentDocumento(studentId: number, tipo: DocumentoTipo): 
   return http.del(`/api/students/${studentId}/documentos/${tipo}`);
 }
 
+/** URL directa del PDF ya subido — para el botón "Ver". */
+export function getStudentDocumentoUrl(studentId: number, tipo: DocumentoTipo): string {
+  return `${API_BASE}/api/students/${studentId}/documentos/${tipo}/archivo`;
+}
+
 /** Solo los documentos extra, combinados en un PDF. */
 export const openStudentDocumentosPdf = (studentId: number) => openPdf(`/api/students/${studentId}/documentos/pdf`);
 

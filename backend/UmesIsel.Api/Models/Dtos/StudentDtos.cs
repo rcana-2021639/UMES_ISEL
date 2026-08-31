@@ -14,8 +14,13 @@ public record StudentDto(
     int? Trimestre,
     string? CorreoInstitucional,
     string? CorreoPersonal,
-    string? Celular
+    string? Celular,
+    bool PapeleriaEnOrden,
+    int DocumentosSubidos
 );
+
+/// <summary>PUT /api/students/{id}/papeleria-en-orden — respuesta a "¿Tiene su papelería al día?".</summary>
+public record PapeleriaEnOrdenRequest(bool EnOrden);
 
 /// <summary>Body for creating/editing a student — every field the admin's "Agregar alumno" form collects.</summary>
 public record StudentUpsertRequest(

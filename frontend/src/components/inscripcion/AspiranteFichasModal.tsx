@@ -5,14 +5,16 @@ import { PortalButton, Segmented } from "@/components/portal/kit";
 import { PreinscripcionForm } from "@/components/inscripcion/PreinscripcionForm";
 import { AsignacionNuevoIngresoForm } from "@/components/inscripcion/AsignacionNuevoIngresoForm";
 import { CartaCompromisoForm } from "@/components/inscripcion/CartaCompromisoForm";
+import { DocumentosForm } from "@/components/inscripcion/DocumentosForm";
 import type { Applicant } from "@/types/inscripcion";
 
-type Ficha = "preinscripcion" | "asignacion" | "compromiso";
+type Ficha = "preinscripcion" | "asignacion" | "compromiso" | "documentos";
 
 const FICHAS: { value: Ficha; label: string }[] = [
   { value: "preinscripcion", label: "1 · Preinscripción" },
   { value: "asignacion", label: "2 · Asignación" },
   { value: "compromiso", label: "3 · Compromiso" },
+  { value: "documentos", label: "Documentos" },
 ];
 
 /**
@@ -94,6 +96,15 @@ export function AspiranteFichasModal({
                 dpi: applicant.dpi ?? applicant.preinscripcion?.dpi,
               }}
               onSaved={(c) => onUpdated({ ...applicant, compromiso: c })}
+            />
+          )}
+          {ficha === "documentos" && (
+            <DocumentosForm
+              applicantId={applicant.id}
+              esExtranjero={applicant.compromiso?.esExtranjero ?? applicant.esExtranjero}
+              documentos={applicant.documentos}
+              readOnly={!editing}
+              onChanged={(documentos) => onUpdated({ ...applicant, documentos })}
             />
           )}
         </div>

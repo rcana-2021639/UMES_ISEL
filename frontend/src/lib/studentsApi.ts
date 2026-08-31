@@ -28,3 +28,8 @@ export function updateStudent(id: number, input: StudentUpsertInput): Promise<St
 export function deleteStudent(id: number): Promise<void> {
   return http.del(`/api/students/${id}`);
 }
+
+/** Respuesta a "¿Tiene su papelería al día?" — en Sí, el panel deja de pedir subir documentos. */
+export function setPapeleriaEnOrden(id: number, enOrden: boolean): Promise<Student> {
+  return http.put<Student>(`/api/students/${id}/papeleria-en-orden`, { enOrden });
+}
