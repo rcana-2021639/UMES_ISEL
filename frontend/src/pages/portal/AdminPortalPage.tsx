@@ -43,6 +43,20 @@ function todayInput(): string {
   return toDateParam(d);
 }
 
+/**
+ * Las fechas del rango, en palabras. "Este mes" no dice nada por sí solo —¿qué
+ * mes, contado desde cuándo?—; "del 1 al 31 de agosto de 2026" sí, y es lo que
+ * hay que poder leer antes de mandar cuarenta fichas a la impresora.
+ */
+function rangeText(from: Date, to: Date): string {
+  const dia = (d: Date) => d.getDate();
+  const mes = (d: Date) => d.toLocaleDateString("es-GT", { month: "long" });
+  const anio = to.getFullYear();
+  if (from.toDateString() === to.toDateString()) return `${dia(from)} de ${mes(from)} de ${anio}`;
+  if (from.getMonth() === to.getMonth()) return `del ${dia(from)} al ${dia(to)} de ${mes(to)} de ${anio}`;
+  return `del ${dia(from)} de ${mes(from)} al ${dia(to)} de ${mes(to)} de ${anio}`;
+}
+
 /** Lowercased, accent-stripped, so typing "jose" finds a name with an accented "e" and "gonzalez"
  *  finds one with an accented "a". NFD-decomposes each accented letter into a base letter plus a
  *  separate combining-mark codepoint, then drops every codepoint in the Unicode "Combining
@@ -205,6 +219,12 @@ export function AdminPortalPage() {
     return { day: "Hoy", week: "Esta semana", month: "Este mes" }[rangeMode];
   }, [rangeMode]);
 
+  const rangeDates = useMemo(() => {
+    if (!rangeMode) return null;
+    const { from, to } = rangeFor(rangeMode, new Date(`${dateInput}T00:00:00`));
+    return rangeText(from, to);
+  }, [rangeMode, dateInput]);
+
   const emptyAssignmentsMessage = useMemo(() => {
     const tipoPagoLabel = { link: "de pago por link", presencial: "de pago presencial" } as const;
     const suffix = tipoPagoFilter === "todas" ? "" : ` ${tipoPagoLabel[tipoPagoFilter.toLowerCase() as "link" | "presencial"]}`;
@@ -250,6 +270,7 @@ export function AdminPortalPage() {
           <FichaStack
             loaded={assignmentsLoaded}
             rangeLabel={rangeLabel}
+            rangeText={rangeDates}
             total={assignments.length}
             link={linkCount}
             presencial={presencialCount}

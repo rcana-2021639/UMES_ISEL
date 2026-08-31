@@ -43,7 +43,7 @@ export function ProgramCard({ program, index, variant = "tall", delay = 0 }: Pro
       transition={{ duration: 1.05, delay, ease: SNAP }}
       style={{ ["--accent" as string]: accent, ["--accent-soft" as string]: soft }}
       className={`group relative flex w-full overflow-hidden rounded-[1.8rem] border border-isel-line bg-white transition-[transform,box-shadow,border-color] duration-700 ease-snap hover:-translate-y-2 hover:border-transparent hover:shadow-accent ${
-        wide ? "flex-col md:flex-row" : "h-full flex-col"
+        wide ? "flex-col md:min-h-[19rem] md:flex-row" : "h-full flex-col"
       }`}
     >
       {/* Filo de color: crece de izquierda a derecha al enfocar la tarjeta. */}
@@ -54,18 +54,25 @@ export function ProgramCard({ program, index, variant = "tall", delay = 0 }: Pro
 
       <div className={`relative overflow-hidden ${wide ? "md:w-[42%]" : ""}`}>
         <motion.div
-          initial={reduce ? {} : { scale: 1.16 }}
+          initial={reduce ? {} : { scale: 1.06 }}
           whileInView={{ scale: 1 }}
           viewport={{ once: true, amount: 0.16 }}
           transition={{ duration: 1.5, delay: delay + 0.1, ease: SNAP }}
-          className={wide ? "aspect-[16/10] h-full w-full md:aspect-auto md:min-h-[19rem]" : "aspect-[16/11] w-full"}
+          /* En la tarjeta ancha la foto se posiciona absoluta a partir de `md`:
+             con `aspect-auto` y altura automática, una imagen real imponía su
+             altura intrínseca y estiraba la tarjeta metros hacia abajo (con el
+             marcador de "imagen pendiente" no pasaba, porque no tenía tamaño
+             propio). Absoluta, la foto se ajusta a la altura de la fila. */
+          className={
+            wide ? "aspect-[16/10] w-full md:absolute md:inset-0 md:aspect-auto" : "aspect-[16/11] w-full"
+          }
         >
           <ImageSlot
             src={program.cardImage}
             alt={program.title}
             label={campo}
             glyph={num}
-            className="transition-transform duration-[1100ms] ease-snap group-hover:scale-[1.07]"
+            className="transition-transform duration-[1100ms] ease-snap group-hover:scale-[1.03]"
           />
         </motion.div>
 

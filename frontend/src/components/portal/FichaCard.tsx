@@ -78,7 +78,7 @@ export function FichaCard({ student }: { student: Student }) {
           <span
             className="pointer-events-none absolute inset-0 opacity-[0.5]"
             style={{
-              backgroundImage: "repeating-linear-gradient(to bottom, rgba(10,43,36,0.05) 0 1px, transparent 1px 26px)",
+              backgroundImage: "repeating-linear-gradient(to bottom, rgba(20,73,60,0.055) 0 1px, transparent 1px 26px)",
             }}
           />
 
@@ -143,25 +143,30 @@ export function FichaCard({ student }: { student: Student }) {
 
 interface FichaStackProps {
   loaded: boolean;
+  /** "Hoy" / "Esta semana" / "Este mes". */
   rangeLabel: string | null;
+  /** Las fechas de verdad: "del 1 al 31 de agosto de 2026". */
+  rangeText: string | null;
   total: number;
   link: number;
   presencial: number;
 }
 
 /**
- * La misma pila de papel, del lado del panel.
+ * La misma pila de papel, del lado del panel: el objeto del administrador es
+ * el mismo que el del estudiante, solo que en montón.
  *
- * El objeto del administrador es el mismo que el del estudiante —la ficha—,
- * solo que en montón: por eso la vista de admin usa el mismo lenguaje en tres
- * dimensiones en vez de inventarse otro. La hoja de arriba lleva el recuento
- * del rango cargado y el reparto entre link y presencial, con dos barras que
- * crecen desde la izquierda: se ve la proporción sin leer los números.
+ * La primera versión de esta tarjeta no se entendía —el propio usuario lo dijo—
+ * y con razón: ponía "Fichas cargadas / Este mes / 1 / Link de pago 1 /
+ * Presencial 0" sin decir en ningún momento QUÉ fechas eran "este mes", ni que
+ * el 1 y el 0 de abajo eran un desglose de ese 1 de arriba. Tres cifras
+ * sueltas, sin relación visible entre ellas.
  *
- * Sin rango cargado, la pila está en blanco y lo dice. Es el estado vacío, y
- * también está diseñado.
+ * Ahora la hoja se lee como una frase de arriba abajo: cuántas fichas, de qué
+ * fechas exactas, y en qué se reparten —con porcentaje y barra, para que se vea
+ * que las dos partes suman el total—.
  */
-export function FichaStack({ loaded, rangeLabel, total, link, presencial }: FichaStackProps) {
+export function FichaStack({ loaded, rangeLabel, rangeText, total, link, presencial }: FichaStackProps) {
   const reduce = useReducedMotion();
   const ref = useRef<HTMLDivElement>(null);
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
@@ -185,14 +190,14 @@ export function FichaStack({ loaded, rangeLabel, total, link, presencial }: Fich
     setTilt({ x: -((e.clientY - r.top) / r.height - 0.5) * 10, y: ((e.clientX - r.left) / r.width - 0.5) * 12 });
   }
 
-  const pct = (n: number) => (total > 0 ? Math.round((n / total) * 100) : 0);
+  const sinTipo = Math.max(0, total - link - presencial);
 
   return (
     <div
       ref={ref}
       onPointerMove={onMove}
       onPointerLeave={() => setTilt({ x: 0, y: 0 })}
-      className="relative mx-auto w-full max-w-[20rem] [perspective:1200px] lg:mx-0"
+      className="relative mx-auto w-full max-w-[21rem] [perspective:1200px] lg:mx-0"
     >
       <div
         className="preserve-3d relative transition-transform duration-[700ms] ease-snap"
@@ -211,27 +216,45 @@ export function FichaStack({ loaded, rangeLabel, total, link, presencial }: Fich
 
         <div className="relative overflow-hidden rounded-[1.1rem] bg-isel-paper px-6 py-5 shadow-lift">
           <div className="flex items-center justify-between gap-3 border-b border-isel-navy/15 pb-3">
-            <p className="text-[8.5px] font-bold uppercase tracking-[0.16em] text-isel-navy/60">Fichas cargadas</p>
-            <p className="text-[8.5px] font-bold uppercase tracking-[0.16em] text-isel-gold2">
-              {rangeLabel ?? "Sin rango"}
+            <p className="text-[8.5px] font-bold uppercase tracking-[0.16em] text-isel-navy/60">
+              Fichas guardadas
             </p>
+            {rangeLabel && (
+              <p className="text-[8.5px] font-bold uppercase tracking-[0.16em] text-isel-gold2">{rangeLabel}</p>
+            )}
           </div>
 
           {loaded ? (
             <>
-              <p className="tabular mt-4 font-display text-[3.2rem] font-semibold leading-[0.85] tracking-ultratight text-isel-navy">
-                {total}
-              </p>
+              <div className="mt-4 flex items-baseline gap-2.5">
+                <p className="tabular font-display text-[3.2rem] font-semibold leading-[0.85] tracking-ultratight text-isel-navy">
+                  {total}
+                </p>
+                <p className="text-[13px] font-semibold text-isel-ink/50">{total === 1 ? "ficha" : "fichas"}</p>
+              </div>
+              {rangeText && <p className="mt-2 text-[12px] leading-snug text-isel-ink/50">{rangeText}</p>}
 
-              <div className="mt-6 space-y-3.5">
-                <Split label="Link de pago" value={link} pct={pct(link)} color="#2C6E8F" />
-                <Split label="Presencial" value={presencial} pct={pct(presencial)} color="#6D5AA8" />
+              <p className="mt-6 text-[8px] font-bold uppercase tracking-[0.14em] text-isel-ink/40">
+                Cómo van a pagar
+              </p>
+              <div className="mt-3 space-y-3.5">
+                <Split label="Link de pago" value={link} total={total} color="#2C6E8F" />
+                <Split label="Presencial" value={presencial} total={total} color="#6D5AA8" />
+                {sinTipo > 0 && <Split label="Sin especificar" value={sinTipo} total={total} color="#A9A296" />}
               </div>
             </>
           ) : (
-            <p className="mt-6 pb-3 text-[13px] leading-relaxed text-isel-ink/45">
-              Elige un rango —hoy, la semana o el mes— y la pila se llena con las fichas guardadas en esas fechas.
-            </p>
+            <>
+              <p className="mt-5 font-display text-[15px] font-semibold leading-snug text-isel-navy">
+                Todavía no has elegido fechas
+              </p>
+              <p className="mt-2 pb-3 text-[12.5px] leading-relaxed text-isel-ink/50">
+                Pulsa <strong className="font-semibold text-isel-navy">Hoy</strong>,{" "}
+                <strong className="font-semibold text-isel-navy">Semana</strong> o{" "}
+                <strong className="font-semibold text-isel-navy">Mes</strong> ahí abajo y aquí verás cuántas fichas se
+                guardaron en ese periodo.
+              </p>
+            </>
           )}
         </div>
       </div>
@@ -239,17 +262,21 @@ export function FichaStack({ loaded, rangeLabel, total, link, presencial }: Fich
   );
 }
 
-/** Reparto por tipo de pago: cifra, y una barra que dice la proporción. */
-function Split({ label, value, pct, color }: { label: string; value: number; pct: number; color: string }) {
+/** Una parte del total: cifra, porcentaje y barra proporcional. */
+function Split({ label, value, total, color }: { label: string; value: number; total: number; color: string }) {
+  const pct = total > 0 ? Math.round((value / total) * 100) : 0;
   return (
     <div>
       <div className="flex items-baseline justify-between gap-3">
-        <p className="text-[11px] font-semibold text-isel-ink/60">{label}</p>
-        <p className="tabular text-[13px] font-bold" style={{ color }}>
-          {value}
+        <p className="text-[11.5px] font-semibold text-isel-ink/65">{label}</p>
+        <p className="tabular text-[12px] font-semibold text-isel-ink/40">
+          <span className="text-[13.5px] font-bold" style={{ color }}>
+            {value}
+          </span>
+          <span className="ml-1.5">· {pct}%</span>
         </p>
       </div>
-      <span className="mt-1.5 block h-[3px] w-full overflow-hidden rounded-full bg-isel-navy/10">
+      <span className="mt-1.5 block h-[4px] w-full overflow-hidden rounded-full bg-isel-navy/10">
         <span
           className="block h-full origin-left rounded-full transition-transform duration-[900ms] ease-snap"
           style={{ backgroundColor: color, transform: `scaleX(${pct / 100})` }}

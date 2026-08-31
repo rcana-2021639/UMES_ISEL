@@ -851,6 +851,18 @@ function ChoiceRow({
   );
 }
 
+/**
+ * Una fila de "cursos adicionales".
+ *
+ * Los dos modos —añadir un curso suelto o repetir uno de un trimestre
+ * anterior— usan ahora el MISMO selector en modal. "Repetir trimestre" eran
+ * tres desplegables encadenados (maestría → trimestre → curso) metidos dentro
+ * de la fila: ocupaban tres columnas, obligaban a acertar en orden y no se
+ * parecían en nada a cómo se elige el otro curso de la misma fila. El recorrido
+ * es idéntico, así que la herramienta también debe serlo; lo único que cambia
+ * es dónde aterriza el selector al abrirse (en tu maestría, si vas a repetir)
+ * y que al elegir se guardan además la carrera y el trimestre de origen.
+ */
 function AdditionalRow({
   row,
   index,
@@ -871,22 +883,7 @@ function AdditionalRow({
   onRemove: () => void;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
-  const catalogCarreras = useMemo(
-    () => Array.from(new Set(allCourses.map((c) => c.carrera))).sort((a, b) => a.localeCompare(b)),
-    [allCourses],
-  );
-  const repetirTrimestres = useMemo(
-    () =>
-      Array.from(new Set(allCourses.filter((c) => c.carrera === row.repetirCarrera).map((c) => c.trimestre))).sort(
-        (a, b) => a - b,
-      ),
-    [allCourses, row.repetirCarrera],
-  );
-  const repetirCourseOptions = useMemo(
-    () => allCourses.filter((c) => c.carrera === row.repetirCarrera && c.trimestre === row.repetirTrimestre),
-    [allCourses, row.repetirCarrera, row.repetirTrimestre],
-  );
-  const repetirCourseChoice = row.courseId !== null ? repetirCourseOptions.find((c) => c.id === row.courseId) : undefined;
+  const repetir = row.mode === "repetir";
   const chosen = row.courseId !== null ? allCourses.find((c) => c.id === row.courseId) : undefined;
 
   const numeral = (
@@ -934,12 +931,14 @@ function AdditionalRow({
     );
   }
 
-  const filled = row.courseId !== null;
-
   return (
     <div
       className={`rounded-xl border p-4 transition-colors duration-300 ease-crisp ${
-        filled ? "border-isel-emerald/25 bg-isel-emerald/[0.04]" : "border-isel-line bg-isel-paper/50"
+        chosen
+          ? repetir
+            ? "border-isel-gold/35 bg-isel-gold/[0.05]"
+            : "border-isel-emerald/25 bg-isel-emerald/[0.04]"
+          : "border-isel-line bg-isel-paper/50"
       }`}
     >
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -969,132 +968,83 @@ function AdditionalRow({
         )}
       </div>
 
-      {row.mode === "adicional" ? (
-        <div>
-          <span className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-[0.14em] text-isel-ink/45">
-            Curso adicional
-          </span>
+      <span className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-[0.14em] text-isel-ink/45">
+        {repetir ? "Curso a repetir" : "Curso adicional"}
+      </span>
 
-          {/* Disparador del selector. Un boton que ensena lo elegido -con su
-              maestria y su trimestre- en vez de un desplegable con el catalogo
-              entero dentro, donde encontrar un curso era cuestion de suerte. */}
-          <button
-            type="button"
-            disabled={readOnly}
-            onClick={() => setPickerOpen(true)}
-            className={`group/pick flex w-full items-center gap-3 rounded-xl border bg-white px-4 py-3 text-left transition-[border-color,box-shadow] duration-300 ease-crisp disabled:cursor-default ${
-              chosen
-                ? "border-isel-emerald/35 shadow-[0_0_0_3px_rgba(18,133,92,0.09)]"
-                : "border-dashed border-isel-line hover:enabled:border-isel-navy/35"
-            }`}
-          >
-            <span
-              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-                chosen ? "bg-isel-emerald/10 text-isel-emerald" : "bg-isel-paper text-isel-ink/35"
-              }`}
-            >
-              <Icon name={chosen ? "check" : "search"} size={17} />
-            </span>
-            <span className="min-w-0 flex-1">
-              {chosen ? (
-                <>
-                  <span className="block truncate text-[14px] font-semibold text-isel-navy">{chosen.nombre}</span>
-                  <span className="mt-0.5 block truncate text-[12px] text-isel-ink/50">
-                    {chosen.carrera === "Inglés" ? "Inglés" : `${chosen.carrera} · Trimestre ${chosen.trimestre}`}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span className="block text-[14px] font-semibold text-isel-ink/60">Elegir un curso</span>
-                  <span className="mt-0.5 block text-[12px] text-isel-ink/40">
-                    Inglés y las seis maestrías, separadas por trimestre
-                  </span>
-                </>
-              )}
-            </span>
-            {!readOnly && (
-              <Icon
-                name="chevronRight"
-                size={16}
-                className="shrink-0 text-isel-ink/30 transition-transform duration-500 ease-snap group-hover/pick:translate-x-0.5"
-              />
-            )}
-          </button>
-
-          <CoursePickerModal
-            open={pickerOpen}
-            onClose={() => setPickerOpen(false)}
-            courses={allCourses}
-            value={row.courseId}
-            onSelect={(courseId) => onChange({ courseId })}
-          />
-        </div>
-      ) : (
-        <div>
-          <p className="mb-3 flex items-center gap-2 text-[12.5px] text-isel-ink/50">
-            <Icon name="repeat" size={14} />
-            Elige la maestría, luego el trimestre que necesitas repetir, y por último el curso.
-          </p>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <Field label="Maestría">
-              <select
-                className={fieldClass}
-                disabled={readOnly}
-                value={row.repetirCarrera ?? ""}
-                onChange={(e) =>
-                  onChange({ repetirCarrera: e.target.value || null, repetirTrimestre: null, courseId: null })
-                }
-              >
-                <option value="">Selecciona…</option>
-                {catalogCarreras.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Trimestre a repetir">
-              <select
-                className={fieldClass}
-                value={row.repetirTrimestre ?? ""}
-                onChange={(e) => onChange({ repetirTrimestre: e.target.value ? Number(e.target.value) : null, courseId: null })}
-                disabled={readOnly || row.repetirCarrera === null}
-              >
-                <option value="">Selecciona…</option>
-                {repetirTrimestres.map((t) => (
-                  <option key={t} value={t}>
-                    Trimestre {t}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Curso a repetir">
-              <select
-                className={fieldClass}
-                value={row.courseId ?? ""}
-                onChange={(e) => onChange({ courseId: e.target.value ? Number(e.target.value) : null })}
-                disabled={readOnly || row.repetirTrimestre === null}
-              >
-                <option value="">Selecciona…</option>
-                {repetirCourseOptions.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nombre}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          </div>
-          {repetirCourseChoice && (
-            <p className="mt-3 flex flex-wrap items-center gap-2 text-[13px] font-semibold text-isel-emerald2">
-              <Icon name="check" size={15} />
-              Vas a repetir: {repetirCourseChoice.nombre}
-              <span className="font-normal text-isel-ink/45">
-                ({repetirCourseChoice.carrera} · Trimestre {repetirCourseChoice.trimestre})
+      {/* Disparador del selector: enseña lo elegido con su maestría y su
+          trimestre, en vez de esconderlo dentro de un desplegable. */}
+      <button
+        type="button"
+        disabled={readOnly}
+        onClick={() => setPickerOpen(true)}
+        className={`group/pick flex w-full items-center gap-3 rounded-xl border bg-white px-4 py-3 text-left transition-[border-color,box-shadow] duration-300 ease-crisp disabled:cursor-default ${
+          chosen
+            ? repetir
+              ? "border-isel-gold/45 shadow-[0_0_0_3px_rgba(232,179,61,0.14)]"
+              : "border-isel-emerald/35 shadow-[0_0_0_3px_rgba(18,133,92,0.09)]"
+            : "border-dashed border-isel-line hover:enabled:border-isel-navy/35"
+        }`}
+      >
+        <span
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+            chosen
+              ? repetir
+                ? "bg-isel-gold/15 text-isel-gold2"
+                : "bg-isel-emerald/10 text-isel-emerald"
+              : "bg-isel-paper text-isel-ink/35"
+          }`}
+        >
+          <Icon name={chosen ? (repetir ? "repeat" : "check") : "search"} size={17} />
+        </span>
+        <span className="min-w-0 flex-1">
+          {chosen ? (
+            <>
+              <span className="block truncate text-[14px] font-semibold text-isel-navy">{chosen.nombre}</span>
+              <span className="mt-0.5 block truncate text-[12px] text-isel-ink/50">
+                {chosen.carrera === "Inglés" ? "Inglés" : `${chosen.carrera} · Trimestre ${chosen.trimestre}`}
               </span>
-            </p>
+            </>
+          ) : (
+            <>
+              <span className="block text-[14px] font-semibold text-isel-ink/60">
+                {repetir ? "Elegir el curso que vas a repetir" : "Elegir un curso"}
+              </span>
+              <span className="mt-0.5 block text-[12px] text-isel-ink/40">
+                {repetir
+                  ? "Se abre en tu maestría; puedes cambiar a cualquier otra"
+                  : "Inglés y las seis maestrías, separadas por trimestre"}
+              </span>
+            </>
           )}
-        </div>
-      )}
+        </span>
+        {!readOnly && (
+          <Icon
+            name="chevronRight"
+            size={16}
+            className="shrink-0 text-isel-ink/30 transition-transform duration-500 ease-snap group-hover/pick:translate-x-0.5"
+          />
+        )}
+      </button>
+
+      <CoursePickerModal
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        courses={allCourses}
+        value={row.courseId}
+        initialGroup={repetir ? mainCarrera : null}
+        title={repetir ? "Elegir curso a repetir" : "Elegir curso adicional"}
+        onSelect={(courseId) => {
+          const c = allCourses.find((x) => x.id === courseId);
+          // En "repetir" se guardan además la carrera y el trimestre de origen,
+          // que es lo que antes se elegía a mano en los dos primeros selects.
+          onChange(
+            repetir
+              ? { courseId, repetirCarrera: c?.carrera ?? null, repetirTrimestre: c?.trimestre ?? null }
+              : { courseId },
+          );
+        }}
+      />
 
       <div className="mt-4 grid grid-cols-2 gap-3">
         <input

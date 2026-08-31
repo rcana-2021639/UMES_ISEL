@@ -41,7 +41,7 @@ const shell: Record<Tone, string> = {
   outlineDark:
     "border border-white/25 text-white hover:border-transparent hover:bg-white hover:text-isel-deep hover:shadow-[0_0_0_5px_rgba(255,255,255,0.14)]",
   outlineLight:
-    "border border-isel-navy/20 text-isel-navy hover:border-transparent hover:bg-isel-navy hover:text-white hover:shadow-[0_0_0_5px_rgba(10,43,36,0.12)]",
+    "border border-isel-navy/20 text-isel-navy hover:border-transparent hover:bg-isel-navy hover:text-white hover:shadow-[0_0_0_5px_rgba(20,73,60,0.14)]",
 };
 
 const sizing: Record<Size, string> = {

@@ -52,7 +52,7 @@ export function PortalTopBar({ context, identity, onLogout }: TopBarProps) {
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-5 sm:px-8">
         <Link to="/" className="group flex shrink-0 items-center gap-3" title="Volver al sitio de ISEL">
           <span className="h-9 w-9 overflow-hidden rounded-xl bg-white/10 ring-1 ring-white/15 transition-transform duration-500 ease-snap group-hover:scale-105">
-            <ImageSlot src="/images/hero/logo-isel.png" alt="Logo ISEL" label="ISEL" tone="dark" glyph="I" />
+            <ImageSlot src="/images/hero/logo-isel.avif" alt="Logo ISEL" label="ISEL" tone="dark" glyph="I" />
           </span>
           <span className="hidden font-display text-[14px] font-bold tracking-[0.22em] text-white sm:block">ISEL</span>
         </Link>

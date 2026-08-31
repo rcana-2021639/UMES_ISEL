@@ -15,9 +15,14 @@ export default {
          * así que portal y sitio público quedan en la misma paleta.
          */
         isel: {
-          navy: "#0A2B24", // verde pino profundo — superficies oscuras
-          navy2: "#11463A", // verde elevado — hover / capas
-          deep: "#061a16", // casi negro verdoso — fondo de hero
+          /* Verde aclarado (agosto 2026). El anterior era casi negro: sobre
+             pantallas normales las bandas oscuras se leían como carbón y la
+             identidad verde solo se adivinaba. Este sigue siendo un verde
+             institucional profundo —nada de lima— pero ahora SE VE verde, y
+             mantiene 10:1 de contraste con el texto blanco encima. */
+          navy: "#14493C", // verde pino — superficies oscuras
+          navy2: "#1D6252", // verde elevado — hover / capas
+          deep: "#0C332A", // el fondo más profundo — hero y bandas
           emerald: "#12855C", // verde vivo — acción primaria
           emerald2: "#0D6B49", // verde vivo hover
           gold: "#E8B33D", // ámbar salesiano — señales y subrayados
@@ -47,9 +52,9 @@ export default {
         ultratight: "-0.06em",
       },
       boxShadow: {
-        card: "0 1px 2px rgba(10,43,36,0.05), 0 10px 30px -12px rgba(10,43,36,0.22)",
-        "card-hover": "0 2px 6px rgba(10,43,36,0.08), 0 28px 56px -18px rgba(10,43,36,0.42)",
-        lift: "0 24px 60px -24px rgba(10,43,36,0.55)",
+        card: "0 1px 2px rgba(12,51,42,0.05), 0 10px 30px -12px rgba(12,51,42,0.22)",
+        "card-hover": "0 2px 6px rgba(12,51,42,0.08), 0 28px 56px -18px rgba(12,51,42,0.42)",
+        lift: "0 24px 60px -24px rgba(12,51,42,0.55)",
         /* Halo del color del programa — se enciende al enfocar una tarjeta. */
         accent: "0 30px 70px -28px var(--accent), 0 0 0 1px var(--accent)",
       },

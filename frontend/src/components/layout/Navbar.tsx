@@ -73,7 +73,7 @@ export function Navbar() {
         >
           <Link to="/" className="group flex shrink-0 items-center gap-3">
             <div className="h-10 w-10 overflow-hidden rounded-full bg-white/10 ring-1 ring-white/15 transition-transform duration-500 ease-snap group-hover:scale-105">
-              <ImageSlot src="/images/hero/logo-isel.png" alt="Logo ISEL" label="ISEL" tone="dark" glyph="I" />
+              <ImageSlot src="/images/hero/logo-isel.avif" alt="Logo ISEL" label="ISEL" tone="dark" glyph="I" />
             </div>
             <span className="flex flex-col leading-none">
               <span className="font-display text-[15px] font-bold tracking-[0.22em] text-white">ISEL</span>
