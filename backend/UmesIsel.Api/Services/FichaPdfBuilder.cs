@@ -74,7 +74,12 @@ public class FichaPdfBuilder
     // an acceptable cost for routinely-faster prints.
     private static readonly string SharedProfileDir = Path.Combine(Path.GetTempPath(), "isel-libreoffice-profile");
 
-    private byte[] ConvertXlsxToPdf(byte[] xlsxBytes)
+    /// <summary>
+    /// internal (no private) a propósito: <see cref="InscripcionPdfBuilder"/> reutiliza esta misma
+    /// conversión (perfil de LibreOffice compartido incluido) para las fichas nuevas de Inscripción,
+    /// en vez de duplicar el shelling a soffice — ver el comentario de esa clase.
+    /// </summary>
+    internal byte[] ConvertXlsxToPdf(byte[] xlsxBytes)
     {
         var soffice = FindSoffice();
         var workDir = Path.Combine(Path.GetTempPath(), "isel-ficha-" + Guid.NewGuid().ToString("N"));
@@ -179,7 +184,8 @@ public class FichaPdfBuilder
         return "soffice";
     }
 
-    private static byte[] MergePdfs(IReadOnlyList<byte[]> pdfs)
+    /// <summary>internal por la misma razón que <see cref="ConvertXlsxToPdf"/> — reutilizado por <see cref="InscripcionPdfBuilder"/>.</summary>
+    internal static byte[] MergePdfs(IReadOnlyList<byte[]> pdfs)
     {
         using var output = new MemoryStream();
         using var document = new PdfDocument();

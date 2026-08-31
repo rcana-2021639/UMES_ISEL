@@ -18,6 +18,11 @@ builder.Services.AddSingleton<FichaXlsxBuilder>();
 // Converts that filled .xlsx to a ready-to-print PDF via LibreOffice headless — see Services/FichaPdfBuilder.cs.
 builder.Services.AddSingleton<FichaPdfBuilder>();
 
+// Módulo de Inscripción (aspirantes de nuevo ingreso) — ver Services/InscripcionPdfBuilder.cs.
+builder.Services.AddSingleton<PreinscripcionXlsxBuilder>();
+builder.Services.AddSingleton<CartaCompromisoXlsxBuilder>();
+builder.Services.AddSingleton<InscripcionPdfBuilder>();
+
 // The React dev server (Vite) runs on 5173 by default; add your deployed
 // frontend origin here too once it exists.
 builder.Services.AddCors(options =>
