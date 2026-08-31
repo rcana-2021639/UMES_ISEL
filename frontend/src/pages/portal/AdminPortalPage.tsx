@@ -12,6 +12,9 @@ import { Modal } from "@/components/ui/Modal";
 import { StudentFormModal } from "@/components/portal/StudentFormModal";
 import { CourseAssignmentForm } from "@/components/portal/CourseAssignmentForm";
 import { InscripcionesAdminPanels } from "@/components/inscripcion/InscripcionesAdminPanels";
+import { StudentDocumentsPanel } from "@/components/portal/StudentDocumentsPanel";
+import { PrintOptionsModal, type PrintSelection } from "@/components/portal/PrintOptionsModal";
+import { getStudentDocumentos, openFichaYDocumentosPdf, openStudentDocumentosPdf } from "@/lib/studentDocumentsApi";
 import { useConfirm } from "@/hooks/useConfirm";
 import { Icon } from "@/components/portal/Icon";
 import { FichaStack } from "@/components/portal/FichaCard";
@@ -191,16 +194,41 @@ export function AdminPortalPage() {
   // (ningún tab/ventana externa) — ver el comentario de openPdf en assignmentsApi.ts ----
   const [printingId, setPrintingId] = useState<number | "batch" | null>(null);
   const [printError, setPrintError] = useState<string | null>(null);
+  // Si el alumno tiene papelería extra subida, "Imprimir" pregunta qué imprimir en vez de ir directo
+  // a la ficha — ver PrintOptionsModal. Sin documentos, nada cambia respecto a como ya funcionaba.
+  const [printOptionsFor, setPrintOptionsFor] = useState<CourseAssignment | null>(null);
+  const [printingSelection, setPrintingSelection] = useState(false);
 
   async function handlePrintOne(a: CourseAssignment) {
     setPrintingId(a.id);
     setPrintError(null);
     try {
-      await openFichaPdf(a.id);
+      const docs = await getStudentDocumentos(a.studentId);
+      if (docs.length === 0) {
+        await openFichaPdf(a.id);
+      } else {
+        setPrintOptionsFor(a);
+      }
     } catch (e) {
       setPrintError(e instanceof ApiError ? e.message : "No se pudo generar el PDF de la ficha.");
     } finally {
       setPrintingId(null);
+    }
+  }
+
+  async function handlePrintSelection(selection: PrintSelection) {
+    if (!printOptionsFor) return;
+    setPrintingSelection(true);
+    setPrintError(null);
+    try {
+      if (selection === "ficha") await openFichaPdf(printOptionsFor.id);
+      else if (selection === "documentos") await openStudentDocumentosPdf(printOptionsFor.studentId);
+      else await openFichaYDocumentosPdf(printOptionsFor.id);
+      setPrintOptionsFor(null);
+    } catch (e) {
+      setPrintError(e instanceof ApiError ? e.message : "No se pudo generar el PDF.");
+    } finally {
+      setPrintingSelection(false);
     }
   }
 
@@ -635,7 +663,20 @@ export function AdminPortalPage() {
             }}
             onDismissSaved={closeFicha}
           />
+
+          <div className="mt-6">
+            <StudentDocumentsPanel studentId={fichaStudent.id} />
+          </div>
         </Modal>
+      )}
+
+      {printOptionsFor && (
+        <PrintOptionsModal
+          open
+          printing={printingSelection}
+          onClose={() => setPrintOptionsFor(null)}
+          onPrint={handlePrintSelection}
+        />
       )}
       {confirmDialog}
     </main>

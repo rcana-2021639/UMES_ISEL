@@ -301,6 +301,53 @@ public class CourseAssignmentsController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// GET /api/course-assignments/{id}/ficha-y-documentos.pdf — la ficha + la "papelería al día" del
+    /// alumno (StudentDocument), combinadas en un solo PDF. Lo usa el selector de impresión del admin
+    /// cuando el alumno tiene documentos extra subidos y elige imprimir ambas cosas; si no tiene
+    /// ninguno, "Imprimir" sigue yendo directo a GetFichaPdf — este endpoint es solo para ese caso.
+    /// </summary>
+    [HttpGet("{id:int}/ficha-y-documentos.pdf")]
+    public async Task<IActionResult> GetFichaYDocumentosPdf(int id)
+    {
+        var ca = await WithIncludes().AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
+        if (ca is null) return NotFound();
+
+        try
+        {
+            var pdfs = new List<byte[]> { _fichaPdfBuilder.BuildOne(ToDto(ca)) };
+            var docs = await _db.StudentDocuments.AsNoTracking()
+                .Where(d => d.StudentId == ca.StudentId)
+                .OrderBy(d => d.Tipo)
+                .ToListAsync();
+            foreach (var d in docs)
+            {
+                if (System.IO.File.Exists(d.FilePath))
+                {
+                    pdfs.Add(await System.IO.File.ReadAllBytesAsync(d.FilePath));
+                }
+            }
+
+            var merged = pdfs.Count == 1 ? pdfs[0] : FichaPdfBuilder.MergePdfs(pdfs);
+            return File(merged, PdfContentType, FichaFileName(ca.Student, "pdf"));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Problem(detail: ex.Message, statusCode: StatusCodes.Status500InternalServerError, title: "No se pudo generar el PDF");
+        }
+        catch (Exception)
+        {
+            // A diferencia de ficha.pdf/ficha-batch.pdf (que solo combinan PDFs que esta app misma
+            // genera, siempre válidos), aquí se combinan también los documentos que subió un alumno —
+            // un PDF corrupto o exótico puede hacer que PdfSharpCore truene con una excepción que no es
+            // InvalidOperationException. Se atrapa aparte para no filtrar la traza al cliente.
+            return Problem(
+                detail: "Uno de los documentos subidos no se pudo combinar — puede estar dañado. Prueba descargarlo aparte, o vuelve a subirlo.",
+                statusCode: StatusCodes.Status500InternalServerError,
+                title: "No se pudo generar el PDF combinado");
+        }
+    }
+
     private const string XlsxContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
     private const string PdfContentType = "application/pdf";
 
