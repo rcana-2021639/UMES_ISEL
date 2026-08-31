@@ -1,18 +1,35 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
 import type { Student } from "@/types/student";
 import type { CourseAssignment, TipoPago } from "@/types/courseAssignment";
 import { getAssignmentByStudent, saveAssignment } from "@/lib/assignmentsApi";
 import { getCourses, getTrimestres } from "@/lib/coursesApi";
 import type { Course } from "@/types/course";
 import { SignaturePad, type SignaturePadHandle } from "@/components/portal/SignaturePad";
-import { RevealOnScroll } from "@/components/ui/RevealOnScroll";
-import { SearchSelect, type SearchSelectOption } from "@/components/ui/SearchSelect";
 import { Modal } from "@/components/ui/Modal";
+import { CoursePickerModal } from "@/components/portal/CoursePickerModal";
+import { Icon } from "@/components/portal/Icon";
+import { PortalPanel } from "@/components/portal/PortalShell";
+import { Alert, Chip, EmptyState, Field, Loading, PortalButton, Segmented, fieldClass } from "@/components/portal/kit";
 
-const inputClass =
-  "w-full rounded-lg border border-isel-line bg-white px-3 py-2 text-sm text-isel-ink transition-colors duration-200 focus:border-isel-navy focus:outline-none focus:ring-2 focus:ring-isel-navy/15";
+/**
+ * Ficha de asignación de cursos.
+ *
+ * Esta pasada es de diseño: no cambia un solo estado, efecto ni llamada a la
+ * API —el flujo es el que ya funcionaba— pero sí cómo se lee.
+ *
+ * Lo que se corrigió:
+ *  · Los emoji de encabezado (📄 💾 ✍️) por trazos que sí toman el color de
+ *    la marca y se alinean con el texto.
+ *  · Los verdes/rojos/morados sueltos de la rampa de Tailwind por los tokens
+ *    de ISEL: el portal parecía otro producto que el sitio público.
+ *  · Los "Datos del estudiante" eran seis inputs deshabilitados —controles que
+ *    invitan a escribir y no dejan—; ahora son lo que siempre fueron: datos.
+ *  · Cinco rectángulos blancos idénticos, sin decir cuál es el primer paso, por
+ *    paneles numerados que se anuncian y explican qué hacer.
+ *  · El guardado, que vivía en un botón suelto al fondo del scroll, ahora va en
+ *    una barra fija que además resume lo que estás por enviar.
+ */
 
 /** A "cursos adicionales" row — either a free pick from the whole catalog, or a specific repeated course, chosen
  *  by walking Maestría → Trimestre → Curso on its own (independent of the main "Cursos por asignarse" selection). */
@@ -32,10 +49,6 @@ let rowIdSeq = 0;
 function nextRowId() {
   rowIdSeq += 1;
   return `row-${rowIdSeq}`;
-}
-
-function groupLabel(c: Course): string {
-  return c.carrera === "Inglés" ? "Inglés" : `${c.carrera} · Trimestre ${c.trimestre}`;
 }
 
 function blankAdditionalRow(): AdditionalEntry {
@@ -59,9 +72,21 @@ interface CourseAssignmentFormProps {
    *  (closes the "Ver ficha" modal, since there's no separate "menú principal" to send an admin back
    *  to); when omitted — the student flow — the button instead navigates to the site's home page. */
   onDismissSaved?: () => void;
+  /**
+   * Solo lectura. El panel abre la ficha así: consultarla es lo habitual y
+   * editar la de otra persona tiene que ser una decisión, no el estado por
+   * defecto con el botón de guardar esperando al final del scroll.
+   */
+  readOnly?: boolean;
 }
 
-export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved, onDismissSaved }: CourseAssignmentFormProps) {
+export function CourseAssignmentForm({
+  student,
+  autorizadoPorCodigo,
+  onSaved,
+  onDismissSaved,
+  readOnly = false,
+}: CourseAssignmentFormProps) {
   const navigate = useNavigate();
   const [allCourses, setAllCourses] = useState<Course[]>([]);
   // Nothing is pre-selected — a student only ever sees a maestría "chosen" here once they (or an
@@ -77,7 +102,11 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved, on
   // True only until we've checked whether this student already has ANY saved ficha.
   const [checkingExisting, setCheckingExisting] = useState(true);
 
-  const [seccion, setSeccion] = useState(student.seccion ?? "");
+  // La sección NO se precarga del padrón: cambia de un trimestre a otro y
+  // muchos estudiantes no la tienen asignada todavía. Se muestra vacía para
+  // que la escriba quien sí la sepa. Solo se recupera si ya venía en una ficha
+  // guardada (ver la rehidratación de abajo).
+  const [seccion, setSeccion] = useState("");
   const [additional, setAdditional] = useState<AdditionalEntry[]>([blankAdditionalRow()]);
   const [pendientesTrimestres, setPendientesTrimestres] = useState(false);
   const [pendientesMaterias, setPendientesMaterias] = useState(false);
@@ -168,7 +197,7 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved, on
 
   // Re-hydrate the rest of the form whenever the loaded ficha (for this carrera+trimestre) changes.
   useEffect(() => {
-    setSeccion(assignment?.seccion ?? student.seccion ?? "");
+    setSeccion(assignment?.seccion ?? "");
     setPendientesTrimestres(assignment?.tienePendientesTrimestres ?? false);
     setPendientesMaterias(assignment?.tienePendientesMaterias ?? false);
     setTipoPago(assignment?.tipoPago ?? "");
@@ -230,7 +259,7 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved, on
   function openPicker(c: string) {
     setDraftCarrera(c);
     setDraftTrimestre(c === carrera ? trimestre : null);
-    setDraftSeccion(c === carrera ? seccion : (student.seccion ?? ""));
+    setDraftSeccion(c === carrera ? seccion : "");
     setPickerOpen(true);
   }
 
@@ -255,15 +284,6 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved, on
       Array.from(new Set(allCourses.filter((c) => c.carrera !== "Inglés").map((c) => c.carrera))).sort((a, b) =>
         a.localeCompare(b),
       ),
-    [allCourses],
-  );
-
-  const additionalCourseOptions: SearchSelectOption[] = useMemo(
-    () =>
-      allCourses
-        .slice()
-        .sort((a, b) => (a.carrera + a.trimestre).localeCompare(b.carrera + b.trimestre))
-        .map((c) => ({ value: String(c.id), label: c.nombre, group: groupLabel(c) })),
     [allCourses],
   );
 
@@ -366,46 +386,38 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved, on
     }
   }
 
+  const cursosCount = (mainCourses ?? []).length;
+  const adicionalesCount = additional.filter((r) => r.fallback || r.courseId !== null).length;
+
   return (
     <div className="space-y-6">
-      <RevealOnScroll className="rounded-2xl bg-white p-6 shadow-card">
-        <h3 className="mb-4 flex items-center gap-2 font-display text-lg font-semibold text-isel-navy">
-          <span aria-hidden>📄</span> Datos del estudiante
-        </h3>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Field label="Carné">
-            <input className={inputClass} value={student.carnet} disabled />
-          </Field>
-          <Field label="Fecha">
-            <input className={inputClass} value={fechaHoy} disabled />
-          </Field>
-          <Field label="Primer apellido">
-            <input className={inputClass} value={student.primerApellido} disabled />
-          </Field>
-        </div>
-        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Field label="Segundo apellido">
-            <input className={inputClass} value={student.segundoApellido ?? ""} disabled />
-          </Field>
-          <Field label="Primer nombre">
-            <input className={inputClass} value={student.primerNombre} disabled />
-          </Field>
-          <Field label="Segundo nombre">
-            <input className={inputClass} value={student.segundoNombre ?? ""} disabled />
-          </Field>
-        </div>
-      </RevealOnScroll>
+      {/* ------------------------------------------------- 01 · datos */}
+      <PortalPanel
+        id="paso-datos"
+        step="01"
+        accent="#12855C"
+        title="Tus datos"
+        description="Vienen de los registros de la Universidad. Si algo no coincide, avísale a coordinación antes de enviar la ficha."
+      >
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-3 lg:grid-cols-6">
+          <DataItem label="Carné" value={student.carnet} mono />
+          <DataItem label="Fecha" value={fechaHoy} mono />
+          <DataItem label="Primer apellido" value={student.primerApellido} />
+          <DataItem label="Segundo apellido" value={student.segundoApellido} />
+          <DataItem label="Primer nombre" value={student.primerNombre} />
+          <DataItem label="Segundo nombre" value={student.segundoNombre} />
+        </dl>
+      </PortalPanel>
 
-      <RevealOnScroll delay={0.05} className="rounded-2xl bg-white p-6 shadow-card">
-        <h3 className="mb-1 flex items-center gap-2 font-display text-lg font-semibold text-isel-navy">
-          <span aria-hidden>💾</span> Cursos por asignarse
-        </h3>
-        <p className="mb-4 text-sm text-isel-ink/60">
-          Toca tu maestría en la lista para elegir el trimestre y la sección — los cursos de ese trimestre se asignan
-          todos juntos.
-        </p>
-
-        <div className="overflow-hidden rounded-xl border border-isel-line">
+      {/* ------------------------------------------------ 02 · cursos */}
+      <PortalPanel
+        id="paso-cursos"
+        step="02"
+        accent="#B8791F"
+        title="Cursos por asignarse"
+        description="Toca tu maestría para elegir el trimestre y la sección. Los cursos de ese trimestre se asignan todos juntos."
+      >
+        <div className="divide-y divide-isel-line overflow-hidden rounded-xl border border-isel-line">
           {pickableCarreras.map((c, i) => {
             const isSelected = c === carrera;
             return (
@@ -413,63 +425,98 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved, on
                 key={c}
                 type="button"
                 onClick={() => openPicker(c)}
-                className={`flex w-full items-center gap-3 border-b border-isel-line px-4 py-3 text-left transition-colors duration-200 last:border-b-0 ${
-                  isSelected ? "bg-emerald-50 hover:bg-emerald-100" : "bg-white hover:bg-isel-paper"
-                }`}
+                aria-pressed={isSelected}
+                disabled={readOnly}
+                className={`group/row relative flex w-full items-center gap-4 px-4 py-3.5 text-left transition-colors duration-300 ease-crisp disabled:cursor-default ${
+                  isSelected ? "bg-isel-emerald/[0.07]" : "bg-white hover:enabled:bg-isel-paper/70"
+                } ${readOnly && !isSelected ? "opacity-45" : ""}`}
               >
+                {/* Filo que crece al seleccionar: dice cuál es la elegida sin
+                    repintar toda la fila de verde. */}
                 <span
-                  className={`flex h-7 w-7 flex-none items-center justify-center rounded-full text-xs font-bold transition-colors duration-200 ${
-                    isSelected ? "bg-emerald-500 text-white" : "bg-isel-paper text-isel-ink/50"
-                  }`}
                   aria-hidden
+                  className={`absolute inset-y-0 left-0 w-[3px] origin-top bg-isel-emerald transition-transform duration-500 ease-snap ${
+                    isSelected ? "scale-y-100" : "scale-y-0"
+                  }`}
+                />
+                <span
+                  aria-hidden
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[12px] font-bold transition-colors duration-300 ease-crisp ${
+                    isSelected ? "bg-isel-emerald text-white" : "bg-isel-paper text-isel-ink/40"
+                  }`}
                 >
-                  {isSelected ? "✔" : i + 1}
+                  {isSelected ? <Icon name="check" size={15} /> : <span className="tabular">{i + 1}</span>}
                 </span>
-                <span className={`flex-1 text-sm ${isSelected ? "font-semibold text-emerald-800" : "text-isel-ink"}`}>{c}</span>
+                <span
+                  className={`flex-1 text-[14px] leading-snug ${
+                    isSelected ? "font-semibold text-isel-navy" : "text-isel-ink/85"
+                  }`}
+                >
+                  {c}
+                </span>
                 {isSelected ? (
-                  <span className="flex-none rounded-full bg-emerald-500 px-2.5 py-1 text-xs font-bold text-white">
-                    Trimestre {trimestre} ✓
+                  <Chip tone="emerald" icon="check">
+                    Trimestre {trimestre}
+                  </Chip>
+                ) : readOnly ? null : (
+                  <span className="flex shrink-0 items-center gap-1.5 text-[12px] font-semibold text-isel-ink/30 transition-colors duration-300 ease-crisp group-hover/row:text-isel-navy">
+                    Elegir
+                    <Icon
+                      name="chevronRight"
+                      size={13}
+                      className="transition-transform duration-500 ease-snap group-hover/row:translate-x-0.5"
+                    />
                   </span>
-                ) : (
-                  <span className="flex-none text-xs text-isel-ink/30">Elegir →</span>
                 )}
               </button>
             );
           })}
         </div>
 
-        <div className="mt-4">
+        <div className="mt-5">
           {checkingExisting ? (
-            <p className="py-4 text-sm text-isel-ink/40">Cargando…</p>
+            <Loading label="Buscando tu ficha" />
           ) : carrera === null ? (
-            <p className="rounded-lg bg-isel-paper px-4 py-3 text-sm text-isel-ink/60">
-              Aún no has elegido ninguna maestría — toca una de la lista de arriba para empezar.
-            </p>
+            <EmptyState
+              icon="layers"
+              title="Todavía no has elegido maestría"
+              hint="Toca una de la lista de arriba para ver su pénsum y elegir tu trimestre."
+            />
           ) : loadingAssignment ? (
-            <p className="py-4 text-sm text-isel-ink/40">Cargando…</p>
+            <Loading label="Cargando el pénsum" />
           ) : trimestres && trimestres.length === 0 ? (
-            <p className="rounded-lg bg-isel-paper px-4 py-3 text-sm text-isel-ink/60">
-              Aún no hay pénsum cargado para <strong>{carrera}</strong>.
-            </p>
+            <Alert kind="info">
+              Aún no hay pénsum cargado para <strong>{carrera}</strong>. Escríbele a coordinación para que lo suban.
+            </Alert>
           ) : (
-            <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-4">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm font-semibold text-emerald-800">
-                  {carrera} — Trimestre {trimestre} — Sección {seccion || "(sin definir)"}
-                </p>
-                <button type="button" onClick={() => openPicker(carrera)} className="text-xs font-semibold text-isel-navy hover:underline">
-                  Editar
-                </button>
+            <div className="overflow-hidden rounded-xl border border-isel-emerald/25 bg-isel-emerald/[0.05]">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-isel-emerald/20 px-4 py-3.5">
+                <div className="min-w-0">
+                  <p className="font-display text-[15px] font-semibold leading-snug text-isel-navy">{carrera}</p>
+                  <p className="mt-1 text-[12.5px] text-isel-ink/55">
+                    Trimestre {trimestre} · Sección {seccion || "sin definir"} · {cursosCount}{" "}
+                    {cursosCount === 1 ? "curso" : "cursos"}
+                  </p>
+                </div>
+                {!readOnly && (
+                  <PortalButton tone="ghost" size="sm" icon="pencil" onClick={() => openPicker(carrera)}>
+                    Cambiar
+                  </PortalButton>
+                )}
               </div>
-              {(mainCourses ?? []).length === 0 ? (
-                <p className="text-sm text-isel-ink/60">No hay cursos definidos para el trimestre {trimestre}.</p>
+
+              {cursosCount === 0 ? (
+                <p className="px-4 py-5 text-[13px] text-isel-ink/55">
+                  No hay cursos definidos para el trimestre {trimestre}.
+                </p>
               ) : (
-                <ul className="divide-y divide-emerald-100 rounded-lg border border-emerald-100 bg-white">
-                  {(mainCourses ?? []).map((c) => (
-                    <li key={c.id} className="flex items-center gap-2 px-4 py-2.5 text-sm">
-                      <span className="text-emerald-600" aria-hidden>
-                        ✔
+                <ul className="divide-y divide-isel-emerald/15 bg-white/70">
+                  {(mainCourses ?? []).map((c, i) => (
+                    <li key={c.id} className="flex items-center gap-3 px-4 py-3 text-[13.5px]">
+                      <span className="tabular w-5 shrink-0 text-[11px] font-bold text-isel-emerald2/60">
+                        {String(i + 1).padStart(2, "0")}
                       </span>
+                      <Icon name="check" size={15} className="text-isel-emerald" />
                       <span className="text-isel-ink">{c.nombre}</span>
                     </li>
                   ))}
@@ -478,19 +525,20 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved, on
             </div>
           )}
         </div>
-      </RevealOnScroll>
+      </PortalPanel>
 
+      {/* --------------------------------------------------- selector modal */}
       <Modal
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
         title={draftCarrera ?? "Selecciona maestría"}
         widthClassName="max-w-xl"
       >
-        <div className="space-y-4">
+        <div className="space-y-5">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Trimestre">
               <select
-                className={inputClass}
+                className={fieldClass}
                 value={draftTrimestre ?? ""}
                 onChange={(e) => setDraftTrimestre(e.target.value ? Number(e.target.value) : null)}
                 disabled={!draftTrimestres || draftTrimestres.length === 0}
@@ -502,9 +550,9 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved, on
                 ))}
               </select>
             </Field>
-            <Field label="Sección (opcional)">
+            <Field label="Sección" hint="Déjala vacía si todavía no te la asignan.">
               <input
-                className={inputClass}
+                className={fieldClass}
                 value={draftSeccion}
                 onChange={(e) => setDraftSeccion(e.target.value)}
                 placeholder="Ej. A"
@@ -514,27 +562,21 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved, on
 
           <div>
             {draftTrimestres && draftTrimestres.length === 0 ? (
-              <p className="rounded-lg bg-isel-paper px-4 py-3 text-sm text-isel-ink/60">
-                Aún no hay pénsum cargado para esta maestría.
-              </p>
+              <Alert kind="info">Aún no hay pénsum cargado para esta maestría.</Alert>
             ) : (
               <>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-isel-ink/50">
-                  Cursos del trimestre {draftTrimestre} (se asignan todos)
+                <p className="mb-2.5 text-[10.5px] font-bold uppercase tracking-[0.14em] text-isel-ink/45">
+                  Cursos del trimestre {draftTrimestre} — se asignan todos
                 </p>
                 {draftCourses === null ? (
-                  <p className="py-3 text-sm text-isel-ink/40">Cargando…</p>
+                  <Loading label="Cargando cursos" />
                 ) : draftCourses.length === 0 ? (
-                  <p className="rounded-lg bg-isel-paper px-4 py-3 text-sm text-isel-ink/60">
-                    No hay cursos definidos para este trimestre.
-                  </p>
+                  <Alert kind="info">No hay cursos definidos para este trimestre.</Alert>
                 ) : (
-                  <ul className="divide-y divide-isel-line rounded-lg border border-isel-line">
+                  <ul className="divide-y divide-isel-line overflow-hidden rounded-xl border border-isel-line bg-white">
                     {draftCourses.map((c) => (
-                      <li key={c.id} className="flex items-center gap-2 px-4 py-2.5 text-sm">
-                        <span className="text-emerald-600" aria-hidden>
-                          ✔
-                        </span>
+                      <li key={c.id} className="flex items-center gap-3 px-4 py-2.5 text-[13.5px]">
+                        <Icon name="check" size={15} className="text-isel-emerald" />
                         <span className="text-isel-ink">{c.nombre}</span>
                       </li>
                     ))}
@@ -544,169 +586,212 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved, on
             )}
           </div>
 
-          <div className="flex justify-end gap-3 pt-2">
-            <button
-              type="button"
-              onClick={() => setPickerOpen(false)}
-              className="rounded-full border-2 border-isel-line px-4 py-2 text-sm font-semibold text-isel-ink/70 transition-colors duration-200 hover:border-isel-navy hover:text-isel-navy"
-            >
+          <div className="flex justify-end gap-3 border-t border-isel-line pt-4">
+            <PortalButton tone="ghost" onClick={() => setPickerOpen(false)}>
               Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={confirmPicker}
-              disabled={draftTrimestre === null}
-              className="rounded-full bg-isel-navy px-5 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-isel-gold hover:text-isel-navy disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              ✔ Listo
-            </button>
+            </PortalButton>
+            <PortalButton tone="accent" icon="check" onClick={confirmPicker} disabled={draftTrimestre === null}>
+              Confirmar trimestre
+            </PortalButton>
           </div>
         </div>
       </Modal>
 
-      <RevealOnScroll delay={0.1} className="rounded-2xl bg-white p-6 shadow-card">
-        <h3 className="mb-1 font-display text-lg font-semibold text-isel-navy">Cursos adicionales o cambio de sección</h3>
-        <p className="mb-4 text-sm text-isel-ink/60">
-          Agrega un curso extra de cualquier carrera, o marca "Repetir trimestre" si necesitas retomar un curso específico
-          de un trimestre anterior tuyo.
-        </p>
-
+      {/* -------------------------------------------- 03 · adicionales */}
+      <PortalPanel
+        id="paso-adicionales"
+        step="03"
+        accent="#6D5AA8"
+        title="Cursos adicionales o cambio de sección"
+        description="Opcional. Agrega un curso extra de cualquier maestría, o marca “Repetir trimestre” si necesitas retomar un curso de un trimestre anterior."
+      >
         <div className="space-y-4">
-          {additional.map((row) => (
+          {additional.map((row, i) => (
             <AdditionalRow
               key={row.id}
               row={row}
-              options={additionalCourseOptions}
+              index={i}
               allCourses={allCourses}
               mainCarrera={carrera}
               canRemove={additional.length > 1}
+              readOnly={readOnly}
               onChange={(patch) => updateAdditional(row.id, patch)}
               onRemove={() => removeAdditionalRow(row.id)}
             />
           ))}
         </div>
 
-        <button
-          type="button"
-          onClick={addAdditionalRow}
-          disabled={additional.length >= 10}
-          className="mt-4 rounded-full border-2 border-isel-navy px-4 py-2 text-sm font-semibold text-isel-navy transition-colors duration-200 hover:bg-isel-navy hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          + Agregar otro
-        </button>
-      </RevealOnScroll>
+        {!readOnly && (
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <PortalButton tone="ghost" icon="plus" onClick={addAdditionalRow} disabled={additional.length >= 10}>
+              Agregar otro curso
+            </PortalButton>
+            <span className="tabular text-[12px] text-isel-ink/35">{additional.length} de 10</span>
+          </div>
+        )}
+      </PortalPanel>
 
-      <RevealOnScroll delay={0.15} className="rounded-2xl bg-white p-6 shadow-card">
-        <h3 className="mb-4 font-display text-lg font-semibold text-isel-navy">Observaciones y contacto</h3>
+      {/* -------------------------------------------------- 04 · firma */}
+      <PortalPanel
+        id="paso-firma"
+        step="04"
+        accent="#2C6E8F"
+        title="Observaciones y firma"
+        description="Lo último: confirma si arrastras pendientes, elige cómo vas a pagar y firma la ficha."
+      >
         <div className="space-y-3">
-          <YesNoRow
+          <ChoiceRow
             label="Trimestres o semestres completos anteriores pendientes de cursar"
-            value={pendientesTrimestres}
-            onChange={setPendientesTrimestres}
+            options={[
+              { value: "no", label: "No" },
+              { value: "si", label: "Sí" },
+            ]}
+            value={pendientesTrimestres ? "si" : "no"}
+            onChange={(v) => setPendientesTrimestres(v === "si")}
+            disabled={readOnly}
           />
-          <YesNoRow
+          <ChoiceRow
             label="Materias de trimestres o semestres anteriores pendientes de cursar"
-            value={pendientesMaterias}
-            onChange={setPendientesMaterias}
+            options={[
+              { value: "no", label: "No" },
+              { value: "si", label: "Sí" },
+            ]}
+            value={pendientesMaterias ? "si" : "no"}
+            onChange={(v) => setPendientesMaterias(v === "si")}
+            disabled={readOnly}
           />
-          <TipoPagoRow value={tipoPago} onChange={setTipoPago} />
+          <ChoiceRow
+            label="Tipo de pago"
+            options={[
+              { value: "Link", label: "Link de pago" },
+              { value: "Presencial", label: "Presencial" },
+            ]}
+            value={tipoPago === "" ? null : tipoPago}
+            onChange={(v) => setTipoPago(v as TipoPago)}
+            disabled={readOnly}
+          />
         </div>
 
-        <div className="mt-6">
-          <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-isel-ink">
-            <span aria-hidden>✍️</span> Firma digital
-          </p>
-          <SignaturePad ref={signatureRef} initialValue={assignment?.firmaBase64} className="max-w-md" key={assignment?.id ?? "blank"} />
-          <button
-            type="button"
-            onClick={() => signatureRef.current?.clear()}
-            className="mt-2 rounded-full border-2 border-isel-line px-4 py-1.5 text-xs font-semibold text-isel-ink/70 transition-colors duration-200 hover:border-isel-navy hover:text-isel-navy"
-          >
-            🧹 Limpiar
-          </button>
+        <div className="mt-8">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <p className="flex items-center gap-2 text-[13px] font-semibold text-isel-ink">
+              <Icon name="pen" size={16} className="text-isel-gold2" />
+              Firma digital
+            </p>
+            {!readOnly && (
+              <PortalButton tone="quiet" size="sm" icon="eraser" onClick={() => signatureRef.current?.clear()}>
+                Limpiar firma
+              </PortalButton>
+            )}
+          </div>
+          <SignaturePad
+            ref={signatureRef}
+            initialValue={assignment?.firmaBase64}
+            className="max-w-md"
+            readOnly={readOnly}
+            key={assignment?.id ?? "blank"}
+          />
         </div>
 
-        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Correo electrónico">
             <input
               type="email"
-              className={inputClass}
+              className={fieldClass}
               placeholder="correo@dominio.com"
               value={correoContacto}
+              disabled={readOnly}
               onChange={(e) => setCorreoContacto(e.target.value)}
             />
           </Field>
           <Field label="Teléfono para contacto">
             <input
-              className={inputClass}
+              className={fieldClass}
               placeholder="8 dígitos"
               value={telefonoContacto}
+              disabled={readOnly}
               onChange={(e) => setTelefonoContacto(e.target.value)}
             />
           </Field>
         </div>
-      </RevealOnScroll>
+      </PortalPanel>
 
-      <div className="flex flex-wrap items-center gap-4">
-        <motion.button
-          type="button"
-          onClick={handleSave}
-          disabled={saving}
-          whileHover={{ y: -2, scale: 1.02 }}
-          whileTap={{ scale: 0.96 }}
-          transition={{ type: "spring", stiffness: 420, damping: 22 }}
-          className="inline-flex items-center gap-2 rounded-full bg-isel-navy px-6 py-3 text-sm font-semibold text-white transition-colors duration-300 ease-snap hover:bg-isel-gold hover:text-isel-navy disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          💾 {saving ? "Guardando…" : "Guardar asignación"}
-        </motion.button>
-        {error && <span className="text-sm font-semibold text-red-600">{error}</span>}
+      {error && !readOnly && <Alert kind="error">{error}</Alert>}
+
+      {/* ------------------------------------------------- barra de envío */}
+      <div
+        className={`sticky bottom-4 z-20 flex flex-wrap items-center justify-between gap-4 rounded-2xl border px-5 py-4 shadow-card-hover backdrop-blur ${
+          readOnly ? "border-isel-line bg-isel-arena/90" : "border-isel-line bg-white/95"
+        }`}
+      >
+        <div className="min-w-0">
+          <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-isel-ink/40">
+            {readOnly ? "Ficha guardada" : "Vas a enviar"}
+          </p>
+          <p className="mt-1 truncate text-[13.5px] text-isel-ink/75">
+            {carrera === null ? (
+              <span className="text-isel-ink/40">Falta elegir tu maestría</span>
+            ) : (
+              <>
+                <span className="font-semibold text-isel-navy">{carrera}</span> · Trimestre {trimestre} ·{" "}
+                <span className="tabular">{cursosCount}</span> {cursosCount === 1 ? "curso" : "cursos"}
+                {adicionalesCount > 0 && (
+                  <>
+                    {" "}
+                    + <span className="tabular">{adicionalesCount}</span>{" "}
+                    {adicionalesCount === 1 ? "adicional" : "adicionales"}
+                  </>
+                )}
+              </>
+            )}
+          </p>
+        </div>
+        {readOnly ? (
+          <span className="flex shrink-0 items-center gap-2 rounded-xl border border-isel-line bg-white px-3.5 py-2 text-[12.5px] font-semibold text-isel-ink/50">
+            <Icon name="lock" size={14} />
+            Solo lectura
+          </span>
+        ) : (
+          <PortalButton tone="accent" icon="save" onClick={handleSave} loading={saving} className="shrink-0">
+            {saving ? "Guardando" : "Guardar asignación"}
+          </PortalButton>
+        )}
       </div>
 
-      <Modal open={savedSummary !== null} onClose={handleDismissSaved} title="✔ Ficha guardada" widthClassName="max-w-md">
+      {/* ------------------------------------------------ resumen guardado */}
+      <Modal open={savedSummary !== null} onClose={handleDismissSaved} title="Ficha guardada" widthClassName="max-w-md">
         {savedSummary && (
-          <div className="space-y-4">
-            <p className="text-sm text-isel-ink">
-              La ficha de asignación de cursos de <strong>{savedSummary.nombreCompleto}</strong> se envió exitosamente. Resumen
-              de lo que se guardó:
+          <div className="space-y-5">
+            <div className="flex items-start gap-4">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-isel-emerald/10 text-isel-emerald">
+                <Icon name="check" size={22} />
+              </span>
+              <p className="pt-0.5 text-[13.5px] leading-relaxed text-isel-ink">
+                La ficha de <strong className="text-isel-navy">{savedSummary.nombreCompleto}</strong> se envió
+                correctamente. Esto quedó registrado:
+              </p>
+            </div>
+
+            <dl className="divide-y divide-isel-line overflow-hidden rounded-xl border border-isel-line">
+              <SummaryRow label="Carrera" value={savedSummary.carrera} />
+              <SummaryRow label="Trimestre" value={String(savedSummary.trimestre)} />
+              <SummaryRow label="Sección" value={savedSummary.seccion || "No especificada"} />
+              <SummaryRow label="Cursos asignados" value={String(savedSummary.cursosAsignados.length)} />
+              <SummaryRow label="Cursos adicionales" value={String(savedSummary.cursosAdicionales.length)} />
+              <SummaryRow label="Firma" value={savedSummary.firmaBase64 ? "Registrada" : "No registrada"} />
+            </dl>
+
+            <p className="text-[12px] leading-relaxed text-isel-ink/45">
+              No hace falta volver a guardar. Si necesitas corregir algo, edita el formulario y guarda de nuevo.
             </p>
-            <ul className="space-y-1.5 rounded-lg bg-isel-paper p-4 text-sm text-isel-ink">
-              <li>
-                <strong>Carrera:</strong> {savedSummary.carrera}
-              </li>
-              <li>
-                <strong>Trimestre:</strong> {savedSummary.trimestre}
-              </li>
-              <li>
-                <strong>Sección:</strong> {savedSummary.seccion || "No especificada"}
-              </li>
-              <li>
-                <strong>Cursos asignados:</strong> {savedSummary.cursosAsignados.length}
-              </li>
-              <li>
-                <strong>Cursos adicionales:</strong> {savedSummary.cursosAdicionales.length}
-              </li>
-              <li>
-                <strong>Firma:</strong> {savedSummary.firmaBase64 ? "Registrada ✔" : "No registrada"}
-              </li>
-            </ul>
-            <p className="text-xs text-isel-ink/50">
-              Ya no es necesario volver a guardar — si necesitas corregir algo, edita el formulario y guarda de nuevo.
-            </p>
-            <div className="flex justify-end gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setSavedSummary(null)}
-                className="rounded-full border-2 border-isel-line px-4 py-2 text-sm font-semibold text-isel-ink/70 transition-colors duration-200 hover:border-isel-navy hover:text-isel-navy"
-              >
+
+            <div className="flex justify-end gap-3 border-t border-isel-line pt-4">
+              <PortalButton tone="ghost" onClick={() => setSavedSummary(null)}>
                 Seguir editando
-              </button>
-              <button
-                type="button"
-                onClick={handleDismissSaved}
-                className="rounded-full bg-isel-navy px-5 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-isel-gold hover:text-isel-navy"
-              >
-                {onDismissSaved ? "Cerrar" : "Volver al menú principal"}
-              </button>
+              </PortalButton>
+              <PortalButton tone="primary" icon="arrowRight" iconRight onClick={handleDismissSaved}>
+                {onDismissSaved ? "Cerrar" : "Volver al inicio"}
+              </PortalButton>
             </div>
           </div>
         )}
@@ -715,221 +800,267 @@ export function CourseAssignmentForm({ student, autorizadoPorCodigo, onSaved, on
   );
 }
 
+/* ---------------------------------------------------------------- piezas */
+
+/** Dato de solo lectura. Antes era un `<input disabled>`: un control que
+ *  invita a escribir y no deja. Un dato se muestra, no se simula editable. */
+function DataItem({ label, value, mono = false }: { label: string; value?: string | null; mono?: boolean }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-[10px] font-bold uppercase tracking-[0.13em] text-isel-ink/40">{label}</dt>
+      <dd
+        className={`mt-1.5 truncate text-[14.5px] font-semibold text-isel-navy ${mono ? "tabular" : ""} ${
+          value ? "" : "font-normal text-isel-ink/25"
+        }`}
+        title={value ?? undefined}
+      >
+        {value || "—"}
+      </dd>
+    </div>
+  );
+}
+
+function SummaryRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4 bg-white px-4 py-2.5">
+      <dt className="text-[12.5px] text-isel-ink/55">{label}</dt>
+      <dd className="tabular text-[13px] font-semibold text-isel-navy">{value}</dd>
+    </div>
+  );
+}
+
+/** Pregunta con respuesta cerrada. Un solo patrón para las tres. */
+function ChoiceRow({
+  label,
+  options,
+  value,
+  onChange,
+  disabled = false,
+}: {
+  label: string;
+  options: { value: string; label: string }[];
+  value: string | null;
+  onChange: (v: string) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-isel-line bg-isel-paper/60 px-4 py-3 transition-colors duration-300 ease-crisp hover:border-isel-ink/20">
+      <span className="max-w-[46ch] text-[13.5px] leading-snug text-isel-ink/80">{label}</span>
+      <Segmented options={options} value={value} onChange={onChange} size="sm" disabled={disabled} className="shrink-0" />
+    </div>
+  );
+}
+
+/**
+ * Una fila de "cursos adicionales".
+ *
+ * Los dos modos —añadir un curso suelto o repetir uno de un trimestre
+ * anterior— usan ahora el MISMO selector en modal. "Repetir trimestre" eran
+ * tres desplegables encadenados (maestría → trimestre → curso) metidos dentro
+ * de la fila: ocupaban tres columnas, obligaban a acertar en orden y no se
+ * parecían en nada a cómo se elige el otro curso de la misma fila. El recorrido
+ * es idéntico, así que la herramienta también debe serlo; lo único que cambia
+ * es dónde aterriza el selector al abrirse (en tu maestría, si vas a repetir)
+ * y que al elegir se guardan además la carrera y el trimestre de origen.
+ */
 function AdditionalRow({
   row,
-  options,
+  index,
   allCourses,
   mainCarrera,
   canRemove,
+  readOnly,
   onChange,
   onRemove,
 }: {
   row: AdditionalEntry;
-  options: SearchSelectOption[];
+  index: number;
   allCourses: Course[];
   mainCarrera: string | null;
   canRemove: boolean;
+  readOnly: boolean;
   onChange: (patch: Partial<AdditionalEntry>) => void;
   onRemove: () => void;
 }) {
-  const catalogCarreras = useMemo(
-    () => Array.from(new Set(allCourses.map((c) => c.carrera))).sort((a, b) => a.localeCompare(b)),
-    [allCourses],
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const repetir = row.mode === "repetir";
+  const chosen = row.courseId !== null ? allCourses.find((c) => c.id === row.courseId) : undefined;
+
+  const numeral = (
+    <span aria-hidden className="tabular text-[11px] font-bold text-isel-ink/25">
+      {String(index + 1).padStart(2, "0")}
+    </span>
   );
-  const repetirTrimestres = useMemo(
-    () =>
-      Array.from(new Set(allCourses.filter((c) => c.carrera === row.repetirCarrera).map((c) => c.trimestre))).sort(
-        (a, b) => a - b,
-      ),
-    [allCourses, row.repetirCarrera],
-  );
-  const repetirCourseOptions = useMemo(
-    () => allCourses.filter((c) => c.carrera === row.repetirCarrera && c.trimestre === row.repetirTrimestre),
-    [allCourses, row.repetirCarrera, row.repetirTrimestre],
-  );
-  const repetirCourseChoice = row.courseId !== null ? repetirCourseOptions.find((c) => c.id === row.courseId) : undefined;
 
   if (row.fallback) {
     return (
-      <div className="rounded-lg bg-isel-paper p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-isel-ink">{row.fallback.nombre}</p>
-            <p className="text-xs text-isel-ink/50">
-              {row.fallback.carrera} — ya no está en el catálogo actual, pero se conserva
-            </p>
+      <div className="rounded-xl border border-isel-gold/30 bg-isel-gold/[0.06] p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="mt-0.5">{numeral}</span>
+            <div className="min-w-0">
+              <p className="text-[14px] font-semibold text-isel-navy">{row.fallback.nombre}</p>
+              <p className="mt-1 text-[12px] text-isel-ink/50">
+                {row.fallback.carrera} — ya no está en el catálogo actual, pero se conserva
+              </p>
+            </div>
           </div>
-          <button type="button" onClick={onRemove} className="text-xs font-semibold text-red-600 hover:underline">
-            Quitar
-          </button>
+          {!readOnly && (
+            <PortalButton tone="quiet" size="sm" icon="trash" onClick={onRemove}>
+              Quitar
+            </PortalButton>
+          )}
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          <input className={`${inputClass} bg-white`} placeholder="Sección (opcional)" value={row.seccion} onChange={(e) => onChange({ seccion: e.target.value })} />
-          <input className={`${inputClass} bg-white`} placeholder="Jornada (opcional)" value={row.jornada} onChange={(e) => onChange({ jornada: e.target.value })} />
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <input
+            className={fieldClass}
+            placeholder="Sección (opcional)"
+            value={row.seccion}
+            disabled={readOnly}
+            onChange={(e) => onChange({ seccion: e.target.value })}
+          />
+          <input
+            className={fieldClass}
+            placeholder="Jornada (opcional)"
+            value={row.jornada}
+            disabled={readOnly}
+            onChange={(e) => onChange({ jornada: e.target.value })}
+          />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg bg-isel-paper p-4">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex overflow-hidden rounded-full border-2 border-isel-line">
-          <button
-            type="button"
-            onClick={() => onChange({ mode: "adicional", courseId: null, repetirCarrera: null, repetirTrimestre: null })}
-            className={`px-3 py-1 text-xs font-bold transition-colors duration-200 ${row.mode === "adicional" ? "bg-isel-navy text-white" : "bg-white text-isel-ink/50"}`}
-          >
-            Curso adicional
-          </button>
-          <button
-            type="button"
-            onClick={() => onChange({ mode: "repetir", courseId: null, repetirCarrera: mainCarrera, repetirTrimestre: null })}
-            className={`px-3 py-1 text-xs font-bold transition-colors duration-200 ${row.mode === "repetir" ? "bg-isel-gold text-isel-navy" : "bg-white text-isel-ink/50"}`}
-          >
-            Repetir trimestre
-          </button>
+    <div
+      className={`rounded-xl border p-4 transition-colors duration-300 ease-crisp ${
+        chosen
+          ? repetir
+            ? "border-isel-gold/35 bg-isel-gold/[0.05]"
+            : "border-isel-emerald/25 bg-isel-emerald/[0.04]"
+          : "border-isel-line bg-isel-paper/50"
+      }`}
+    >
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          {numeral}
+          <Segmented
+            size="sm"
+            disabled={readOnly}
+            value={row.mode}
+            onChange={(mode) =>
+              onChange(
+                mode === "adicional"
+                  ? { mode: "adicional", courseId: null, repetirCarrera: null, repetirTrimestre: null }
+                  : { mode: "repetir", courseId: null, repetirCarrera: mainCarrera, repetirTrimestre: null },
+              )
+            }
+            options={[
+              { value: "adicional", label: "Curso adicional" },
+              { value: "repetir", label: "Repetir trimestre" },
+            ]}
+          />
         </div>
-        {canRemove && (
-          <button type="button" onClick={onRemove} className="text-xs font-semibold text-red-600 hover:underline">
+        {canRemove && !readOnly && (
+          <PortalButton tone="quiet" size="sm" icon="trash" onClick={onRemove}>
             Quitar este campo
-          </button>
+          </PortalButton>
         )}
       </div>
 
-      {row.mode === "adicional" ? (
-        <Field label="Curso adicional (busca en todas las carreras)">
-          <SearchSelect
-            options={options}
-            value={row.courseId !== null ? String(row.courseId) : ""}
-            onChange={(v) => onChange({ courseId: Number(v) })}
-            placeholder="Buscar curso…"
-          />
-        </Field>
-      ) : (
-        <div>
-          <p className="mb-3 text-xs text-isel-ink/50">
-            Elige la maestría, luego el trimestre que necesitas repetir, y por último el curso específico.
-          </p>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <Field label="Maestría">
-              <select
-                className={inputClass}
-                value={row.repetirCarrera ?? ""}
-                onChange={(e) =>
-                  onChange({ repetirCarrera: e.target.value || null, repetirTrimestre: null, courseId: null })
-                }
-              >
-                <option value="">Selecciona…</option>
-                {catalogCarreras.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Trimestre a repetir">
-              <select
-                className={inputClass}
-                value={row.repetirTrimestre ?? ""}
-                onChange={(e) => onChange({ repetirTrimestre: e.target.value ? Number(e.target.value) : null, courseId: null })}
-                disabled={row.repetirCarrera === null}
-              >
-                <option value="">Selecciona…</option>
-                {repetirTrimestres.map((t) => (
-                  <option key={t} value={t}>
-                    Trimestre {t}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Curso a repetir">
-              <select
-                className={inputClass}
-                value={row.courseId ?? ""}
-                onChange={(e) => onChange({ courseId: e.target.value ? Number(e.target.value) : null })}
-                disabled={row.repetirTrimestre === null}
-              >
-                <option value="">Selecciona…</option>
-                {repetirCourseOptions.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nombre}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          </div>
-          {repetirCourseChoice && (
-            <p className="mt-2 flex items-center gap-1.5 text-sm font-semibold text-emerald-700">
-              <span aria-hidden>✔</span> Vas a repetir: {repetirCourseChoice.nombre}
-              <span className="font-normal text-isel-ink/50">
-                ({repetirCourseChoice.carrera} · Trimestre {repetirCourseChoice.trimestre})
+      <span className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-[0.14em] text-isel-ink/45">
+        {repetir ? "Curso a repetir" : "Curso adicional"}
+      </span>
+
+      {/* Disparador del selector: enseña lo elegido con su maestría y su
+          trimestre, en vez de esconderlo dentro de un desplegable. */}
+      <button
+        type="button"
+        disabled={readOnly}
+        onClick={() => setPickerOpen(true)}
+        className={`group/pick flex w-full items-center gap-3 rounded-xl border bg-white px-4 py-3 text-left transition-[border-color,box-shadow] duration-300 ease-crisp disabled:cursor-default ${
+          chosen
+            ? repetir
+              ? "border-isel-gold/45 shadow-[0_0_0_3px_rgba(232,179,61,0.14)]"
+              : "border-isel-emerald/35 shadow-[0_0_0_3px_rgba(18,133,92,0.09)]"
+            : "border-dashed border-isel-line hover:enabled:border-isel-navy/35"
+        }`}
+      >
+        <span
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+            chosen
+              ? repetir
+                ? "bg-isel-gold/15 text-isel-gold2"
+                : "bg-isel-emerald/10 text-isel-emerald"
+              : "bg-isel-paper text-isel-ink/35"
+          }`}
+        >
+          <Icon name={chosen ? (repetir ? "repeat" : "check") : "search"} size={17} />
+        </span>
+        <span className="min-w-0 flex-1">
+          {chosen ? (
+            <>
+              <span className="block truncate text-[14px] font-semibold text-isel-navy">{chosen.nombre}</span>
+              <span className="mt-0.5 block truncate text-[12px] text-isel-ink/50">
+                {chosen.carrera === "Inglés" ? "Inglés" : `${chosen.carrera} · Trimestre ${chosen.trimestre}`}
               </span>
-            </p>
+            </>
+          ) : (
+            <>
+              <span className="block text-[14px] font-semibold text-isel-ink/60">
+                {repetir ? "Elegir el curso que vas a repetir" : "Elegir un curso"}
+              </span>
+              <span className="mt-0.5 block text-[12px] text-isel-ink/40">
+                {repetir
+                  ? "Se abre en tu maestría; puedes cambiar a cualquier otra"
+                  : "Inglés y las seis maestrías, separadas por trimestre"}
+              </span>
+            </>
           )}
-        </div>
-      )}
+        </span>
+        {!readOnly && (
+          <Icon
+            name="chevronRight"
+            size={16}
+            className="shrink-0 text-isel-ink/30 transition-transform duration-500 ease-snap group-hover/pick:translate-x-0.5"
+          />
+        )}
+      </button>
 
-      <div className="mt-3 grid grid-cols-2 gap-3">
-        <input className={`${inputClass} bg-white`} placeholder="Sección (opcional)" value={row.seccion} onChange={(e) => onChange({ seccion: e.target.value })} />
-        <input className={`${inputClass} bg-white`} placeholder="Jornada (opcional)" value={row.jornada} onChange={(e) => onChange({ jornada: e.target.value })} />
-      </div>
-    </div>
-  );
-}
+      <CoursePickerModal
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        courses={allCourses}
+        value={row.courseId}
+        initialGroup={repetir ? mainCarrera : null}
+        title={repetir ? "Elegir curso a repetir" : "Elegir curso adicional"}
+        onSelect={(courseId) => {
+          const c = allCourses.find((x) => x.id === courseId);
+          // En "repetir" se guardan además la carrera y el trimestre de origen,
+          // que es lo que antes se elegía a mano en los dos primeros selects.
+          onChange(
+            repetir
+              ? { courseId, repetirCarrera: c?.carrera ?? null, repetirTrimestre: c?.trimestre ?? null }
+              : { courseId },
+          );
+        }}
+      />
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-isel-ink/50">{label}</span>
-      {children}
-    </label>
-  );
-}
-
-function YesNoRow({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-isel-paper px-4 py-3">
-      <span className="text-sm text-isel-ink">{label}</span>
-      <div className="flex overflow-hidden rounded-full border-2 border-isel-line">
-        <button
-          type="button"
-          onClick={() => onChange(false)}
-          className={`px-4 py-1 text-xs font-bold transition-colors duration-200 ${!value ? "bg-isel-navy text-white" : "bg-white text-isel-ink/50"}`}
-        >
-          No
-        </button>
-        <button
-          type="button"
-          onClick={() => onChange(true)}
-          className={`px-4 py-1 text-xs font-bold transition-colors duration-200 ${value ? "bg-isel-gold text-isel-navy" : "bg-white text-isel-ink/50"}`}
-        >
-          Sí
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function TipoPagoRow({ value, onChange }: { value: TipoPago | ""; onChange: (v: TipoPago) => void }) {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-isel-paper px-4 py-3">
-      <span className="text-sm text-isel-ink">Tipo de pago</span>
-      <div className="flex overflow-hidden rounded-full border-2 border-isel-line">
-        <button
-          type="button"
-          onClick={() => onChange("Link")}
-          className={`px-4 py-1 text-xs font-bold transition-colors duration-200 ${value === "Link" ? "bg-isel-navy text-white" : "bg-white text-isel-ink/50"}`}
-        >
-          Link de pago
-        </button>
-        <button
-          type="button"
-          onClick={() => onChange("Presencial")}
-          className={`px-4 py-1 text-xs font-bold transition-colors duration-200 ${value === "Presencial" ? "bg-isel-gold text-isel-navy" : "bg-white text-isel-ink/50"}`}
-        >
-          Presencial
-        </button>
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <input
+          className={fieldClass}
+          placeholder="Sección (opcional)"
+          value={row.seccion}
+          disabled={readOnly}
+          onChange={(e) => onChange({ seccion: e.target.value })}
+        />
+        <input
+          className={fieldClass}
+          placeholder="Jornada (opcional)"
+          value={row.jornada}
+          disabled={readOnly}
+          onChange={(e) => onChange({ jornada: e.target.value })}
+        />
       </div>
     </div>
   );

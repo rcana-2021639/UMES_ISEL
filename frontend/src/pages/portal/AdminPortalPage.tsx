@@ -12,13 +12,49 @@ import { Modal } from "@/components/ui/Modal";
 import { StudentFormModal } from "@/components/portal/StudentFormModal";
 import { CourseAssignmentForm } from "@/components/portal/CourseAssignmentForm";
 import { useConfirm } from "@/hooks/useConfirm";
+import { Icon } from "@/components/portal/Icon";
+import { FichaStack } from "@/components/portal/FichaCard";
+import { PortalBand, PortalPanel, PortalTopBar } from "@/components/portal/PortalShell";
+import { Alert, Chip, EmptyState, IconButton, Loading, PortalButton, Segmented, fieldClass } from "@/components/portal/kit";
 
-const inputClass =
-  "rounded-lg border border-isel-line bg-white px-3 py-2 text-sm text-isel-ink transition-colors duration-200 focus:border-isel-navy focus:outline-none focus:ring-2 focus:ring-isel-navy/15";
+/**
+ * Panel administrativo.
+ *
+ * Rediseño de superficie: ni un handler, ni una llamada a la API, ni un filtro
+ * cambian de comportamiento. Lo que cambia es que se pueda leer.
+ *
+ * Diagnóstico de lo que había: dos <table> desnudas, sin cabecera fija, con
+ * "Imprimir / Eliminar" como enlaces subrayados de 12px —la afordancia más
+ * débil que existe para una acción destructiva—; los filtros de rango repartidos
+ * en cinco botones-píldora sueltos por la fila, uno de ellos ("Cargar día")
+ * literalmente idéntico a otro ("HOY"); emoji por iconos; y ningún sitio donde
+ * mirar para saber cuántas fichas hay, ni cuántas son de link y cuántas
+ * presenciales sin contarlas a mano.
+ *
+ * Ahora: una banda de identidad con la pila de fichas del rango cargado, un
+ * solo control segmentado por decisión, tablas con cabecera propia y acciones
+ * con peso, y estados de vacío/carga/error diseñados en vez de una línea de
+ * texto gris. La ficha de un alumno se abre en consulta; editarla es un clic
+ * aparte.
+ */
 
 function todayInput(): string {
   const d = new Date();
   return toDateParam(d);
+}
+
+/**
+ * Las fechas del rango, en palabras. "Este mes" no dice nada por sí solo —¿qué
+ * mes, contado desde cuándo?—; "del 1 al 31 de agosto de 2026" sí, y es lo que
+ * hay que poder leer antes de mandar cuarenta fichas a la impresora.
+ */
+function rangeText(from: Date, to: Date): string {
+  const dia = (d: Date) => d.getDate();
+  const mes = (d: Date) => d.toLocaleDateString("es-GT", { month: "long" });
+  const anio = to.getFullYear();
+  if (from.toDateString() === to.toDateString()) return `${dia(from)} de ${mes(from)} de ${anio}`;
+  if (from.getMonth() === to.getMonth()) return `del ${dia(from)} al ${dia(to)} de ${mes(to)} de ${anio}`;
+  return `del ${dia(from)} de ${mes(from)} al ${dia(to)} de ${mes(to)} de ${anio}`;
 }
 
 /** Lowercased, accent-stripped, so typing "jose" finds a name with an accented "e" and "gonzalez"
@@ -116,7 +152,22 @@ export function AdminPortalPage() {
   }
 
   // ---- Ver / editar ficha de un alumno ----
+  // Se abre SIEMPRE en solo lectura. Consultar una ficha es lo que se hace
+  // veinte veces al día; modificar la de otra persona tiene que ser una
+  // decisión explícita, no el estado por defecto con "Guardar asignación"
+  // esperando al final del scroll.
   const [fichaStudent, setFichaStudent] = useState<Student | null>(null);
+  const [fichaEditing, setFichaEditing] = useState(false);
+
+  function openFicha(s: Student) {
+    setFichaStudent(s);
+    setFichaEditing(false);
+  }
+
+  function closeFicha() {
+    setFichaStudent(null);
+    setFichaEditing(false);
+  }
 
   async function handleDeleteAssignment(a: CourseAssignment) {
     const ok = await confirm({
@@ -168,6 +219,12 @@ export function AdminPortalPage() {
     return { day: "Hoy", week: "Esta semana", month: "Este mes" }[rangeMode];
   }, [rangeMode]);
 
+  const rangeDates = useMemo(() => {
+    if (!rangeMode) return null;
+    const { from, to } = rangeFor(rangeMode, new Date(`${dateInput}T00:00:00`));
+    return rangeText(from, to);
+  }, [rangeMode, dateInput]);
+
   const emptyAssignmentsMessage = useMemo(() => {
     const tipoPagoLabel = { link: "de pago por link", presencial: "de pago presencial" } as const;
     const suffix = tipoPagoFilter === "todas" ? "" : ` ${tipoPagoLabel[tipoPagoFilter.toLowerCase() as "link" | "presencial"]}`;
@@ -184,102 +241,139 @@ export function AdminPortalPage() {
     );
   }, [assignments, assignmentSearch]);
 
+  // Cifras derivadas de lo que ya está cargado — ninguna consulta nueva.
+  const linkCount = useMemo(() => assignments.filter((a) => a.tipoPago === "Link").length, [assignments]);
+  const presencialCount = useMemo(() => assignments.filter((a) => a.tipoPago === "Presencial").length, [assignments]);
+
   return (
     <main className="min-h-screen bg-isel-paper pb-24">
-      <header className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 border-b border-isel-line bg-white/90 px-6 py-4 backdrop-blur">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-isel-gold2">Panel administrativo</p>
-          <h1 className="font-display text-xl font-bold text-isel-navy sm:text-2xl">Asignaciones de cursos</h1>
-        </div>
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="inline-flex items-center gap-2 rounded-full border-2 border-isel-navy px-4 py-2 text-sm font-semibold text-isel-navy transition-colors duration-200 hover:bg-isel-navy hover:text-white"
-        >
-          ↩ Cerrar sesión
-        </button>
-      </header>
+      <PortalTopBar
+        context="Panel administrativo"
+        onLogout={handleLogout}
+        identity={
+          <span className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 md:inline-flex">
+            <Icon name="lock" size={13} className="text-isel-gold" />
+            <span className="text-[12px] font-semibold text-white/70">Administración</span>
+          </span>
+        }
+      />
 
-      <div className="mx-auto max-w-6xl space-y-8 px-6 py-8">
-        {/* Impresión de asignaciones */}
-        <section className="rounded-2xl bg-white p-6 shadow-card">
-          <h2 className="mb-4 flex items-center gap-2 font-display text-lg font-semibold text-isel-navy">
-            🖨️ Impresión de asignaciones
-          </h2>
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-2 text-sm">
-              <span className="font-semibold text-isel-ink/60">Fecha</span>
-              <input type="date" value={dateInput} onChange={(e) => setDateInput(e.target.value)} className={inputClass} />
-            </label>
-            <button type="button" onClick={() => loadAssignments("day")} className="rounded-full bg-isel-paper px-4 py-2 text-sm font-semibold text-isel-navy hover:bg-isel-line">
-              📅 Cargar día
-            </button>
-            <div className="ml-auto flex gap-2">
-              {(["day", "week", "month"] as RangeMode[]).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => loadAssignments(m)}
-                  className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors duration-200 ${
-                    rangeMode === m ? "bg-isel-navy text-white" : "border-2 border-isel-line text-isel-ink/70 hover:border-isel-navy hover:text-isel-navy"
-                  }`}
-                >
-                  {{ day: "HOY", week: "SEMANA", month: "MES" }[m]}
-                </button>
-              ))}
-            </div>
-            <button
-              type="button"
-              disabled={assignments.length === 0 || printingId !== null}
+      <PortalBand
+        eyebrow="Fichas de asignación"
+        title="Panel administrativo"
+        meta={
+          <Chip tone="onDark" icon="users">
+            {students.length} {students.length === 1 ? "alumno" : "alumnos"} en la lista
+          </Chip>
+        }
+        aside={
+          <FichaStack
+            loaded={assignmentsLoaded}
+            rangeLabel={rangeLabel}
+            rangeText={rangeDates}
+            total={assignments.length}
+            link={linkCount}
+            presencial={presencialCount}
+          />
+        }
+      />
+
+      <div className="mx-auto max-w-7xl space-y-6 px-5 pt-10 sm:px-8">
+        {/* ------------------------------------------ fichas / impresión */}
+        <PortalPanel
+          step="01"
+          accent="#B8791F"
+          title="Impresión de asignaciones"
+          description="Elige una fecha ancla y el rango que quieres revisar. La impresión masiva usa el rango cargado, no el texto que busques."
+          actions={
+            <PortalButton
+              tone="primary"
+              icon="printer"
+              disabled={assignments.length === 0}
+              loading={printingId === "batch"}
               onClick={handlePrintAll}
-              className="rounded-full bg-isel-navy px-4 py-2 text-sm font-semibold text-white transition-colors duration-300 hover:bg-isel-gold hover:text-isel-navy disabled:cursor-not-allowed disabled:opacity-40"
             >
-              🖨️ {printingId === "batch" ? "Generando…" : "Imprimir todas"}
-            </button>
-          </div>
+              Imprimir todas
+            </PortalButton>
+          }
+        >
+          <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
+            <label className="block">
+              <span className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-[0.14em] text-isel-ink/45">
+                Fecha ancla
+              </span>
+              <input
+                type="date"
+                value={dateInput}
+                onChange={(e) => setDateInput(e.target.value)}
+                className={`${fieldClass} w-auto tabular`}
+              />
+            </label>
 
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-isel-ink/50">Tipo de pago</span>
-            {(["todas", "Link", "Presencial"] as const).map((opt) => (
-              <button
-                key={opt}
-                type="button"
-                onClick={() => handleTipoPagoFilterChange(opt)}
-                className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors duration-200 ${
-                  tipoPagoFilter === opt ? "bg-isel-gold text-isel-navy" : "border-2 border-isel-line text-isel-ink/60 hover:border-isel-navy hover:text-isel-navy"
-                }`}
-              >
-                {opt === "todas" ? "Todas" : opt === "Link" ? "Link de pago" : "Presencial"}
-              </button>
-            ))}
+            <div>
+              <span className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-[0.14em] text-isel-ink/45">
+                Rango
+              </span>
+              <Segmented
+                value={rangeMode}
+                onChange={(m) => loadAssignments(m)}
+                options={[
+                  { value: "day" as RangeMode, label: "Hoy" },
+                  { value: "week" as RangeMode, label: "Semana" },
+                  { value: "month" as RangeMode, label: "Mes" },
+                ]}
+              />
+            </div>
+
+            <div>
+              <span className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-[0.14em] text-isel-ink/45">
+                Tipo de pago
+              </span>
+              <Segmented
+                value={tipoPagoFilter}
+                onChange={handleTipoPagoFilterChange}
+                options={[
+                  { value: "todas" as const, label: "Todas" },
+                  { value: "Link" as const, label: "Link" },
+                  { value: "Presencial" as const, label: "Presencial" },
+                ]}
+              />
+            </div>
           </div>
 
           {printError && (
-            <p className="mt-3 rounded-lg bg-red-50 px-4 py-2 text-sm font-semibold text-red-600">⚠️ {printError}</p>
+            <div className="mt-5">
+              <Alert kind="error">{printError}</Alert>
+            </div>
           )}
 
           {assignmentsLoaded && assignments.length > 0 && (
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <div className="relative flex-1 min-w-[220px]">
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <div className="relative min-w-[240px] flex-1">
+                <Icon
+                  name="search"
+                  size={16}
+                  className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-isel-ink/30"
+                />
                 <input
                   type="text"
                   value={assignmentSearch}
                   onChange={(e) => setAssignmentSearch(e.target.value)}
-                  placeholder="🔎 Buscar por carné, nombre o carrera…"
-                  className={`${inputClass} w-full pr-8`}
+                  placeholder="Buscar por carné, nombre o carrera…"
+                  className={`${fieldClass} pl-10 pr-9`}
                 />
                 {assignmentSearch && (
                   <button
                     type="button"
                     onClick={() => setAssignmentSearch("")}
                     aria-label="Limpiar búsqueda"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-isel-ink/40 hover:text-isel-ink"
+                    className="absolute right-2.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-isel-ink/35 transition-colors duration-200 hover:bg-isel-navy/[0.07] hover:text-isel-navy"
                   >
-                    ✕
+                    <Icon name="close" size={14} />
                   </button>
                 )}
               </div>
-              <span className="text-xs text-isel-ink/50">
+              <span className="tabular text-[12.5px] text-isel-ink/45">
                 {assignmentSearch
                   ? `${filteredAssignments.length} de ${assignments.length} fichas`
                   : `${assignments.length} ficha${assignments.length === 1 ? "" : "s"}`}
@@ -287,171 +381,191 @@ export function AdminPortalPage() {
             </div>
           )}
 
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full min-w-[760px] border-collapse text-sm">
-              <thead>
-                <tr className="text-left text-xs font-semibold uppercase tracking-wide text-isel-ink/50">
-                  <th className="pb-2">Carné</th>
-                  <th className="pb-2">Alumno</th>
-                  <th className="pb-2">Carrera</th>
-                  <th className="pb-2">Sem/Tri</th>
-                  <th className="pb-2">Tipo de pago</th>
-                  <th className="pb-2">Acción</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-isel-line">
-                {!assignmentsLoaded ? (
-                  <tr>
-                    <td colSpan={6} className="py-6 text-center text-isel-ink/50">
-                      Elige HOY, SEMANA, MES o carga un día para ver las asignaciones guardadas.
-                    </td>
-                  </tr>
-                ) : loadingAssignments ? (
-                  <tr>
-                    <td colSpan={6} className="py-6 text-center text-isel-ink/50">
-                      Cargando…
-                    </td>
-                  </tr>
-                ) : assignments.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="py-6 text-center text-isel-ink/50">
-                      {emptyAssignmentsMessage}
-                    </td>
-                  </tr>
-                ) : filteredAssignments.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="py-6 text-center text-isel-ink/50">
-                      Ninguna ficha coincide con "{assignmentSearch}".
-                    </td>
-                  </tr>
-                ) : (
-                  filteredAssignments.map((a) => (
-                    <tr key={a.id}>
-                      <td className="py-2 pr-2">{a.carnet}</td>
-                      <td className="py-2 pr-2">{a.nombreCompleto}</td>
-                      <td className="py-2 pr-2">{a.carrera}</td>
-                      <td className="py-2 pr-2">{a.trimestre}</td>
-                      <td className="py-2 pr-2">
-                        {a.tipoPago ? (
-                          <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${a.tipoPago === "Link" ? "bg-sky-100 text-sky-700" : "bg-purple-100 text-purple-700"}`}>
-                            {a.tipoPago === "Link" ? "Link de pago" : "Presencial"}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-isel-ink/30">—</span>
-                        )}
-                      </td>
-                      <td className="py-2">
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            disabled={printingId !== null}
-                            onClick={() => handlePrintOne(a)}
-                            className="text-xs font-semibold text-isel-navy hover:underline disabled:cursor-not-allowed disabled:opacity-40"
-                          >
-                            {printingId === a.id ? "Generando…" : "Imprimir"}
-                          </button>
-                          <button type="button" onClick={() => handleDeleteAssignment(a)} className="text-xs font-semibold text-red-600 hover:underline">
-                            Eliminar
-                          </button>
-                        </div>
-                      </td>
+          <div className="mt-5 overflow-hidden rounded-xl border border-isel-line">
+            {!assignmentsLoaded ? (
+              <EmptyState
+                icon="calendar"
+                title="Elige un rango para empezar"
+                hint="Hoy, Semana o Mes carga las fichas guardadas alrededor de la fecha ancla."
+              />
+            ) : loadingAssignments ? (
+              <Loading label="Cargando fichas" />
+            ) : assignments.length === 0 ? (
+              <EmptyState icon="file" title={emptyAssignmentsMessage} hint="Prueba con otro rango o con otro tipo de pago." />
+            ) : filteredAssignments.length === 0 ? (
+              <EmptyState
+                icon="search"
+                title={`Ninguna ficha coincide con “${assignmentSearch}”`}
+                hint="La búsqueda mira el carné, el nombre y la carrera de lo que ya está cargado."
+              />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[780px] border-collapse text-left text-[13.5px]">
+                  <thead>
+                    <tr className="border-b border-isel-line bg-isel-paper/60">
+                      <Th>Carné</Th>
+                      <Th>Alumno</Th>
+                      <Th>Carrera</Th>
+                      <Th className="text-center">Tri</Th>
+                      <Th>Tipo de pago</Th>
+                      <Th className="text-right">Acciones</Th>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody className="divide-y divide-isel-line/70">
+                    {filteredAssignments.map((a) => (
+                      <tr key={a.id} className="group/tr relative transition-colors duration-200 ease-crisp hover:bg-isel-paper/60">
+                        <Td className="tabular relative font-semibold text-isel-navy">
+                          <span
+                            aria-hidden
+                            className="absolute inset-y-0 left-0 w-[3px] origin-center scale-y-0 bg-[var(--accent)] transition-transform duration-300 ease-snap group-hover/tr:scale-y-100"
+                          />
+                          {a.carnet}
+                        </Td>
+                        <Td>{a.nombreCompleto}</Td>
+                        <Td className="text-isel-ink/65">{a.carrera}</Td>
+                        <Td className="tabular text-center text-isel-ink/65">{a.trimestre}</Td>
+                        <Td>
+                          {a.tipoPago ? (
+                            <Chip tone={a.tipoPago === "Link" ? "sky" : "plum"}>
+                              {a.tipoPago === "Link" ? "Link de pago" : "Presencial"}
+                            </Chip>
+                          ) : (
+                            <span className="text-isel-ink/25">—</span>
+                          )}
+                        </Td>
+                        <Td>
+                          <div className="flex items-center justify-end gap-1">
+                            <PortalButton
+                              tone="ghost"
+                              size="sm"
+                              icon="printer"
+                              loading={printingId === a.id}
+                              disabled={printingId !== null && printingId !== a.id}
+                              onClick={() => handlePrintOne(a)}
+                            >
+                              Imprimir
+                            </PortalButton>
+                            <IconButton
+                              icon="trash"
+                              tone="danger"
+                              label={`Eliminar la ficha de ${a.nombreCompleto}`}
+                              onClick={() => handleDeleteAssignment(a)}
+                            />
+                          </div>
+                        </Td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-        </section>
+        </PortalPanel>
 
-        {/* Alumnos (CRUD) */}
-        <section className="rounded-2xl bg-white p-6 shadow-card">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-isel-navy">🗂️ Alumnos</h2>
-            <button
-              type="button"
+        {/* ------------------------------------------------------ alumnos */}
+        <PortalPanel
+          step="02"
+          accent="#12855C"
+          title="Alumnos"
+          description="La lista de la que sale todo: quien no está aquí, no puede entrar al portal ni firmar una ficha."
+          actions={
+            <PortalButton
+              tone="accent"
+              icon="plus"
               onClick={() => {
                 setEditingStudent(null);
                 setStudentModalOpen(true);
               }}
-              className="rounded-full bg-isel-navy px-4 py-2 text-sm font-semibold text-white transition-colors duration-300 hover:bg-isel-gold hover:text-isel-navy"
             >
-              + Agregar alumno
-            </button>
-          </div>
-
-          <div className="mb-4 flex gap-3">
-            <input
-              value={carnetFilter}
-              onChange={(e) => setCarnetFilter(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && loadStudents()}
-              placeholder="Filtrar por carné…"
-              className={`${inputClass} flex-1`}
-            />
-            <button type="button" onClick={loadStudents} className="rounded-full border-2 border-isel-line px-4 py-2 text-sm font-semibold text-isel-ink/70 hover:border-isel-navy hover:text-isel-navy">
+              Agregar alumno
+            </PortalButton>
+          }
+        >
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative min-w-[240px] flex-1">
+              <Icon
+                name="search"
+                size={16}
+                className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-isel-ink/30"
+              />
+              <input
+                value={carnetFilter}
+                onChange={(e) => setCarnetFilter(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && loadStudents()}
+                placeholder="Filtrar por carné y pulsa Enter…"
+                className={`${fieldClass} pl-10`}
+              />
+            </div>
+            <PortalButton tone="ghost" icon="search" onClick={loadStudents} loading={loadingStudents}>
               Buscar
-            </button>
+            </PortalButton>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[800px] border-collapse text-sm">
-              <thead>
-                <tr className="text-left text-xs font-semibold uppercase tracking-wide text-isel-ink/50">
-                  <th className="pb-2">Carné</th>
-                  <th className="pb-2">Alumno</th>
-                  <th className="pb-2">Carrera</th>
-                  <th className="pb-2">Sección</th>
-                  <th className="pb-2">Sem/Tri</th>
-                  <th className="pb-2">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-isel-line">
-                {loadingStudents ? (
-                  <tr>
-                    <td colSpan={6} className="py-6 text-center text-isel-ink/50">
-                      Cargando…
-                    </td>
-                  </tr>
-                ) : students.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="py-6 text-center text-isel-ink/50">
-                      Sin resultados.
-                    </td>
-                  </tr>
-                ) : (
-                  students.map((s) => (
-                    <tr key={s.id}>
-                      <td className="py-2 pr-2">{s.carnet}</td>
-                      <td className="py-2 pr-2">{s.nombreCompleto}</td>
-                      <td className="py-2 pr-2">{s.carrera}</td>
-                      <td className="py-2 pr-2">{s.seccion}</td>
-                      <td className="py-2 pr-2">{s.trimestre}</td>
-                      <td className="py-2">
-                        <div className="flex flex-wrap gap-2">
-                          <button type="button" onClick={() => setFichaStudent(s)} className="text-xs font-semibold text-isel-navy hover:underline">
-                            Ver ficha
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingStudent(s);
-                              setStudentModalOpen(true);
-                            }}
-                            className="text-xs font-semibold text-isel-navy hover:underline"
-                          >
-                            Editar
-                          </button>
-                          <button type="button" onClick={() => handleDeleteStudent(s)} className="text-xs font-semibold text-red-600 hover:underline">
-                            Eliminar
-                          </button>
-                        </div>
-                      </td>
+          <div className="mt-5 overflow-hidden rounded-xl border border-isel-line">
+            {loadingStudents ? (
+              <Loading label="Cargando alumnos" />
+            ) : students.length === 0 ? (
+              <EmptyState
+                icon="users"
+                title="Ningún alumno con ese carné"
+                hint="Vacía el filtro y pulsa Buscar para volver a ver la lista completa."
+              />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[820px] border-collapse text-left text-[13.5px]">
+                  <thead>
+                    <tr className="border-b border-isel-line bg-isel-paper/60">
+                      <Th>Carné</Th>
+                      <Th>Alumno</Th>
+                      <Th>Carrera</Th>
+                      <Th className="text-center">Sección</Th>
+                      <Th className="text-center">Tri</Th>
+                      <Th className="text-right">Acciones</Th>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody className="divide-y divide-isel-line/70">
+                    {students.map((s) => (
+                      <tr key={s.id} className="group/tr relative transition-colors duration-200 ease-crisp hover:bg-isel-paper/60">
+                        <Td className="tabular relative font-semibold text-isel-navy">
+                          <span
+                            aria-hidden
+                            className="absolute inset-y-0 left-0 w-[3px] origin-center scale-y-0 bg-[var(--accent)] transition-transform duration-300 ease-snap group-hover/tr:scale-y-100"
+                          />
+                          {s.carnet}
+                        </Td>
+                        <Td>{s.nombreCompleto}</Td>
+                        <Td className="text-isel-ink/65">{s.carrera}</Td>
+                        <Td className="text-center text-isel-ink/65">{s.seccion || "—"}</Td>
+                        <Td className="tabular text-center text-isel-ink/65">{s.trimestre ?? "—"}</Td>
+                        <Td>
+                          <div className="flex items-center justify-end gap-1">
+                            <PortalButton tone="ghost" size="sm" icon="eye" onClick={() => openFicha(s)}>
+                              Ver ficha
+                            </PortalButton>
+                            <IconButton
+                              icon="pencil"
+                              label={`Editar a ${s.nombreCompleto}`}
+                              onClick={() => {
+                                setEditingStudent(s);
+                                setStudentModalOpen(true);
+                              }}
+                            />
+                            <IconButton
+                              icon="trash"
+                              tone="danger"
+                              label={`Eliminar a ${s.nombreCompleto}`}
+                              onClick={() => handleDeleteStudent(s)}
+                            />
+                          </div>
+                        </Td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-        </section>
+        </PortalPanel>
       </div>
 
       <StudentFormModal
@@ -462,18 +576,64 @@ export function AdminPortalPage() {
       />
 
       {fichaStudent && (
-        <Modal open onClose={() => setFichaStudent(null)} title={`Ficha — ${fichaStudent.nombreCompleto}`} widthClassName="max-w-4xl">
+        <Modal open onClose={closeFicha} title={`Ficha — ${fichaStudent.nombreCompleto}`} widthClassName="max-w-4xl">
+          {/* Barra de modo. Mientras diga "consulta", nada de dentro se puede
+              tocar y no hay botón de guardar; pasar a edición es un clic
+              deliberado, y se nota porque la barra cambia de color. */}
+          <div
+            className={`mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 transition-colors duration-500 ease-crisp ${
+              fichaEditing
+                ? "border-isel-gold/40 bg-isel-gold/10"
+                : "border-isel-line bg-isel-paper/70"
+            }`}
+          >
+            <p className="flex items-center gap-2.5 text-[13px] font-semibold text-isel-navy">
+              <Icon name={fichaEditing ? "pencil" : "eye"} size={16} className="text-isel-gold2" />
+              {fichaEditing ? "Estás editando esta ficha" : "Estás consultando esta ficha"}
+              <span className="font-normal text-isel-ink/45">
+                {fichaEditing ? "— los cambios se guardan al final" : "— nada se puede modificar"}
+              </span>
+            </p>
+            {fichaEditing ? (
+              <PortalButton tone="ghost" size="sm" icon="close" onClick={() => setFichaEditing(false)}>
+                Salir de edición
+              </PortalButton>
+            ) : (
+              <PortalButton tone="primary" size="sm" icon="pencil" onClick={() => setFichaEditing(true)}>
+                Editar ficha
+              </PortalButton>
+            )}
+          </div>
+
           <CourseAssignmentForm
+            key={fichaEditing ? "edit" : "view"}
             student={fichaStudent}
+            readOnly={!fichaEditing}
             autorizadoPorCodigo={session?.role === "admin" ? "ADMIN" : null}
             onSaved={() => {
               if (rangeMode) loadAssignments(rangeMode);
             }}
-            onDismissSaved={() => setFichaStudent(null)}
+            onDismissSaved={closeFicha}
           />
         </Modal>
       )}
       {confirmDialog}
     </main>
   );
+}
+
+/* Celdas de tabla: la cabecera se queda pegada al desplazar en horizontal y
+   las cifras van tabulares, para que las columnas no bailen al filtrar. */
+function Th({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return (
+    <th
+      className={`whitespace-nowrap px-4 py-3 text-[10.5px] font-bold uppercase tracking-[0.13em] text-isel-ink/45 ${className}`}
+    >
+      {children}
+    </th>
+  );
+}
+
+function Td({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <td className={`px-4 py-3 align-middle text-isel-ink ${className}`}>{children}</td>;
 }
