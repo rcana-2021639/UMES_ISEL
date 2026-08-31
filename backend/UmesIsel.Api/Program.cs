@@ -22,6 +22,8 @@ builder.Services.AddSingleton<FichaPdfBuilder>();
 builder.Services.AddSingleton<PreinscripcionXlsxBuilder>();
 builder.Services.AddSingleton<CartaCompromisoXlsxBuilder>();
 builder.Services.AddSingleton<InscripcionPdfBuilder>();
+// Documentos en PDF subidos por aspirantes/alumnos — ver Services/DocumentStorageService.cs.
+builder.Services.AddSingleton<DocumentStorageService>();
 
 // The React dev server (Vite) runs on 5173 by default; add your deployed
 // frontend origin here too once it exists.

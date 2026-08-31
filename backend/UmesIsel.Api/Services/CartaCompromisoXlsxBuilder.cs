@@ -55,9 +55,20 @@ public class CartaCompromisoXlsxBuilder
         return output.ToArray();
     }
 
+    // El proyecto corre con <InvariantGlobalization> (ver el .csproj) para no depender de ICU en el
+    // servidor, así que no hay CultureInfo "es-GT" disponible — de ahí el arreglo manual en vez de
+    // ToString("dd 'de' MMMM 'de' yyyy", new CultureInfo("es-GT")).
+    private static readonly string[] MesesEs =
+    {
+        "enero", "febrero", "marzo", "abril", "mayo", "junio",
+        "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+    };
+
+    private static string FechaEnEspanol(DateOnly fecha) => $"{fecha.Day} de {MesesEs[fecha.Month - 1]} de {fecha.Year}";
+
     private static string ApplyCellValues(string xml, CartaCompromisoDto c, IReadOnlySet<string> subidos)
     {
-        xml = XlsxCellSurgery.SetCell(xml, "C6", c.Fecha.ToString("dd 'de' MMMM 'de' yyyy", new System.Globalization.CultureInfo("es-GT")));
+        xml = XlsxCellSurgery.SetCell(xml, "C6", FechaEnEspanol(c.Fecha));
         xml = XlsxCellSurgery.SetCell(xml, "A11", c.Carrera);
 
         xml = XlsxCellSurgery.SetChecked(xml, "A13", "Fotocopia de DPI autenticada", subidos.Contains(DocumentoTipos.DpiAutenticado));
