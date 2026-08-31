@@ -37,9 +37,12 @@ type Name =
   | "phone"
   | "chevronDown"
   | "chevronRight"
+  | "chevronLeft"
   | "lock"
   | "repeat"
-  | "sparkle";
+  | "sparkle"
+  | "upload"
+  | "globe";
 
 /** Trazos sueltos; el <svg> pone viewBox, grosor y terminaciones. */
 const PATHS: Record<Name, string> = {
@@ -71,9 +74,12 @@ const PATHS: Record<Name, string> = {
   phone: "M7.5 3.5h9A1.5 1.5 0 0118 5v14a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 016 19V5a1.5 1.5 0 011.5-1.5zM10.5 17.3h3",
   chevronDown: "M6 9.5l6 6 6-6",
   chevronRight: "M9.5 6l6 6-6 6",
+  chevronLeft: "M14.5 6l-6 6 6 6",
   lock: "M7 10.5V8a5 5 0 0110 0v2.5M6 10.5h12a1.4 1.4 0 011.4 1.4v7.2A1.4 1.4 0 0118 20.5H6a1.4 1.4 0 01-1.4-1.4v-7.2A1.4 1.4 0 016 10.5z",
   repeat: "M4 9.5V8a2.5 2.5 0 012.5-2.5H19M16 2.5l3 3-3 3M20 14.5V16a2.5 2.5 0 01-2.5 2.5H5M8 21.5l-3-3 3-3",
   sparkle: "M12 3.5l1.9 5.1 5.1 1.9-5.1 1.9L12 17.5l-1.9-5.1L5 10.5l5.1-1.9L12 3.5z",
+  upload: "M12 15.5V4M7 8.5L12 4l5 4.5M5 15.5v3A1.5 1.5 0 006.5 20h11a1.5 1.5 0 001.5-1.5v-3",
+  globe: "M12 20.5a8.5 8.5 0 100-17 8.5 8.5 0 000 17zM3.7 9h16.6M3.7 15h16.6M12 3.6c2 2.2 3.1 5 3.1 8.4s-1.1 6.2-3.1 8.4c-2-2.2-3.1-5-3.1-8.4S10 5.8 12 3.6z",
 };
 
 interface IconProps {
