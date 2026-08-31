@@ -7,7 +7,7 @@ import { Icon } from "@/components/portal/Icon";
 import { Alert, PortalButton } from "@/components/portal/kit";
 
 /**
- * Inscripción — acceso al portal.
+ * Asignación — acceso al portal.
  *
  * Lo que fallaba antes: la columna oscura tenía el contenido pegado al borde
  * (padding y nada más, sin columna de medida), así que a 1440px el texto
@@ -45,7 +45,7 @@ export function LoginPage() {
   const reduce = useReducedMotion();
 
   useEffect(() => {
-    document.title = "Inscripción | Portal ISEL";
+    document.title = "Asignación | Portal ISEL";
     const id = window.setTimeout(() => setEntered(true), 40);
     return () => window.clearTimeout(id);
   }, []);
@@ -108,7 +108,7 @@ export function LoginPage() {
 
           <div>
             <span className={`eyebrow text-isel-gold ${beat} ${state}`} style={delay(140)}>
-              Inscripción de cursos
+              Asignación de cursos
             </span>
             <h1
               className={`mt-6 max-w-[12ch] text-balance font-display text-[clamp(2.2rem,4.6vw,3.4rem)] font-semibold leading-[0.98] tracking-ultratight text-white ${beat} ${state}`}

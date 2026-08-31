@@ -29,7 +29,7 @@ import { Footer } from "@/components/layout/Footer";
  * Después la página cuenta el programa en tres tiempos: la portada oscura
  * teñida con su acento, la descripción (que se enciende al leerla) con el
  * plan fijo al costado, y la ruta de inscripción en tres pasos con las tres
- * acciones reales: Pensum, Entrevista e Inscripción.
+ * acciones reales: Pensum, Entrevista y Asignación.
  */
 export function ProgramDetailPage() {
   const { slug = "" } = useParams();
@@ -107,7 +107,7 @@ export function ProgramDetailPage() {
   const otros = localPrograms.filter((p) => p.slug !== program.slug).slice(0, 3);
 
   // Los tres pasos explican el proceso; las acciones viven una sola vez, en la
-  // columna fija. Repetir aquí Pensum/Entrevista/Inscripción era decir lo mismo
+  // columna fija. Repetir aquí Pensum/Entrevista/Asignación era decir lo mismo
   // dos veces en la misma pantalla.
   const pasos = [
     {
@@ -315,7 +315,7 @@ export function ProgramDetailPage() {
                     Entrevista
                   </ActionButton>
                   <ActionButton to={`/portal/login?programa=${program.slug}`} tone="accent" full>
-                    Inscripción
+                    Asignación
                   </ActionButton>
                 </div>
               </div>
