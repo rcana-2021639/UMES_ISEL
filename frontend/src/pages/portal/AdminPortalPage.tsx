@@ -11,6 +11,7 @@ import type { Student } from "@/types/student";
 import { Modal } from "@/components/ui/Modal";
 import { StudentFormModal } from "@/components/portal/StudentFormModal";
 import { CourseAssignmentForm } from "@/components/portal/CourseAssignmentForm";
+import { InscripcionesAdminPanels } from "@/components/inscripcion/InscripcionesAdminPanels";
 import { useConfirm } from "@/hooks/useConfirm";
 import { Icon } from "@/components/portal/Icon";
 import { FichaStack } from "@/components/portal/FichaCard";
@@ -38,7 +39,7 @@ import { Alert, Chip, EmptyState, IconButton, Loading, PortalButton, Segmented, 
  * aparte.
  */
 
-function todayInput(): string {
+export function todayInput(): string {
   const d = new Date();
   return toDateParam(d);
 }
@@ -48,7 +49,7 @@ function todayInput(): string {
  * mes, contado desde cuándo?—; "del 1 al 31 de agosto de 2026" sí, y es lo que
  * hay que poder leer antes de mandar cuarenta fichas a la impresora.
  */
-function rangeText(from: Date, to: Date): string {
+export function rangeText(from: Date, to: Date): string {
   const dia = (d: Date) => d.getDate();
   const mes = (d: Date) => d.toLocaleDateString("es-GT", { month: "long" });
   const anio = to.getFullYear();
@@ -62,7 +63,7 @@ function rangeText(from: Date, to: Date): string {
  *  separate combining-mark codepoint, then drops every codepoint in the Unicode "Combining
  *  Diacritical Marks" block (hex 0x0300 to 0x036F) by numeric comparison rather than a regex range,
  *  which is easy to mis-paste as literal accented characters instead of the codepoints themselves. */
-function normalize(s: string): string {
+export function normalize(s: string): string {
   return Array.from(s.normalize("NFD"))
     .filter((ch) => {
       const code = ch.codePointAt(0) ?? 0;
@@ -77,6 +78,10 @@ export function AdminPortalPage() {
   const navigate = useNavigate();
   const session = getSession();
   const { confirm, dialog: confirmDialog } = useConfirm();
+
+  // Un solo panel de admin, dos superficies — igual que ya era, con "Inscripciones" como segunda
+  // pestaña en vez de una ruta aparte.
+  const [adminTab, setAdminTab] = useState<"asignaciones" | "inscripciones">("asignaciones");
 
   useEffect(() => {
     document.title = "Panel administrativo | ISEL";
@@ -279,6 +284,19 @@ export function AdminPortalPage() {
       />
 
       <div className="mx-auto max-w-7xl space-y-6 px-5 pt-10 sm:px-8">
+        <Segmented
+          value={adminTab}
+          onChange={setAdminTab}
+          options={[
+            { value: "asignaciones" as const, label: "Asignaciones" },
+            { value: "inscripciones" as const, label: "Inscripciones" },
+          ]}
+        />
+
+        {adminTab === "inscripciones" ? (
+          <InscripcionesAdminPanels />
+        ) : (
+          <>
         {/* ------------------------------------------ fichas / impresión */}
         <PortalPanel
           step="01"
@@ -566,6 +584,8 @@ export function AdminPortalPage() {
             )}
           </div>
         </PortalPanel>
+          </>
+        )}
       </div>
 
       <StudentFormModal
@@ -623,8 +643,10 @@ export function AdminPortalPage() {
 }
 
 /* Celdas de tabla: la cabecera se queda pegada al desplazar en horizontal y
-   las cifras van tabulares, para que las columnas no bailen al filtrar. */
-function Th({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+   las cifras van tabulares, para que las columnas no bailen al filtrar.
+   Exportadas — el panel de Inscripciones (components/inscripcion/InscripcionesAdminPanels.tsx)
+   las reutiliza tal cual, mismas tablas, mismo aspecto. */
+export function Th({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
     <th
       className={`whitespace-nowrap px-4 py-3 text-[10.5px] font-bold uppercase tracking-[0.13em] text-isel-ink/45 ${className}`}
@@ -634,6 +656,6 @@ function Th({ children, className = "" }: { children: React.ReactNode; className
   );
 }
 
-function Td({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+export function Td({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <td className={`px-4 py-3 align-middle text-isel-ink ${className}`}>{children}</td>;
 }

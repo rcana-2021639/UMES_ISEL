@@ -321,7 +321,7 @@ export function Chip({
 }: {
   children: ReactNode;
   icon?: Parameters<typeof Icon>[0]["name"];
-  tone?: "neutral" | "gold" | "emerald" | "sky" | "plum" | "onDark";
+  tone?: "neutral" | "gold" | "emerald" | "sky" | "plum" | "alert" | "onDark";
 }) {
   const cls = {
     neutral: "border-isel-line bg-white text-isel-ink/65",
@@ -329,6 +329,7 @@ export function Chip({
     emerald: "border-isel-emerald/25 bg-isel-emerald/10 text-isel-emerald2",
     sky: "border-isel-sky/25 bg-isel-sky/10 text-isel-sky",
     plum: "border-isel-plum/25 bg-isel-plum/10 text-isel-plum",
+    alert: "border-isel-alert/25 bg-isel-alert/10 text-isel-alert",
     onDark: "border-white/15 bg-white/[0.07] text-white/75",
   }[tone];
 
