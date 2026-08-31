@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { PortalPanel } from "@/components/portal/PortalShell";
 import { Icon } from "@/components/portal/Icon";
 import { Alert, Chip, PortalButton } from "@/components/portal/kit";
-import { deleteDocumento, uploadDocumento } from "@/lib/inscripcionesApi";
+import { deleteDocumento, getDocumentoUrl, uploadDocumento } from "@/lib/inscripcionesApi";
 import { ApiError } from "@/lib/http";
 import {
   DOCUMENTO_LABELS,
@@ -127,19 +127,31 @@ function DocumentoRow({
           </div>
         </div>
 
-        {!readOnly && (
-          <div className="flex shrink-0 items-center gap-1.5">
-            <input ref={inputRef} type="file" accept="application/pdf" className="hidden" onChange={handleFile} />
-            <PortalButton tone="ghost" size="sm" icon="upload" loading={busy} onClick={() => inputRef.current?.click()}>
-              {doc ? "Reemplazar" : "Subir PDF"}
+        <div className="flex shrink-0 items-center gap-1.5">
+          {doc && (
+            <PortalButton
+              tone="ghost"
+              size="sm"
+              icon="eye"
+              onClick={() => window.open(getDocumentoUrl(applicantId, tipo), "_blank", "noopener,noreferrer")}
+            >
+              Ver
             </PortalButton>
-            {doc && (
-              <PortalButton tone="quiet" size="sm" icon="trash" disabled={busy} onClick={handleDelete}>
-                Quitar
+          )}
+          {!readOnly && (
+            <>
+              <input ref={inputRef} type="file" accept="application/pdf" className="hidden" onChange={handleFile} />
+              <PortalButton tone="ghost" size="sm" icon="upload" loading={busy} onClick={() => inputRef.current?.click()}>
+                {doc ? "Reemplazar" : "Subir PDF"}
               </PortalButton>
-            )}
-          </div>
-        )}
+              {doc && (
+                <PortalButton tone="quiet" size="sm" icon="trash" disabled={busy} onClick={handleDelete}>
+                  Quitar
+                </PortalButton>
+              )}
+            </>
+          )}
+        </div>
       </div>
       {error && <Alert kind="error">{error}</Alert>}
     </li>

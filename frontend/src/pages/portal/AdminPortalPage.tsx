@@ -566,6 +566,7 @@ export function AdminPortalPage() {
                       <Th>Carrera</Th>
                       <Th className="text-center">Sección</Th>
                       <Th className="text-center">Tri</Th>
+                      <Th className="text-center">Papelería</Th>
                       <Th className="text-right">Acciones</Th>
                     </tr>
                   </thead>
@@ -583,6 +584,15 @@ export function AdminPortalPage() {
                         <Td className="text-isel-ink/65">{s.carrera}</Td>
                         <Td className="text-center text-isel-ink/65">{s.seccion || "—"}</Td>
                         <Td className="tabular text-center text-isel-ink/65">{s.trimestre ?? "—"}</Td>
+                        <Td className="text-center">
+                          {s.papeleriaEnOrden ? (
+                            <Chip tone="emerald" icon="check">Al día</Chip>
+                          ) : s.documentosSubidos > 0 ? (
+                            <Chip tone="gold" icon="file">{s.documentosSubidos} subidos</Chip>
+                          ) : (
+                            <span className="text-isel-ink/25">—</span>
+                          )}
+                        </Td>
                         <Td>
                           <div className="flex items-center justify-end gap-1">
                             <PortalButton tone="ghost" size="sm" icon="eye" onClick={() => openFicha(s)}>
@@ -665,7 +675,14 @@ export function AdminPortalPage() {
           />
 
           <div className="mt-6">
-            <StudentDocumentsPanel studentId={fichaStudent.id} />
+            <StudentDocumentsPanel
+              studentId={fichaStudent.id}
+              papeleriaEnOrden={fichaStudent.papeleriaEnOrden}
+              onPapeleriaChanged={(enOrden) => {
+                setFichaStudent((s) => (s ? { ...s, papeleriaEnOrden: enOrden } : s));
+                loadStudents();
+              }}
+            />
           </div>
         </Modal>
       )}

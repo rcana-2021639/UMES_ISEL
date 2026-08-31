@@ -5,25 +5,27 @@ namespace UmesIsel.Api.Services;
 /// <summary>
 /// Arma los PDFs del módulo de Inscripción: cada una de las 3 fichas por separado, o las que existan
 /// combinadas en un solo PDF (una hoja por ficha, en orden) — lo que usa el botón "Imprimir" del panel
-/// de admin. La conversión xlsx→pdf y el merge de páginas se delegan a <see cref="FichaPdfBuilder"/>
-/// (mismo perfil de LibreOffice ya calentado, ver <c>ConvertXlsxToPdf</c>/<c>MergePdfs</c>) para no
+/// de admin. La conversión a PDF y el merge de páginas se delegan a <see cref="FichaPdfBuilder"/>
+/// (mismo perfil de LibreOffice ya calentado, ver <c>ConvertToPdf</c>/<c>MergePdfs</c>) para no
 /// levantar un segundo proceso de LibreOffice en paralelo con el que ya usa la ficha de asignación.
 ///
-/// La "ficha de asignación" de un aspirante es literalmente la misma plantilla oficial
-/// (Resources/FichaTemplate.xlsx) que ya llena <see cref="FichaXlsxBuilder"/> para un alumno — aquí
-/// solo se le da forma de <see cref="CourseAssignmentDto"/> con el carné en blanco (el aspirante
-/// todavía no tiene) y los datos que tecleó a mano.
+/// Preinscripción y Carta de compromiso son los FORMATO .docx reales que dio el usuario (retrato,
+/// una hoja, diseño intacto — ver <see cref="DocxCellSurgery"/>); la "ficha de asignación" de un
+/// aspirante es literalmente la misma plantilla oficial de Excel (Resources/FichaTemplate.xlsx, en
+/// horizontal) que ya llena <see cref="FichaXlsxBuilder"/> para un alumno — aquí solo se le da forma
+/// de <see cref="CourseAssignmentDto"/> con el carné en blanco (el aspirante todavía no tiene) y los
+/// datos que tecleó a mano.
 /// </summary>
 public class InscripcionPdfBuilder
 {
-    private readonly PreinscripcionXlsxBuilder _preinscripcionBuilder;
-    private readonly CartaCompromisoXlsxBuilder _compromisoBuilder;
+    private readonly PreinscripcionDocxBuilder _preinscripcionBuilder;
+    private readonly CartaCompromisoDocxBuilder _compromisoBuilder;
     private readonly FichaXlsxBuilder _asignacionXlsxBuilder;
     private readonly FichaPdfBuilder _pdfConverter;
 
     public InscripcionPdfBuilder(
-        PreinscripcionXlsxBuilder preinscripcionBuilder,
-        CartaCompromisoXlsxBuilder compromisoBuilder,
+        PreinscripcionDocxBuilder preinscripcionBuilder,
+        CartaCompromisoDocxBuilder compromisoBuilder,
         FichaXlsxBuilder asignacionXlsxBuilder,
         FichaPdfBuilder pdfConverter)
     {
@@ -34,13 +36,13 @@ public class InscripcionPdfBuilder
     }
 
     public byte[] BuildPreinscripcion(PreinscripcionDto p) =>
-        _pdfConverter.ConvertXlsxToPdf(_preinscripcionBuilder.Build(p));
+        _pdfConverter.ConvertToPdf(_preinscripcionBuilder.Build(p), "ficha.docx");
 
     public byte[] BuildAsignacion(AsignacionNuevoIngresoDto a, string? nombreCompletoAspirante) =>
         _pdfConverter.ConvertXlsxToPdf(_asignacionXlsxBuilder.Build(ToCourseAssignmentDto(a, nombreCompletoAspirante)));
 
     public byte[] BuildCompromiso(CartaCompromisoDto c, IReadOnlySet<string> documentosSubidos) =>
-        _pdfConverter.ConvertXlsxToPdf(_compromisoBuilder.Build(c, documentosSubidos));
+        _pdfConverter.ConvertToPdf(_compromisoBuilder.Build(c, documentosSubidos), "ficha.docx");
 
     /// <summary>Las fichas que ese aspirante ya tenga guardadas, combinadas en orden (preinscripción → asignación → compromiso).</summary>
     public byte[] BuildCombinado(ApplicantDto applicant)

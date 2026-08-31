@@ -74,12 +74,17 @@ public class FichaPdfBuilder
     // an acceptable cost for routinely-faster prints.
     private static readonly string SharedProfileDir = Path.Combine(Path.GetTempPath(), "isel-libreoffice-profile");
 
+    /// <summary>internal (no private) a propósito: reutilizado por <see cref="InscripcionPdfBuilder"/> — ver ConvertToPdf.</summary>
+    internal byte[] ConvertXlsxToPdf(byte[] xlsxBytes) => ConvertToPdf(xlsxBytes, "ficha.xlsx");
+
     /// <summary>
-    /// internal (no private) a propósito: <see cref="InscripcionPdfBuilder"/> reutiliza esta misma
-    /// conversión (perfil de LibreOffice compartido incluido) para las fichas nuevas de Inscripción,
-    /// en vez de duplicar el shelling a soffice — ver el comentario de esa clase.
+    /// Generalización de ConvertXlsxToPdf: LibreOffice detecta el formato de origen por la extensión
+    /// del archivo, así que basta con parametrizarla — todo lo demás (perfil compartido, timeout,
+    /// manejo de errores) es idéntico. Usada también para las fichas de Inscripción, que desde el
+    /// arreglo de formato son .docx (los FORMATO reales que dio el usuario), no .xlsx — ver
+    /// <see cref="DocxCellSurgery"/> y los builders de Preinscripción/Carta de compromiso.
     /// </summary>
-    internal byte[] ConvertXlsxToPdf(byte[] xlsxBytes)
+    internal byte[] ConvertToPdf(byte[] fileBytes, string inputFileName)
     {
         var soffice = FindSoffice();
         var workDir = Path.Combine(Path.GetTempPath(), "isel-ficha-" + Guid.NewGuid().ToString("N"));
@@ -87,8 +92,8 @@ public class FichaPdfBuilder
         Directory.CreateDirectory(SharedProfileDir);
         try
         {
-            var xlsxPath = Path.Combine(workDir, "ficha.xlsx");
-            File.WriteAllBytes(xlsxPath, xlsxBytes);
+            var sourcePath = Path.Combine(workDir, inputFileName);
+            File.WriteAllBytes(sourcePath, fileBytes);
 
             var psi = new ProcessStartInfo
             {
@@ -109,7 +114,7 @@ public class FichaPdfBuilder
             psi.ArgumentList.Add("pdf");
             psi.ArgumentList.Add("--outdir");
             psi.ArgumentList.Add(workDir);
-            psi.ArgumentList.Add(xlsxPath);
+            psi.ArgumentList.Add(sourcePath);
 
             using var process = new Process { StartInfo = psi };
             try

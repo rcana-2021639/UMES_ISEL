@@ -15,9 +15,13 @@ public class StudentsController : ControllerBase
 
     public StudentsController(IselDbContext db) => _db = db;
 
-    private static StudentDto ToDto(Student s) => new(
+    private static StudentDto ToDto(Student s, int documentosSubidos = 0) => new(
         s.Id, s.Carnet, s.PrimerApellido, s.SegundoApellido, s.PrimerNombre, s.SegundoNombre,
-        s.NombreCompleto, s.Carrera, s.Seccion, s.Trimestre, s.CorreoInstitucional, s.CorreoPersonal, s.Celular);
+        s.NombreCompleto, s.Carrera, s.Seccion, s.Trimestre, s.CorreoInstitucional, s.CorreoPersonal, s.Celular,
+        s.PapeleriaEnOrden, documentosSubidos);
+
+    private async Task<int> CountDocumentos(int studentId) =>
+        await _db.StudentDocuments.CountAsync(d => d.StudentId == studentId);
 
     private static string BuildNombreCompleto(string primerApellido, string? segundoApellido, string primerNombre, string? segundoNombre)
     {
@@ -42,7 +46,15 @@ public class StudentsController : ControllerBase
         }
 
         var students = await query.OrderBy(s => s.PrimerApellido).ThenBy(s => s.PrimerNombre).ToListAsync();
-        return Ok(students.Select(ToDto).ToList());
+
+        var ids = students.Select(s => s.Id).ToList();
+        var counts = await _db.StudentDocuments.AsNoTracking()
+            .Where(d => ids.Contains(d.StudentId))
+            .GroupBy(d => d.StudentId)
+            .Select(g => new { StudentId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.StudentId, x => x.Count);
+
+        return Ok(students.Select(s => ToDto(s, counts.GetValueOrDefault(s.Id))).ToList());
     }
 
     /// <summary>GET /api/students/carreras — distinct carrera values, for the admin's filter dropdown.</summary>
@@ -61,14 +73,28 @@ public class StudentsController : ControllerBase
     public async Task<ActionResult<StudentDto>> GetById(int id)
     {
         var student = await _db.Students.AsNoTracking().FirstOrDefaultAsync(s => s.Id == id);
-        return student is null ? NotFound() : Ok(ToDto(student));
+        return student is null ? NotFound() : Ok(ToDto(student, await CountDocumentos(id)));
     }
 
     [HttpGet("by-carnet/{carnet}")]
     public async Task<ActionResult<StudentDto>> GetByCarnet(string carnet)
     {
         var student = await _db.Students.AsNoTracking().FirstOrDefaultAsync(s => s.Carnet == carnet);
-        return student is null ? NotFound() : Ok(ToDto(student));
+        return student is null ? NotFound() : Ok(ToDto(student, await CountDocumentos(student.Id)));
+    }
+
+    /// <summary>PUT /api/students/{id}/papeleria-en-orden — "¿Tiene su papelería al día?"; en Sí, el panel deja de pedir subir documentos.</summary>
+    [HttpPut("{id:int}/papeleria-en-orden")]
+    public async Task<ActionResult<StudentDto>> SetPapeleriaEnOrden(int id, PapeleriaEnOrdenRequest request)
+    {
+        var student = await _db.Students.FirstOrDefaultAsync(s => s.Id == id);
+        if (student is null) return NotFound();
+
+        student.PapeleriaEnOrden = request.EnOrden;
+        student.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        return Ok(ToDto(student, await CountDocumentos(id)));
     }
 
     /// <summary>POST /api/students — admin "Agregar alumno", no need to touch la base de datos a mano.</summary>
@@ -138,7 +164,7 @@ public class StudentsController : ControllerBase
         student.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
-        return Ok(ToDto(student));
+        return Ok(ToDto(student, await CountDocumentos(student.Id)));
     }
 
     [HttpDelete("{id:int}")]

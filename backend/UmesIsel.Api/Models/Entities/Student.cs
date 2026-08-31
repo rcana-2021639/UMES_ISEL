@@ -49,6 +49,13 @@ public class Student
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
+    /// <summary>
+    /// Respuesta a "¿Tiene su papelería al día?" — si es true, el panel de admin no pide subir nada
+    /// (se da por sentado que ya se entregó en físico); si es false o nunca se preguntó, se puede
+    /// subir lo que falte documento por documento. Ver <see cref="StudentDocument"/>.
+    /// </summary>
+    public bool PapeleriaEnOrden { get; set; }
+
     public List<CourseAssignment> CourseAssignments { get; set; } = new();
 
     /// <summary>"Papelería al día" — ver <see cref="StudentDocument"/>.</summary>
