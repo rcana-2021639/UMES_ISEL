@@ -32,8 +32,10 @@ import { Alert, Chip, EmptyState, Field, Loading, PortalButton, Segmented, field
  */
 
 /** A "cursos adicionales" row — either a free pick from the whole catalog, or a specific repeated course, chosen
- *  by walking Maestría → Trimestre → Curso on its own (independent of the main "Cursos por asignarse" selection). */
-interface AdditionalEntry {
+ *  by walking Maestría → Trimestre → Curso on its own (independent of the main "Cursos por asignarse" selection).
+ *  Exportada (junto con AdditionalRow/ChoiceRow más abajo) para que el wizard de Inscripción la reutilice tal
+ *  cual en su propia ficha de asignación — mismo control, sin copiarlo. */
+export interface AdditionalEntry {
   id: string;
   mode: "adicional" | "repetir";
   courseId: number | null;
@@ -46,12 +48,12 @@ interface AdditionalEntry {
 }
 
 let rowIdSeq = 0;
-function nextRowId() {
+export function nextRowId() {
   rowIdSeq += 1;
   return `row-${rowIdSeq}`;
 }
 
-function blankAdditionalRow(): AdditionalEntry {
+export function blankAdditionalRow(): AdditionalEntry {
   return {
     id: nextRowId(),
     mode: "adicional",
@@ -829,8 +831,8 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** Pregunta con respuesta cerrada. Un solo patrón para las tres. */
-function ChoiceRow({
+/** Pregunta con respuesta cerrada. Un solo patrón para las tres (y para el wizard de Inscripción). */
+export function ChoiceRow({
   label,
   options,
   value,
@@ -863,7 +865,7 @@ function ChoiceRow({
  * es dónde aterriza el selector al abrirse (en tu maestría, si vas a repetir)
  * y que al elegir se guardan además la carrera y el trimestre de origen.
  */
-function AdditionalRow({
+export function AdditionalRow({
   row,
   index,
   allCourses,
