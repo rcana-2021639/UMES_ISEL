@@ -5,7 +5,7 @@ más grande para su página de "Información". Nombres exactos esperados:
 
 | Maestría | Imagen de tarjeta | Imagen de detalle |
 |---|---|---|
-| Innovación de los Aprendizajes en la Educación Superior | `docencia-superior.jpg` | `docencia-superior-detalle.jpg` |
+| Innovación de los Aprendizajes en la Educación Superior | `docencia-superior.avif` | `docencia-superior-detalle.avif` |
 | Administración de Empresas e Inteligencia de Negocios | `administracion-empresas.jpg` | `administracion-empresas-detalle.jpg` |
 | Marketing Digital y Comercio Electrónico | `marketing-digital.jpg` | `marketing-digital-detalle.jpg` |
 | Finanzas y Tecnología (FINTECH) | `fintech.jpg` | `fintech-detalle.jpg` |

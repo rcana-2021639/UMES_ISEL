@@ -130,7 +130,7 @@ export function Hero() {
       {/* Capas de fondo: foto opcional + retícula + manchas en deriva. */}
       <motion.div style={{ y: bgY }} className="absolute inset-0 -z-10">
         <div className="absolute inset-0 opacity-[0.16]">
-          <ImageSlot src="/images/hero/hero-principal.jpg" alt="" decorative />
+          <ImageSlot src="/images/hero/hero-principal2.avif" alt="" decorative />
         </div>
         <div className="grid-lines absolute inset-0 opacity-60" aria-hidden />
         <div
@@ -248,7 +248,7 @@ export function Hero() {
             className="relative aspect-[4/5] w-full overflow-hidden rounded-[2.2rem] border border-white/10 shadow-lift"
           >
             <ImageSlot
-              src="/images/hero/hero-principal.jpg"
+              src="/images/hero/hero-principal.avif"
               alt="Estudiantes de maestría en modalidad virtual"
               label="Imagen principal"
               tone="dark"

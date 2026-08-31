@@ -51,11 +51,11 @@ type Size = "sm" | "md";
 
 const toneClass: Record<Tone, string> = {
   primary:
-    "bg-isel-navy text-white hover:bg-isel-navy2 hover:shadow-[0_0_0_4px_rgba(10,43,36,0.14)] active:bg-isel-deep",
+    "bg-isel-navy text-white hover:bg-isel-navy2 hover:shadow-[0_0_0_4px_rgba(20,73,60,0.16)] active:bg-isel-deep",
   accent:
     "bg-isel-emerald text-white hover:bg-isel-emerald2 hover:shadow-[0_0_0_4px_rgba(18,133,92,0.2)] active:bg-isel-emerald2",
   ghost:
-    "border border-isel-line bg-white text-isel-ink/75 hover:border-isel-navy/35 hover:text-isel-navy hover:shadow-[0_0_0_4px_rgba(10,43,36,0.07)]",
+    "border border-isel-line bg-white text-isel-ink/75 hover:border-isel-navy/35 hover:text-isel-navy hover:shadow-[0_0_0_4px_rgba(20,73,60,0.09)]",
   danger:
     "border border-isel-alert/25 bg-white text-isel-alert hover:border-transparent hover:bg-isel-alert hover:text-white hover:shadow-[0_0_0_4px_rgba(178,58,43,0.16)]",
   quiet: "text-isel-ink/60 hover:bg-isel-navy/[0.06] hover:text-isel-navy",

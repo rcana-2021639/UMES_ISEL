@@ -105,7 +105,7 @@ export function AdmissionCta({ programs }: AdmissionCtaProps) {
           <RevealOnScroll delay={0.1} scale className="relative">
             <div className="aspect-[4/5] w-full overflow-hidden rounded-[2rem] border border-white/10 shadow-lift">
               <ImageSlot
-                src="/images/admission/entrevista-admision.jpg"
+                src="/images/admission/entrevista-admision.avif"
                 alt="Entrevista de admisión ISEL"
                 label="Entrevista de admisión"
                 tone="dark"

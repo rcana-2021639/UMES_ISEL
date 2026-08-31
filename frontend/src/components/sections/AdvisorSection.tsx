@@ -1,4 +1,5 @@
-import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
+import { useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import { ImageSlot } from "@/components/ui/ImageSlot";
 import { RevealOnScroll, SplitHeading, useReveal, SNAP } from "@/components/ui/RevealOnScroll";
 
@@ -40,8 +41,16 @@ export function AdvisorSection() {
   const beatState = reduce || textShown ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0";
   /** El retraso va en estilo inline: Tailwind no genera clases construidas al vuelo. */
   const delay = (ms: number) => ({ transitionDelay: reduce ? "0ms" : `${ms}ms` });
-  const { scrollYProgress } = useScroll({ target: portraitRef, offset: ["start end", "end start"] });
-  const photoY = useTransform(scrollYProgress, [0, 1], ["-5%", reduce ? "-5%" : "5%"]);
+  /**
+   * El marco adopta la proporción de la foto real y nunca la dibuja más ancha
+   * que sus propios píxeles.
+   *
+   * Antes el marco era 4:5 fijo con la imagen al 110% y un parallax encima: una
+   * foto cuadrada de 349px acababa recortada Y ampliada a más de 400px de
+   * ancho, que es justo lo que la volvía borrosa. Ahora el marco se adapta a lo
+   * que subas: si mañana llega una foto de 1200px, crece sola.
+   */
+  const [nat, setNat] = useState<{ w: number; h: number } | null>(null);
 
   return (
     <section id="direccion" className="relative overflow-hidden bg-white px-6 py-28 lg:py-40">
@@ -57,8 +66,11 @@ export function AdvisorSection() {
               El envoltorio interior es el que manda: la celda del grid se
               estira a la altura de la columna de texto, así que el bloque de
               color medido contra ella se alargaba de más. */}
-          <div ref={portraitRef} className="mx-auto w-full max-w-sm lg:mx-0 lg:max-w-none lg:self-center">
-            <div className="relative">
+          <div ref={portraitRef} className="w-full lg:self-center">
+            <div
+              className="relative mx-auto lg:mx-0"
+              style={{ maxWidth: nat ? `${nat.w}px` : "24rem" }}
+            >
             <span
               aria-hidden
               className={`absolute -bottom-5 -left-4 top-12 w-full rounded-[1.4rem] bg-isel-navy sm:-bottom-7 sm:-left-7 sm:top-16 transition-transform duration-[1100ms] ease-snap ${
@@ -66,23 +78,19 @@ export function AdvisorSection() {
               }`}
             />
 
-            <div className="relative aspect-[4/5] w-full overflow-hidden rounded-[1.4rem] bg-isel-paper shadow-lift">
-              {/* Dos capas: fuera la escala se asienta con CSS, dentro va el
-                  parallax de framer. Juntas se pisarían el `transform`. */}
-              <div
-                className={`absolute inset-0 h-[110%] transition-transform duration-[1600ms] ease-snap ${
-                  reduce || shown ? "scale-100" : "scale-[1.12]"
-                }`}
-              >
-                <motion.div style={{ y: photoY }} className="h-full w-full">
-                  <ImageSlot
-                    src="/images/advisor/rolando-valdez.avif"
-                    alt="Retrato del Mgtr. Rolando Valdez"
-                    label="Mgtr. Rolando Valdez"
-                    glyph="RV"
-                  />
-                </motion.div>
-              </div>
+            <div
+              className="relative w-full overflow-hidden rounded-[1.4rem] bg-isel-paper shadow-lift"
+              style={{ aspectRatio: nat ? `${nat.w} / ${nat.h}` : "4 / 5" }}
+            >
+              {/* Sin ampliación de entrada ni parallax: cualquiera de los dos
+                  reescala la foto y en un archivo pequeño eso se ve. */}
+              <ImageSlot
+                src="/images/advisor/rolando-valdez.avif"
+                alt="Retrato del Mgtr. Rolando Valdez"
+                label="Mgtr. Rolando Valdez"
+                glyph="RV"
+                onNaturalSize={(w, h) => setNat({ w, h })}
+              />
 
               {/* Cortina: se retira de abajo hacia arriba, por transición CSS. */}
               {!reduce && (

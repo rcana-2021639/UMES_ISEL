@@ -28,6 +28,9 @@ interface CoursePickerModalProps {
   courses: Course[];
   /** Curso ya elegido, para abrir el selector donde está y marcarlo. */
   value: number | null;
+  /** Maestría en la que aterrizar si todavía no hay curso elegido. */
+  initialGroup?: string | null;
+  title?: string;
   onSelect: (courseId: number) => void;
 }
 
@@ -41,7 +44,15 @@ function normalize(s: string): string {
     .toLowerCase();
 }
 
-export function CoursePickerModal({ open, onClose, courses, value, onSelect }: CoursePickerModalProps) {
+export function CoursePickerModal({
+  open,
+  onClose,
+  courses,
+  value,
+  initialGroup = null,
+  title = "Elegir curso adicional",
+  onSelect,
+}: CoursePickerModalProps) {
   const [group, setGroup] = useState<string | null>(null);
   const [trimestre, setTrimestre] = useState<number | null>(null);
   const [query, setQuery] = useState("");
@@ -65,10 +76,11 @@ export function CoursePickerModal({ open, onClose, courses, value, onSelect }: C
   useEffect(() => {
     if (!open) return;
     const chosen = value !== null ? courses.find((c) => c.id === value) : undefined;
-    setGroup(chosen?.carrera ?? groups[0] ?? null);
+    const landing = initialGroup && groups.includes(initialGroup) ? initialGroup : (groups[0] ?? null);
+    setGroup(chosen?.carrera ?? landing);
     setTrimestre(chosen?.trimestre ?? null);
     setQuery("");
-  }, [open, value, courses, groups]);
+  }, [open, value, courses, groups, initialGroup]);
 
   /**
    * Trimestre efectivo, resuelto DURANTE el render y no en un efecto: si el
@@ -98,7 +110,7 @@ export function CoursePickerModal({ open, onClose, courses, value, onSelect }: C
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Elegir curso adicional" widthClassName="max-w-3xl">
+    <Modal open={open} onClose={onClose} title={title} widthClassName="max-w-3xl">
       <div className="space-y-5">
         <div className="relative">
           <Icon
@@ -180,7 +192,7 @@ export function CoursePickerModal({ open, onClose, courses, value, onSelect }: C
             {/* Trimestre + cursos. */}
             <div className="flex max-h-[24rem] flex-col overflow-hidden rounded-xl border border-isel-line bg-white">
               {trimestresOf.length > 1 && (
-                <div className="no-scrollbar flex shrink-0 gap-1.5 overflow-x-auto border-b border-isel-line bg-isel-paper/50 px-3 py-2.5">
+                <div className="flex shrink-0 flex-wrap gap-1.5 border-b border-isel-line bg-isel-paper/50 px-3 py-2.5">
                   {trimestresOf.map((t) => (
                     <button
                       key={t}

@@ -29,7 +29,7 @@ export function Footer() {
             <div className="flex items-center gap-3">
               <div className="h-12 w-12 overflow-hidden rounded-full bg-white/10 ring-1 ring-white/15">
                 <ImageSlot
-                  src="/images/hero/logo-umes.png"
+                  src="/images/hero/logo-umes.avif"
                   alt="Logo Universidad Mesoamericana"
                   label="UMES"
                   tone="dark"
@@ -37,7 +37,7 @@ export function Footer() {
                 />
               </div>
               <div className="h-12 w-12 overflow-hidden rounded-full bg-white/10 ring-1 ring-white/15">
-                <ImageSlot src="/images/hero/logo-isel.png" alt="Logo ISEL" label="ISEL" tone="dark" glyph="I" />
+                <ImageSlot src="/images/hero/logo-isel.avif" alt="Logo ISEL" label="ISEL" tone="dark" glyph="I" />
               </div>
             </div>
             <p className="mt-6 max-w-sm font-display text-2xl font-semibold leading-snug text-white">

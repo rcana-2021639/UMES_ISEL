@@ -15,6 +15,12 @@ interface ImageSlotProps {
    * marcador alguno — el fondo se queda limpio en lugar de mostrar un cartel.
    */
   decorative?: boolean;
+  /**
+   * Avisa del tamaño real del archivo en cuanto carga. Lo usa la sección de
+   * Dirección para adoptar la proporción de la foto y no ampliarla por encima
+   * de sus píxeles: ampliar es exactamente lo que la vuelve borrosa.
+   */
+  onNaturalSize?: (width: number, height: number) => void;
 }
 
 /**
@@ -43,7 +49,16 @@ function candidates(src: string): string[] {
  * el nombre que indica el marcador y CUALQUIERA de las extensiones de FORMATS.
  * Cero cambios de código.
  */
-export function ImageSlot({ src, alt, label, className = "", tone = "light", glyph, decorative = false }: ImageSlotProps) {
+export function ImageSlot({
+  src,
+  alt,
+  label,
+  className = "",
+  tone = "light",
+  glyph,
+  decorative = false,
+  onNaturalSize,
+}: ImageSlotProps) {
   const [attempt, setAttempt] = useState(0);
   const list = candidates(src);
   const current = list[attempt];
@@ -107,6 +122,11 @@ export function ImageSlot({ src, alt, label, className = "", tone = "light", gly
       src={current}
       alt={alt}
       loading="lazy"
+      decoding="async"
+      onLoad={(e) => {
+        const img = e.currentTarget;
+        onNaturalSize?.(img.naturalWidth, img.naturalHeight);
+      }}
       onError={() => setAttempt((n) => n + 1)}
       className={`h-full w-full object-cover ${className}`}
     />

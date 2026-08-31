@@ -98,8 +98,8 @@
 
   /* Misma retícula, en tinta, para las bandas claras. */
   .grid-lines-ink {
-    background-image: linear-gradient(to right, rgba(10, 43, 36, 0.05) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(10, 43, 36, 0.05) 1px, transparent 1px);
+    background-image: linear-gradient(to right, rgba(20, 73, 60, 0.06) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(20, 73, 60, 0.06) 1px, transparent 1px);
     background-size: 88px 88px;
   }
 
