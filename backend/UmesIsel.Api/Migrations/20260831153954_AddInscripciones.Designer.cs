@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using UmesIsel.Api.Data;
 
@@ -10,9 +11,11 @@ using UmesIsel.Api.Data;
 namespace UmesIsel.Api.Migrations
 {
     [DbContext(typeof(IselDbContext))]
-    partial class IselDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260831153954_AddInscripciones")]
+    partial class AddInscripciones
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.11");

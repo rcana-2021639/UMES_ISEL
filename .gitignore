@@ -21,6 +21,10 @@ backend/**/*.user
 backend/**/*.db
 backend/**/*.db-shm
 backend/**/*.db-wal
+backend/**/*.db.bak-*
+
+# --- Documentos subidos (DPI, títulos, fotos...) — nunca al repo ---
+backend/**/App_Data/
 
 # --- Editors / OS ---
 .vs/
