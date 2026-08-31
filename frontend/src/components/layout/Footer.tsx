@@ -64,7 +64,7 @@ export function Footer() {
               to="/portal/login"
               className="mt-2 w-fit text-sm font-semibold text-white/85 transition-colors duration-300 ease-snap hover:text-isel-gold"
             >
-              Inscripciones →
+              Asignación →
             </Link>
           </nav>
 

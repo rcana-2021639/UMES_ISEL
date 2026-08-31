@@ -26,7 +26,7 @@ interface ProgramCardProps {
  * arranca ampliada (1.16) y se asienta en su sitio — el mismo gesto de una
  * imagen que "aterriza" en la maqueta, no un fade más. Al pasar el cursor
  * aparece el disco con la flecha sobre la foto, que anuncia que la tarjeta
- * entera es el enlace al detalle; "Inscripción" conserva su propia zona.
+ * entera es el enlace al detalle; "Asignación" conserva su propia zona.
  */
 export function ProgramCard({ program, index, variant = "tall", delay = 0 }: ProgramCardProps) {
   const reduce = useReducedMotion();
@@ -157,7 +157,7 @@ export function ProgramCard({ program, index, variant = "tall", delay = 0 }: Pro
             arrow="none"
             className="relative z-20"
           >
-            Inscripción
+            Asignación
           </ActionButton>
         </div>
       </div>
