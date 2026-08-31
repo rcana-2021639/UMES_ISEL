@@ -4,9 +4,7 @@ import type { Student, StudentUpsertInput } from "@/types/student";
 import { createStudent, updateStudent } from "@/lib/studentsApi";
 import { ApiError } from "@/lib/http";
 import { useConfirm } from "@/hooks/useConfirm";
-
-const inputClass =
-  "w-full rounded-lg border border-isel-line bg-white px-3 py-2 text-sm text-isel-ink transition-colors duration-200 focus:border-isel-navy focus:outline-none focus:ring-2 focus:ring-isel-navy/15";
+import { Alert, Field, PortalButton, fieldClass } from "@/components/portal/kit";
 
 function blank(): StudentUpsertInput {
   return {
@@ -100,83 +98,66 @@ export function StudentFormModal({ open, onClose, student, onSaved }: StudentFor
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Carné *">
-            <input className={inputClass} value={form.carnet} onChange={(e) => set("carnet", e.target.value)} />
+            <input className={fieldClass} value={form.carnet} onChange={(e) => set("carnet", e.target.value)} />
           </Field>
           <Field label="Carrera *">
-            <input className={inputClass} value={form.carrera} onChange={(e) => set("carrera", e.target.value)} />
+            <input className={fieldClass} value={form.carrera} onChange={(e) => set("carrera", e.target.value)} />
           </Field>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Field label="Primer apellido *">
-            <input className={inputClass} value={form.primerApellido} onChange={(e) => set("primerApellido", e.target.value)} />
+            <input className={fieldClass} value={form.primerApellido} onChange={(e) => set("primerApellido", e.target.value)} />
           </Field>
           <Field label="Segundo apellido">
-            <input className={inputClass} value={form.segundoApellido ?? ""} onChange={(e) => set("segundoApellido", e.target.value)} />
+            <input className={fieldClass} value={form.segundoApellido ?? ""} onChange={(e) => set("segundoApellido", e.target.value)} />
           </Field>
           <Field label="Primer nombre *">
-            <input className={inputClass} value={form.primerNombre} onChange={(e) => set("primerNombre", e.target.value)} />
+            <input className={fieldClass} value={form.primerNombre} onChange={(e) => set("primerNombre", e.target.value)} />
           </Field>
           <Field label="Segundo nombre">
-            <input className={inputClass} value={form.segundoNombre ?? ""} onChange={(e) => set("segundoNombre", e.target.value)} />
+            <input className={fieldClass} value={form.segundoNombre ?? ""} onChange={(e) => set("segundoNombre", e.target.value)} />
           </Field>
         </div>
 
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
           <Field label="Sección (opcional)">
-            <input className={inputClass} value={form.seccion ?? ""} onChange={(e) => set("seccion", e.target.value)} />
+            <input className={fieldClass} value={form.seccion ?? ""} onChange={(e) => set("seccion", e.target.value)} />
           </Field>
           <Field label="Sem/Trim">
             <input
               type="number"
-              className={inputClass}
+              className={fieldClass}
               value={form.trimestre ?? ""}
               onChange={(e) => set("trimestre", e.target.value ? Number(e.target.value) : undefined)}
             />
           </Field>
           <Field label="Celular">
-            <input className={inputClass} value={form.celular ?? ""} onChange={(e) => set("celular", e.target.value)} />
+            <input className={fieldClass} value={form.celular ?? ""} onChange={(e) => set("celular", e.target.value)} />
           </Field>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Correo institucional">
-            <input className={inputClass} value={form.correoInstitucional ?? ""} onChange={(e) => set("correoInstitucional", e.target.value)} />
+            <input className={fieldClass} value={form.correoInstitucional ?? ""} onChange={(e) => set("correoInstitucional", e.target.value)} />
           </Field>
           <Field label="Correo personal">
-            <input className={inputClass} value={form.correoPersonal ?? ""} onChange={(e) => set("correoPersonal", e.target.value)} />
+            <input className={fieldClass} value={form.correoPersonal ?? ""} onChange={(e) => set("correoPersonal", e.target.value)} />
           </Field>
         </div>
 
-        {error && <p className="text-sm font-semibold text-red-600">{error}</p>}
+        {error && <Alert kind="error">{error}</Alert>}
 
-        <div className="flex justify-end gap-3 pt-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full border-2 border-isel-line px-5 py-2 text-sm font-semibold text-isel-ink/70 hover:border-isel-navy hover:text-isel-navy"
-          >
+        <div className="flex justify-end gap-3 border-t border-isel-line pt-5">
+          <PortalButton tone="ghost" onClick={onClose}>
             Cancelar
-          </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="rounded-full bg-isel-navy px-5 py-2 text-sm font-semibold text-white transition-colors duration-300 hover:bg-isel-gold hover:text-isel-navy disabled:opacity-60"
-          >
-            {saving ? "Guardando…" : "Guardar"}
-          </button>
+          </PortalButton>
+          <PortalButton type="submit" tone="accent" icon="save" loading={saving}>
+            {student ? "Guardar cambios" : "Crear alumno"}
+          </PortalButton>
         </div>
       </form>
       {confirmDialog}
     </Modal>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-isel-ink/50">{label}</span>
-      {children}
-    </label>
   );
 }

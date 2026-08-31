@@ -2,6 +2,32 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSession } from "@/hooks/useSession";
 import { CourseAssignmentForm } from "@/components/portal/CourseAssignmentForm";
+import { FichaCard } from "@/components/portal/FichaCard";
+import { PortalBand, PortalTopBar, StepRail, StepStrip, type RailStep } from "@/components/portal/PortalShell";
+import { Chip } from "@/components/portal/kit";
+
+/**
+ * Portal del estudiante.
+ *
+ * La banda de entrada dice tres cosas y ninguna más: que esta ficha es tuya
+ * (tu nombre en tipografía de titular), con qué carné entraste, y qué papel
+ * vas a firmar (la ficha dibujada en perspectiva a la derecha).
+ *
+ * Lo que se quitó a propósito:
+ *  · Las iniciales y el carné repetidos en la barra superior — el carné ya
+ *    está dos centímetros más abajo, en su sitio.
+ *  · La maestría y la sección bajo el nombre. La maestría del padrón NO es la
+ *    que el estudiante está asignando (todavía no ha elegido ninguna), así
+ *    que anunciarla ahí era decirle algo falso; y la sección cambia de un
+ *    trimestre a otro, así que tampoco es un dato de identidad.
+ */
+
+const STEPS: RailStep[] = [
+  { id: "paso-datos", label: "Tus datos" },
+  { id: "paso-cursos", label: "Cursos por asignarse" },
+  { id: "paso-adicionales", label: "Cursos adicionales" },
+  { id: "paso-firma", label: "Observaciones y firma" },
+];
 
 export function StudentPortalPage() {
   const { session, logout } = useSession();
@@ -21,23 +47,29 @@ export function StudentPortalPage() {
   if (!student) return null; // RequireRole already redirects; guards against a stale render
 
   return (
-    <main className="min-h-screen bg-isel-paper pb-24">
-      <header className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 border-b border-isel-line bg-white/90 px-6 py-4 backdrop-blur">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-isel-gold2">Universidad Mesoamericana · ISEL</p>
-          <h1 className="font-display text-xl font-bold text-isel-navy sm:text-2xl">Asignación de cursos</h1>
-        </div>
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="inline-flex items-center gap-2 rounded-full border-2 border-isel-navy px-4 py-2 text-sm font-semibold text-isel-navy transition-colors duration-200 hover:bg-isel-navy hover:text-white"
-        >
-          ↩ Cerrar sesión
-        </button>
-      </header>
+    <main className="min-h-screen bg-isel-paper pb-28">
+      <PortalTopBar context="Portal del estudiante" onLogout={handleLogout} />
 
-      <div className="mx-auto max-w-4xl px-6 py-8">
-        <CourseAssignmentForm student={student} />
+      <PortalBand
+        eyebrow="Ficha de asignación de cursos"
+        title={student.nombreCompleto}
+        meta={
+          <Chip tone="onDark" icon="card">
+            Carné {student.carnet}
+          </Chip>
+        }
+        aside={<FichaCard student={student} />}
+      />
+
+      <div className="mx-auto max-w-7xl px-5 sm:px-8">
+        <StepStrip steps={STEPS} />
+
+        <div className="grid grid-cols-1 gap-10 pt-10 lg:grid-cols-[13.5rem_minmax(0,1fr)] lg:gap-14">
+          <StepRail steps={STEPS} />
+          <div className="min-w-0">
+            <CourseAssignmentForm student={student} />
+          </div>
+        </div>
       </div>
     </main>
   );
