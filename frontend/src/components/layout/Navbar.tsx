@@ -110,9 +110,15 @@ export function Navbar() {
           <div className="hidden shrink-0 items-center gap-2 lg:flex">
             <Link
               to="/portal/login"
-              className="rounded-full px-4 py-2.5 text-[13px] font-semibold text-white/75 transition-colors duration-300 ease-snap hover:text-white"
+              className="rounded-full px-3.5 py-2.5 text-[13px] font-semibold text-white/75 transition-colors duration-300 ease-snap hover:text-white"
             >
               Asignación
+            </Link>
+            <Link
+              to="/solicitud-titulo"
+              className="rounded-full px-3.5 py-2.5 text-[13px] font-semibold text-white/75 transition-colors duration-300 ease-snap hover:text-white"
+            >
+              Solicitud de título
             </Link>
             <ActionButton
               to="/inscripcion"
@@ -197,6 +203,13 @@ export function Navbar() {
                 className="rounded-full border border-white/25 px-6 py-4 text-center text-sm font-bold uppercase tracking-[0.12em] text-white/85"
               >
                 Asignación
+              </Link>
+              <Link
+                to="/solicitud-titulo"
+                onClick={() => setMobileOpen(false)}
+                className="rounded-full border border-white/25 px-6 py-4 text-center text-sm font-bold uppercase tracking-[0.12em] text-white/85"
+              >
+                Solicitud de título
               </Link>
             </motion.div>
           </motion.div>

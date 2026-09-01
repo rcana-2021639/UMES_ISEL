@@ -107,6 +107,19 @@ export default {
           "0%": { transform: "scale(0.82)", opacity: "0.55" },
           "70%, 100%": { transform: "scale(1.25)", opacity: "0" },
         },
+        /* El sello del título cayendo sobre el papel: entra grande y rebota al asentarse. */
+        sello: {
+          "0%": { transform: "scale(1.75) rotate(-20deg)", opacity: "0" },
+          "55%": { transform: "scale(0.93) rotate(-7deg)", opacity: "1" },
+          "78%": { transform: "scale(1.04) rotate(-10deg)", opacity: "1" },
+          "100%": { transform: "scale(1) rotate(-9deg)", opacity: "1" },
+        },
+        /* Motas de luz que suben muy despacio detrás del emblema del título. */
+        mota: {
+          "0%": { transform: "translate3d(0,14px,0)", opacity: "0" },
+          "25%, 75%": { opacity: "0.7" },
+          "100%": { transform: "translate3d(0,-26px,0)", opacity: "0" },
+        },
       },
       animation: {
         drift: "drift 22s cubic-bezier(0.45,0,0.55,1) infinite",
@@ -117,6 +130,8 @@ export default {
         sweep: "sweep 1.15s cubic-bezier(0.65,0,0.35,1) infinite",
         shake: "shake 0.5s cubic-bezier(0.36,0.07,0.19,0.97)",
         halo: "halo 2.6s cubic-bezier(0.16,1,0.3,1) infinite",
+        sello: "sello 0.85s cubic-bezier(0.34,1.56,0.64,1)",
+        mota: "mota 5.5s cubic-bezier(0.45,0,0.55,1) infinite",
       },
     },
   },

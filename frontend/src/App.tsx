@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { HomePage } from "@/pages/HomePage";
 import { ProgramDetailPage } from "@/pages/ProgramDetailPage";
 import { InscripcionPage } from "@/pages/InscripcionPage";
+import { SolicitudTituloPage } from "@/pages/SolicitudTituloPage";
 import { LoginPage } from "@/pages/portal/LoginPage";
 import { StudentPortalPage } from "@/pages/portal/StudentPortalPage";
 import { AdminPortalPage } from "@/pages/portal/AdminPortalPage";
@@ -37,6 +38,7 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/programas/:slug" element={<ProgramDetailPage />} />
         <Route path="/inscripcion" element={<InscripcionPage />} />
+        <Route path="/solicitud-titulo" element={<SolicitudTituloPage />} />
         <Route path="/portal/login" element={<LoginPage />} />
         <Route
           path="/portal/estudiante"

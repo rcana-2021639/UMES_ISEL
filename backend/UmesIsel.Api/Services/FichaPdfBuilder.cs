@@ -146,7 +146,11 @@ public class FichaPdfBuilder
             }
             _ = stdoutTask.GetAwaiter().GetResult();
 
-            var pdfPath = Path.Combine(workDir, "ficha.pdf");
+            // LibreOffice nombra la salida como la entrada, cambiando solo la extensión: si aquí se
+            // diera por hecho "ficha.pdf" (como se hacía), cualquier llamada con otro nombre de
+            // entrada fallaría con "no generó el archivo esperado" aunque la conversión hubiera ido
+            // bien — que es justo lo que pasaba al pasar "solicitud.docx".
+            var pdfPath = Path.Combine(workDir, Path.GetFileNameWithoutExtension(inputFileName) + ".pdf");
             if (!File.Exists(pdfPath))
             {
                 throw new InvalidOperationException("LibreOffice no generó el archivo PDF esperado.");

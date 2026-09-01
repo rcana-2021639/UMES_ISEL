@@ -22,6 +22,8 @@ public class IselDbContext : DbContext
     public DbSet<ApplicantDocument> ApplicantDocuments => Set<ApplicantDocument>();
     public DbSet<StudentDocument> StudentDocuments => Set<StudentDocument>();
 
+    public DbSet<SolicitudTitulo> SolicitudesTitulo => Set<SolicitudTitulo>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Student>(e =>
@@ -124,6 +126,18 @@ public class IselDbContext : DbContext
             e.HasOne(d => d.Student)
                 .WithMany(s => s.Documentos)
                 .HasForeignKey(d => d.StudentId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ---- Solicitud de impresión de título ------------------------------------------------
+        modelBuilder.Entity<SolicitudTitulo>(e =>
+        {
+            // Una solicitud viva por alumno: volver a entrar con el mismo carné la reanuda.
+            e.HasIndex(s => s.StudentId).IsUnique();
+            e.HasIndex(s => s.Carnet);
+            e.HasOne(s => s.Student)
+                .WithMany()
+                .HasForeignKey(s => s.StudentId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }
