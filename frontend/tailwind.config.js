@@ -93,6 +93,20 @@ export default {
           "0%": { transform: "translate3d(-100%,0,0)" },
           "100%": { transform: "translate3d(300%,0,0)" },
         },
+        /* Sacudida corta del emblema de acceso cuando el carné no existe: el
+           error se acusa donde estaba mirando el ojo, no solo en el aviso. */
+        shake: {
+          "0%, 100%": { transform: "translate3d(0,0,0)" },
+          "20%": { transform: "translate3d(-7px,0,0)" },
+          "40%": { transform: "translate3d(6px,0,0)" },
+          "60%": { transform: "translate3d(-4px,0,0)" },
+          "80%": { transform: "translate3d(2px,0,0)" },
+        },
+        /* Halo que se expande y se apaga — remate de "ya está completo". */
+        halo: {
+          "0%": { transform: "scale(0.82)", opacity: "0.55" },
+          "70%, 100%": { transform: "scale(1.25)", opacity: "0" },
+        },
       },
       animation: {
         drift: "drift 22s cubic-bezier(0.45,0,0.55,1) infinite",
@@ -101,6 +115,8 @@ export default {
         "spin-slow": "spin-slow 44s linear infinite",
         breathe: "breathe 4.5s cubic-bezier(0.45,0,0.55,1) infinite",
         sweep: "sweep 1.15s cubic-bezier(0.65,0,0.35,1) infinite",
+        shake: "shake 0.5s cubic-bezier(0.36,0.07,0.19,0.97)",
+        halo: "halo 2.6s cubic-bezier(0.16,1,0.3,1) infinite",
       },
     },
   },
