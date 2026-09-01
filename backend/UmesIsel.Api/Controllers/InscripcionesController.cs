@@ -39,13 +39,27 @@ public class InscripcionesController : ControllerBase
 
     // ---- Mapeo a DTOs -----------------------------------------------------------------------
 
+    /// <summary>
+    /// El nombre del aspirante, o cadena vacía si todavía no ha escrito ninguno. Devolver
+    /// aquí un texto de relleno ("(sin nombre)") era un error: este valor no solo se pinta
+    /// en la tabla del admin, también precarga el campo "Nombre completo" de la carta de
+    /// compromiso — y el aspirante se encontraba ese literal escrito dentro del campo.
+    /// Quien lo muestre pone su propio rótulo (ver <see cref="DisplayNombre"/>).
+    /// </summary>
     private static string ComputeNombreCompleto(Applicant a)
     {
         if (a.AsignacionNuevoIngreso is { } asn)
         {
             return BuildNombreCompleto(asn.PrimerApellido, asn.SegundoApellido, asn.PrimerNombre, asn.SegundoNombre);
         }
-        return a.Preinscripcion?.NombreCompleto ?? a.NombreCompleto ?? "(sin nombre)";
+        return a.Preinscripcion?.NombreCompleto ?? a.NombreCompleto ?? string.Empty;
+    }
+
+    /// <summary>Para rótulos que no pueden quedar en blanco (nombres de archivo, PDF).</summary>
+    private static string DisplayNombre(Applicant a)
+    {
+        var nombre = ComputeNombreCompleto(a);
+        return string.IsNullOrWhiteSpace(nombre) ? "Aspirante sin nombre" : nombre;
     }
 
     private static string BuildNombreCompleto(string primerApellido, string? segundoApellido, string primerNombre, string? segundoNombre)
@@ -68,7 +82,7 @@ public class InscripcionesController : ControllerBase
         a.Seccion,
         a.CursosAsignados.OrderBy(r => r.Numero).Select(r => new AssignedCourseRowDto(r.Numero, r.Curso, r.SemTri, r.Seccion)).ToList(),
         a.CursosAdicionales.OrderBy(r => r.Numero).Select(r => new AdditionalCourseRowDto(r.Numero, r.CursoAdicional, r.Carrera, r.SemTri, r.Seccion, r.Jornada)).ToList(),
-        a.TienePendientesTrimestres, a.TienePendientesMaterias, a.CorreoContacto, a.TelefonoContacto, a.FirmaBase64, a.FirmadoEn
+        a.TienePendientesTrimestres, a.TienePendientesMaterias, a.CorreoContacto, a.TelefonoContacto, a.TipoPago, a.FirmaBase64, a.FirmadoEn
     );
 
     private static CartaCompromisoDto ToCompromisoDto(CartaCompromiso c) => new(
@@ -270,6 +284,7 @@ public class InscripcionesController : ControllerBase
         asn.TienePendientesMaterias = request.TienePendientesMaterias;
         asn.CorreoContacto = request.CorreoContacto?.Trim();
         asn.TelefonoContacto = request.TelefonoContacto?.Trim();
+        asn.TipoPago = string.IsNullOrWhiteSpace(request.TipoPago) ? null : request.TipoPago.Trim();
         asn.UpdatedAt = now;
         if (!string.IsNullOrWhiteSpace(request.FirmaBase64))
         {
@@ -396,6 +411,7 @@ public class InscripcionesController : ControllerBase
             TienePendientesMaterias = asn.TienePendientesMaterias,
             CorreoContacto = asn.CorreoContacto,
             TelefonoContacto = asn.TelefonoContacto,
+            TipoPago = asn.TipoPago,
             FirmaBase64 = asn.FirmaBase64,
             FirmadoEn = asn.FirmadoEn,
             AutorizadoPorCodigo = "MIGRADO-INSCRIPCION",
@@ -447,7 +463,7 @@ public class InscripcionesController : ControllerBase
     {
         var applicant = await FullQuery().AsNoTracking().FirstOrDefaultAsync(a => a.Id == id);
         if (applicant?.AsignacionNuevoIngreso is null) return NotFound();
-        var bytes = _pdfBuilder.BuildAsignacion(ToAsignacionDto(applicant.AsignacionNuevoIngreso), ComputeNombreCompleto(applicant));
+        var bytes = _pdfBuilder.BuildAsignacion(ToAsignacionDto(applicant.AsignacionNuevoIngreso), DisplayNombre(applicant));
         return File(bytes, PdfContentType, $"{FileLabel(applicant)} - Asignacion.pdf");
     }
 
@@ -514,7 +530,7 @@ public class InscripcionesController : ControllerBase
 
     private static string FileLabel(Applicant a)
     {
-        var label = $"{a.Id} - {ComputeNombreCompleto(a)}";
+        var label = $"{a.Id} - {DisplayNombre(a)}";
         return string.Concat(label.Select(ch => Path.GetInvalidFileNameChars().Contains(ch) ? '_' : ch));
     }
 }

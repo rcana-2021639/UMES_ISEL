@@ -4,6 +4,7 @@ import { SignaturePad, type SignaturePadHandle } from "@/components/portal/Signa
 import { Icon } from "@/components/portal/Icon";
 import { Alert, Field, PortalButton, fieldClass } from "@/components/portal/kit";
 import { ChoiceRow } from "@/components/portal/CourseAssignmentForm";
+import { getCarreras } from "@/lib/coursesApi";
 import { savePreinscripcion } from "@/lib/inscripcionesApi";
 import { ApiError } from "@/lib/http";
 import type { Preinscripcion, PreinscripcionInput, PuebloPertenencia } from "@/types/inscripcion";
@@ -63,11 +64,24 @@ export function PreinscripcionForm({ applicantId, initial, onSaved, readOnly = f
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  // null mientras carga; [] si la API no responde — entonces el campo vuelve a
+  // ser de texto libre en vez de dejar al aspirante sin poder escribir nada.
+  const [carreras, setCarreras] = useState<string[] | null>(null);
   const signatureRef = useRef<SignaturePadHandle>(null);
 
   useEffect(() => {
     setForm(initial ?? blank());
   }, [initial]);
+
+  useEffect(() => {
+    let active = true;
+    getCarreras()
+      .then((list) => active && setCarreras(list))
+      .catch(() => active && setCarreras([]));
+    return () => {
+      active = false;
+    };
+  }, []);
 
   function set<K extends keyof PreinscripcionInput>(key: K, value: PreinscripcionInput[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -113,8 +127,27 @@ export function PreinscripcionForm({ applicantId, initial, onSaved, readOnly = f
           <Field label="Nombre completo *">
             <input className={fieldClass} disabled={readOnly} value={form.nombreCompleto} onChange={(e) => set("nombreCompleto", e.target.value)} />
           </Field>
-          <Field label="Carrera / maestría *">
-            <input className={fieldClass} disabled={readOnly} value={form.carrera} onChange={(e) => set("carrera", e.target.value)} />
+          <Field label="Carrera / maestría *" hint={carreras === null ? "Cargando las maestrías…" : undefined}>
+            {carreras !== null && carreras.length > 0 ? (
+              <select
+                className={fieldClass}
+                disabled={readOnly}
+                value={form.carrera}
+                onChange={(e) => set("carrera", e.target.value)}
+              >
+                <option value="">Elige tu maestría…</option>
+                {/* Un valor guardado con otra grafía (o de una maestría retirada del
+                    catálogo) seguiría siendo válido: se añade para no perderlo. */}
+                {form.carrera && !carreras.includes(form.carrera) && <option value={form.carrera}>{form.carrera}</option>}
+                {carreras.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input className={fieldClass} disabled={readOnly} value={form.carrera} onChange={(e) => set("carrera", e.target.value)} />
+            )}
           </Field>
         </div>
 

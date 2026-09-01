@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getCourses, getTrimestres } from "@/lib/coursesApi";
 import { saveAsignacion } from "@/lib/inscripcionesApi";
+import { splitNombreCompleto } from "@/lib/nombres";
 import { ApiError } from "@/lib/http";
 import type { Course } from "@/types/course";
+import type { TipoPago } from "@/types/courseAssignment";
 import type { AsignacionNuevoIngreso, AsignacionNuevoIngresoInput } from "@/types/inscripcion";
 import { SignaturePad, type SignaturePadHandle } from "@/components/portal/SignaturePad";
 import { Modal } from "@/components/ui/Modal";
@@ -26,11 +28,18 @@ import {
 interface AsignacionNuevoIngresoFormProps {
   applicantId: number;
   initial: AsignacionNuevoIngreso | null;
+  /**
+   * El "Nombre completo" de la preinscripción, para no volver a teclearlo. Esta ficha lo
+   * pide partido en cuatro casillas, así que llega repartido (ver lib/nombres.ts) y como
+   * sugerencia: los cuatro campos siguen siendo editables porque ningún reparto automático
+   * acierta siempre con dos nombres y dos apellidos.
+   */
+  nombreSugerido?: string | null;
   onSaved: (a: AsignacionNuevoIngreso) => void;
   readOnly?: boolean;
 }
 
-export function AsignacionNuevoIngresoForm({ applicantId, initial, onSaved, readOnly = false }: AsignacionNuevoIngresoFormProps) {
+export function AsignacionNuevoIngresoForm({ applicantId, initial, nombreSugerido, onSaved, readOnly = false }: AsignacionNuevoIngresoFormProps) {
   const [allCourses, setAllCourses] = useState<Course[]>([]);
   const [primerApellido, setPrimerApellido] = useState(initial?.primerApellido ?? "");
   const [segundoApellido, setSegundoApellido] = useState(initial?.segundoApellido ?? "");
@@ -47,6 +56,10 @@ export function AsignacionNuevoIngresoForm({ applicantId, initial, onSaved, read
   const [pendientesMaterias, setPendientesMaterias] = useState(initial?.tienePendientesMaterias ?? false);
   const [correoContacto, setCorreoContacto] = useState(initial?.correoContacto ?? "");
   const [telefonoContacto, setTelefonoContacto] = useState(initial?.telefonoContacto ?? "");
+  const [tipoPago, setTipoPago] = useState<TipoPago | "">(initial?.tipoPago ?? "");
+  // Mientras nadie haya tocado las casillas del nombre, se dejan sincronizadas con la
+  // preinscripción; en cuanto se corrigen a mano, mandan ellas.
+  const [nombreTocado, setNombreTocado] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,10 +79,19 @@ export function AsignacionNuevoIngresoForm({ applicantId, initial, onSaved, read
 
   // Re-hidrata todo cuando cambia la ficha ya guardada de este aspirante (p.ej. al recargar el wizard).
   useEffect(() => {
-    setPrimerApellido(initial?.primerApellido ?? "");
-    setSegundoApellido(initial?.segundoApellido ?? "");
-    setPrimerNombre(initial?.primerNombre ?? "");
-    setSegundoNombre(initial?.segundoNombre ?? "");
+    if (initial) {
+      setPrimerApellido(initial.primerApellido);
+      setSegundoApellido(initial.segundoApellido ?? "");
+      setPrimerNombre(initial.primerNombre);
+      setSegundoNombre(initial.segundoNombre ?? "");
+      setNombreTocado(false);
+    } else if (!nombreTocado) {
+      const partes = splitNombreCompleto(nombreSugerido);
+      setPrimerApellido(partes.primerApellido);
+      setSegundoApellido(partes.segundoApellido);
+      setPrimerNombre(partes.primerNombre);
+      setSegundoNombre(partes.segundoNombre);
+    }
     setCarrera(initial?.carrera ?? null);
     setTrimestre(initial?.trimestre ?? null);
     setSeccion(initial?.seccion ?? "");
@@ -77,6 +99,7 @@ export function AsignacionNuevoIngresoForm({ applicantId, initial, onSaved, read
     setPendientesMaterias(initial?.tienePendientesMaterias ?? false);
     setCorreoContacto(initial?.correoContacto ?? "");
     setTelefonoContacto(initial?.telefonoContacto ?? "");
+    setTipoPago(initial?.tipoPago ?? "");
 
     if (!initial || initial.cursosAdicionales.length === 0) {
       setAdditional([blankAdditionalRow()]);
@@ -98,7 +121,7 @@ export function AsignacionNuevoIngresoForm({ applicantId, initial, onSaved, read
       }),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initial, allCourses.length]);
+  }, [initial, nombreSugerido, allCourses.length]);
 
   useEffect(() => {
     if (carrera === null) {
@@ -237,6 +260,7 @@ export function AsignacionNuevoIngresoForm({ applicantId, initial, onSaved, read
         tienePendientesMaterias: pendientesMaterias,
         correoContacto: correoContacto || null,
         telefonoContacto: telefonoContacto || null,
+        tipoPago: tipoPago || null,
         firmaBase64: firma,
       };
       const savedAsn = await saveAsignacion(applicantId, input);
@@ -250,6 +274,7 @@ export function AsignacionNuevoIngresoForm({ applicantId, initial, onSaved, read
   }
 
   const cursosCount = (mainCourses ?? []).length;
+  const nombrePrellenado = !readOnly && !initial && !nombreTocado && !!nombreSugerido?.trim();
 
   return (
     <PortalPanel
@@ -264,18 +289,25 @@ export function AsignacionNuevoIngresoForm({ applicantId, initial, onSaved, read
           <p className="mb-3 text-[10.5px] font-bold uppercase tracking-[0.14em] text-isel-ink/45">Tus datos</p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Field label="Primer apellido *">
-              <input className={fieldClass} disabled={readOnly} value={primerApellido} onChange={(e) => { setPrimerApellido(e.target.value); setSaved(false); }} />
+              <input className={fieldClass} disabled={readOnly} value={primerApellido} onChange={(e) => { setPrimerApellido(e.target.value); setNombreTocado(true); setSaved(false); }} />
             </Field>
             <Field label="Segundo apellido">
-              <input className={fieldClass} disabled={readOnly} value={segundoApellido ?? ""} onChange={(e) => { setSegundoApellido(e.target.value); setSaved(false); }} />
+              <input className={fieldClass} disabled={readOnly} value={segundoApellido ?? ""} onChange={(e) => { setSegundoApellido(e.target.value); setNombreTocado(true); setSaved(false); }} />
             </Field>
             <Field label="Primer nombre *">
-              <input className={fieldClass} disabled={readOnly} value={primerNombre} onChange={(e) => { setPrimerNombre(e.target.value); setSaved(false); }} />
+              <input className={fieldClass} disabled={readOnly} value={primerNombre} onChange={(e) => { setPrimerNombre(e.target.value); setNombreTocado(true); setSaved(false); }} />
             </Field>
             <Field label="Segundo nombre">
-              <input className={fieldClass} disabled={readOnly} value={segundoNombre ?? ""} onChange={(e) => { setSegundoNombre(e.target.value); setSaved(false); }} />
+              <input className={fieldClass} disabled={readOnly} value={segundoNombre ?? ""} onChange={(e) => { setSegundoNombre(e.target.value); setNombreTocado(true); setSaved(false); }} />
             </Field>
           </div>
+          {nombrePrellenado && (
+            <p className="mt-2.5 flex items-start gap-2 text-[12px] leading-relaxed text-isel-ink/45">
+              <Icon name="sparkle" size={13} className="mt-0.5 shrink-0 text-isel-gold2" />
+              Repartimos aquí el nombre que escribiste en tu preinscripción. Si algún apellido o nombre
+              quedó en la casilla equivocada, corrígelo.
+            </p>
+          )}
         </div>
 
         <div>
@@ -440,6 +472,15 @@ export function AsignacionNuevoIngresoForm({ applicantId, initial, onSaved, read
               options={[{ value: "no", label: "No" }, { value: "si", label: "Sí" }]}
               value={pendientesMaterias ? "si" : "no"}
               onChange={(v) => { setPendientesMaterias(v === "si"); setSaved(false); }}
+              disabled={readOnly}
+            />
+            {/* La misma pregunta que la ficha de un alumno ya inscrito: faltaba aquí, y
+                sin ella coordinación no sabía cómo iba a pagar un aspirante nuevo. */}
+            <ChoiceRow
+              label="Tipo de pago"
+              options={[{ value: "Link", label: "Link de pago" }, { value: "Presencial", label: "Presencial" }]}
+              value={tipoPago === "" ? null : tipoPago}
+              onChange={(v) => { setTipoPago(v as TipoPago); setSaved(false); }}
               disabled={readOnly}
             />
           </div>

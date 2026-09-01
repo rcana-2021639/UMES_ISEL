@@ -191,6 +191,14 @@ public class AsignacionNuevoIngreso
     [MaxLength(30)]
     public string? TelefonoContacto { get; set; }
 
+    /// <summary>
+    /// "Link" o "Presencial", igual que en <see cref="CourseAssignment.TipoPago"/>: la
+    /// ficha de asignación de un aspirante pregunta lo mismo que la de un alumno ya
+    /// inscrito, y el valor viaja tal cual al migrarlo. Nunca se imprime en la ficha.
+    /// </summary>
+    [MaxLength(20)]
+    public string? TipoPago { get; set; }
+
     public string? FirmaBase64 { get; set; }
     public DateTime? FirmadoEn { get; set; }
 

@@ -1,4 +1,4 @@
-import type { AdditionalCourseRow, AssignedCourseRow } from "@/types/courseAssignment";
+import type { AdditionalCourseRow, AssignedCourseRow, TipoPago } from "@/types/courseAssignment";
 
 /** Uno de los seis valores de "Pueblo de Pertenencia" de la ficha de preinscripción. */
 export type PuebloPertenencia = "Maya" | "Garifuna" | "Extranjero" | "Xinka" | "Ladino" | "Afroascendiente";
@@ -52,6 +52,8 @@ export interface AsignacionNuevoIngreso {
   tienePendientesMaterias: boolean;
   correoContacto?: string | null;
   telefonoContacto?: string | null;
+  /** "Link" | "Presencial" — igual que en la ficha del alumno ya inscrito; no se imprime. */
+  tipoPago?: TipoPago | null;
   firmaBase64?: string | null;
   firmadoEn?: string | null;
 }

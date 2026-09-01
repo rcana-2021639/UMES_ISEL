@@ -18,6 +18,9 @@ import { AspiranteFichasModal } from "@/components/inscripcion/AspiranteFichasMo
 import { MigrarAspiranteModal } from "@/components/inscripcion/MigrarAspiranteModal";
 import type { Applicant, ApplicantListItem } from "@/types/inscripcion";
 
+/** La pestaña en la que abre el modal de fichas — "Documentos" tiene su propio botón en la tabla. */
+type FichaInicial = "preinscripcion" | "documentos";
+
 /**
  * Panel admin de "Inscripciones" — mismo par de secciones que ya existe para Asignaciones
  * (Impresión filtrable por fecha + tabla de la lista completa), sobre aspirantes de nuevo ingreso en
@@ -138,17 +141,19 @@ export function InscripcionesAdminPanels() {
     refreshAll();
   }
 
-  // ---- Modal "Ver fichas" / "Editar" ----
+  // ---- Modal "Ver fichas" / "Editar" / "Documentos" ----
   const [fichasApplicant, setFichasApplicant] = useState<Applicant | null>(null);
   const [fichasEdit, setFichasEdit] = useState(false);
+  const [fichaInicial, setFichaInicial] = useState<FichaInicial>("preinscripcion");
   const [openingId, setOpeningId] = useState<number | null>(null);
 
-  async function openFichas(item: ApplicantListItem, edit: boolean) {
+  async function openFichas(item: ApplicantListItem, edit: boolean, ficha: FichaInicial = "preinscripcion") {
     setOpeningId(item.id);
     try {
       const full = await getApplicant(item.id);
       setFichasApplicant(full);
       setFichasEdit(edit);
+      setFichaInicial(ficha);
     } finally {
       setOpeningId(null);
     }
@@ -245,7 +250,7 @@ export function InscripcionesAdminPanels() {
                   {filteredRangeItems.map((a) => (
                     <tr key={a.id} className="transition-colors duration-200 ease-crisp hover:bg-isel-paper/60">
                       <Td className="tabular font-semibold text-isel-navy">{a.dpi || a.pasaporte || "—"}</Td>
-                      <Td>{a.nombreCompleto}</Td>
+                      <Td>{a.nombreCompleto || <span className="text-isel-ink/35">Aspirante sin nombre</span>}</Td>
                       <Td className="text-isel-ink/65">{a.carrera || "—"}</Td>
                       <Td className="text-center"><EstadoChip item={a} /></Td>
                       <Td>
@@ -297,7 +302,7 @@ export function InscripcionesAdminPanels() {
                     <Th>Aspirante</Th>
                     <Th>Sección</Th>
                     <Th className="text-center">Tri</Th>
-                    <Th className="text-center">Documentos</Th>
+                    <Th className="text-center">Papelería</Th>
                     <Th className="text-right">Acciones</Th>
                   </tr>
                 </thead>
@@ -305,13 +310,29 @@ export function InscripcionesAdminPanels() {
                   {filteredAspirantes.map((a) => (
                     <tr key={a.id} className="transition-colors duration-200 ease-crisp hover:bg-isel-paper/60">
                       <Td className="tabular text-isel-ink/45">— (sin carné)</Td>
-                      <Td className="font-semibold text-isel-navy">{a.nombreCompleto}</Td>
+                      <Td className="font-semibold text-isel-navy">
+                        {a.nombreCompleto || <span className="font-normal text-isel-ink/35">Aspirante sin nombre</span>}
+                      </Td>
                       <Td className="text-isel-ink/65">{a.seccion || "—"}</Td>
                       <Td className="tabular text-center text-isel-ink/65">{a.trimestre ?? "—"}</Td>
-                      <Td className="text-center"><EstadoChip item={a} /></Td>
+                      {/* El chip no solo informa: abre la papelería. Era la pregunta que no
+                          tenía respuesta desde esta tabla — "¿qué documentos mandó?". */}
+                      <Td className="text-center">
+                        <button
+                          type="button"
+                          onClick={() => openFichas(a, false, "documentos")}
+                          title={`Ver los documentos que subió ${a.nombreCompleto || "este aspirante"}`}
+                          className="rounded-full transition-transform duration-300 ease-snap hover:-translate-y-px"
+                        >
+                          <EstadoChip item={a} />
+                        </button>
+                      </Td>
                       <Td>
                         <div className="flex flex-wrap items-center justify-end gap-1">
                           <PortalButton tone="ghost" size="sm" icon="eye" loading={openingId === a.id} onClick={() => openFichas(a, false)}>Ver fichas</PortalButton>
+                          <PortalButton tone="ghost" size="sm" icon="file" onClick={() => openFichas(a, false, "documentos")}>
+                            Documentos
+                          </PortalButton>
                           <IconButton icon="pencil" label={`Editar a ${a.nombreCompleto}`} onClick={() => openFichas(a, true)} />
                           <IconButton icon="printer" label={`Imprimir la inscripción de ${a.nombreCompleto}`} onClick={() => handlePrintOne(a)} />
                           <PortalButton
@@ -341,6 +362,7 @@ export function InscripcionesAdminPanels() {
           applicant={fichasApplicant}
           open
           startInEdit={fichasEdit}
+          startFicha={fichaInicial}
           onClose={() => setFichasApplicant(null)}
           onUpdated={(updated) => {
             setFichasApplicant(updated);
