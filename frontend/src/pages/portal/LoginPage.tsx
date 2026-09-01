@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useReducedMotion } from "framer-motion";
 import { login } from "@/lib/auth";
@@ -9,20 +9,21 @@ import { Alert, PortalButton } from "@/components/portal/kit";
 /**
  * Asignación — acceso al portal.
  *
- * Lo que fallaba antes: la columna oscura tenía el contenido pegado al borde
- * (padding y nada más, sin columna de medida), así que a 1440px el texto
- * empezaba a 40px del canto y el resto era campo vacío. Y lo que había en ella
- * era un cartel: título, tres viñetas, ninguna razón para mirarlo dos veces.
+ * La mitad oscura no repite el documento al que entras (antes había una ficha
+ * de papel dibujada, con sus casillas y su sello: decoración que fingía ser un
+ * formulario y confundía sobre dónde había que escribir). En su lugar hay un
+ * emblema: tres anillos concéntricos girando a ritmos distintos y, sobre
+ * ellos, un arco que **se dibuja mientras tecleas** —un noveno de vuelta por
+ * dígito— con nueve marcas que se encienden una a una.
  *
- * Ahora las dos mitades tienen su columna medida y centrada, y la izquierda
- * hace algo: sostiene la ficha en perspectiva —el mismo papel que se firma
- * dentro del portal— y **el carné se va escribiendo en ella** mientras lo
- * tecleas, casilla a casilla. Esa interacción no es decorativa: enseña el
- * documento al que estás entrando y confirma dígito a dígito lo que llevas
- * escrito, que es justo lo que uno comprueba dos veces antes de pulsar.
+ * Es una sola pieza abstracta, sin texto que competir, y hace un trabajo real:
+ * confirma de un vistazo cuántos dígitos llevas y remata con un check cuando
+ * el carné está completo. Si el carné no existe, el emblema entero se tiñe del
+ * rojo de la marca y se sacude: el error aparece donde estabas mirando.
  *
- * Si el carné no existe, las casillas se tiñen del rojo de la marca: el error
- * aparece donde estabas mirando, no solo en un aviso debajo del campo.
+ * El botón de volver ya no es un enlace tenue al pie de la columna: es la
+ * primera pieza de la mitad clara, una cápsula con borde y flecha, para que
+ * salir de aquí nunca haya que buscarlo.
  */
 
 const PASOS = [
@@ -31,7 +32,7 @@ const PASOS = [
   { icon: "pen" as const, text: "Firmas tu ficha y la envías." },
 ];
 
-/** Nº de casillas del carné en la hoja. Los carnés de la UMES son de 9 dígitos. */
+/** Nº de dígitos del carné que el emblema cuenta. Los de la UMES son de 9. */
 const SLOTS = 9;
 
 export function LoginPage() {
@@ -93,7 +94,7 @@ export function LoginPage() {
           className="pointer-events-none absolute -bottom-48 -right-24 h-[28rem] w-[28rem] animate-drift2 rounded-full bg-isel-gold/10 blur-[130px]"
         />
 
-        <div className="relative mx-auto flex w-full max-w-[31rem] flex-1 flex-col justify-between gap-12">
+        <div className="relative mx-auto flex w-full max-w-[31rem] flex-1 flex-col justify-between gap-10">
           <Link to="/" className={`group inline-flex w-fit items-center gap-3 ${beat} ${state}`} style={delay(40)}>
             <span className="h-11 w-11 overflow-hidden rounded-xl bg-white/10 ring-1 ring-white/15 transition-transform duration-500 ease-snap group-hover:scale-105">
               <ImageSlot src="/images/hero/logo-isel.avif" alt="Logo ISEL" label="ISEL" tone="dark" glyph="I" />
@@ -117,8 +118,8 @@ export function LoginPage() {
               Tu ficha empieza aquí
             </h1>
 
-            <div className={`mt-10 ${beat} ${state}`} style={delay(380)}>
-              <CarnetSheet value={value} error={error !== null} />
+            <div className={`mt-10 flex justify-center lg:justify-start ${beat} ${state}`} style={delay(380)}>
+              <CarnetOrb value={value} error={error !== null} reduce={!!reduce} />
             </div>
           </div>
 
@@ -132,6 +133,12 @@ export function LoginPage() {
       {/* ---------------------------------------------------------- el campo */}
       <section className="flex items-center justify-center px-6 py-14 sm:px-10 lg:px-14">
         <div className="w-full max-w-[26rem]">
+          {/* Salida siempre a la vista: lo primero de la columna, con forma de
+              botón —no un enlace gris al fondo que hay que ir a buscar. */}
+          <div className={`mb-8 ${beat} ${state}`} style={delay(200)}>
+            <BackButton to="/">Volver al inicio</BackButton>
+          </div>
+
           <div className={`${beat} ${state}`} style={delay(300)}>
             <p className="text-[10.5px] font-bold uppercase tracking-[0.2em] text-isel-gold2">Ingreso de estudiantes</p>
             <h2 className="mt-3 font-display text-[1.9rem] font-semibold leading-[1.05] tracking-ultratight text-isel-navy">
@@ -210,20 +217,6 @@ export function LoginPage() {
               ))}
             </ol>
           </div>
-
-          <div className={`mt-8 ${beat} ${state}`} style={delay(640)}>
-            <Link
-              to="/"
-              className="group inline-flex items-center gap-2 text-[13px] font-semibold text-isel-ink/50 transition-colors duration-300 ease-crisp hover:text-isel-navy"
-            >
-              <Icon
-                name="arrowLeft"
-                size={15}
-                className="transition-transform duration-500 ease-snap group-hover:-translate-x-1"
-              />
-              Volver al sitio de ISEL
-            </Link>
-          </div>
         </div>
       </section>
     </main>
@@ -233,139 +226,151 @@ export function LoginPage() {
 /* ------------------------------------------------------------------------- */
 
 /**
- * La ficha en blanco, esperando. Se inclina siguiendo el puntero —poco, y solo
- * con ratón— y las casillas del carné se van llenando con lo que escribes.
+ * Salida de una pantalla sin navegación. Se usa igual en el acceso de
+ * Asignación y en el de Inscripción: cápsula con borde de 2px, flecha en su
+ * propio disco que retrocede al pasar el cursor y relleno sólido en hover.
+ * Tiene el peso de un botón porque hace falta que se vea, no el de un enlace.
  */
-function CarnetSheet({ value, error }: { value: string; error: boolean }) {
-  const reduce = useReducedMotion();
-  const ref = useRef<HTMLDivElement>(null);
-  const [tilt, setTilt] = useState({ x: 0, y: 0 });
-  const [fine, setFine] = useState(false);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(pointer: fine)");
-    const sync = () => setFine(mq.matches);
-    sync();
-    mq.addEventListener("change", sync);
-    return () => mq.removeEventListener("change", sync);
-  }, []);
-
-  const live = fine && !reduce;
-
-  const onMove = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      if (!live) return;
-      const el = ref.current;
-      if (!el) return;
-      const r = el.getBoundingClientRect();
-      setTilt({
-        x: -((e.clientY - r.top) / r.height - 0.5) * 11,
-        y: ((e.clientX - r.left) / r.width - 0.5) * 13,
-      });
-    },
-    [live],
+export function BackButton({ to, children }: { to: string; children: React.ReactNode }) {
+  return (
+    <Link
+      to={to}
+      className="group/back inline-flex items-center gap-2.5 rounded-full border-2 border-isel-navy/20 bg-white py-2.5 pl-2.5 pr-5 text-[12.5px] font-bold uppercase tracking-[0.1em] text-isel-navy shadow-card transition-[background-color,border-color,color,box-shadow,transform] duration-500 ease-snap hover:-translate-y-px hover:border-transparent hover:bg-isel-navy hover:text-white hover:shadow-[0_0_0_4px_rgba(20,73,60,0.16)]"
+    >
+      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-isel-navy/[0.08] text-isel-navy transition-[background-color,color,transform] duration-500 ease-snap group-hover/back:-translate-x-1 group-hover/back:bg-white/20 group-hover/back:text-white">
+        <Icon name="arrowLeft" size={14} />
+      </span>
+      {children}
+    </Link>
   );
+}
 
-  const digits = value.replace(/\s/g, "").slice(0, SLOTS);
-  const slots = Array.from({ length: SLOTS }, (_, i) => digits[i] ?? "");
-  const completo = digits.length >= SLOTS;
+/**
+ * El emblema del acceso: anillos que giran, un arco que se dibuja con lo que
+ * escribes y nueve marcas que se van encendiendo. Sin texto de formulario y
+ * sin fingir un documento — solo el progreso del carné, en grande.
+ */
+function CarnetOrb({ value, error, reduce }: { value: string; error: boolean; reduce: boolean }) {
+  const digits = value.replace(/\D/g, "").slice(0, SLOTS);
+  const filled = digits.length;
+  const completo = filled >= SLOTS;
+  const progress = filled / SLOTS;
+
+  const R = 118;
+  const CIRC = 2 * Math.PI * R;
+  const tono = error ? "#B23A2B" : completo ? "#12855C" : "#E8B33D";
+
+  // Marcas: una por dígito, empezando arriba y girando en el sentido del reloj.
+  const marcas = Array.from({ length: SLOTS }, (_, i) => {
+    const a = ((i / SLOTS) * 360 - 90) * (Math.PI / 180);
+    return { x: 160 + R * Math.cos(a), y: 160 + R * Math.sin(a), on: i < filled };
+  });
+
+  // Punta del arco: el punto que "va escribiendo" la vuelta.
+  const headA = ((progress * 360 - 90) * Math.PI) / 180;
+  const head = { x: 160 + R * Math.cos(headA), y: 160 + R * Math.sin(headA) };
 
   return (
     <div
-      ref={ref}
-      onPointerMove={onMove}
-      onPointerLeave={() => setTilt({ x: 0, y: 0 })}
-      className="relative w-full max-w-[24rem] [perspective:1200px]"
+      className={`relative h-[17rem] w-[17rem] shrink-0 sm:h-[19rem] sm:w-[19rem] ${
+        error && !reduce ? "animate-shake" : ""
+      }`}
       aria-hidden
     >
-      <div
-        className="preserve-3d relative transition-transform duration-[700ms] ease-snap"
-        style={{ transform: `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)` }}
-      >
-        <span
-          className="absolute inset-0 rounded-[1.1rem] border border-white/10 bg-white/[0.07]"
-          style={{ transform: "translate3d(14px, 16px, -60px)" }}
-        />
-        <span
-          className="absolute inset-0 rounded-[1.1rem] border border-white/10 bg-white/[0.12]"
-          style={{ transform: "translate3d(7px, 8px, -30px)" }}
+      {/* Halo de remate: solo aparece cuando el carné ya está completo. */}
+      {completo && !error && !reduce && (
+        <span className="absolute inset-6 animate-halo rounded-full border border-isel-emerald/60" />
+      )}
+
+      <svg viewBox="0 0 320 320" className="absolute inset-0 h-full w-full">
+        <defs>
+          <radialGradient id="orb-core" cx="50%" cy="42%" r="62%">
+            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.14" />
+            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+
+        {/* Tres anillos punteados, ritmos distintos — mismo sistema que el hero. */}
+        <g className={reduce ? "" : "animate-spin-slow"} style={{ transformOrigin: "160px 160px" }}>
+          <circle cx="160" cy="160" r="150" fill="none" stroke="rgba(255,255,255,0.14)" strokeDasharray="2 13" />
+        </g>
+        <g
+          className={reduce ? "" : "animate-spin-slow"}
+          style={{ transformOrigin: "160px 160px", animationDuration: "68s", animationDirection: "reverse" }}
+        >
+          <circle cx="160" cy="160" r="139" fill="none" stroke="rgba(255,255,255,0.09)" strokeDasharray="1 19" />
+        </g>
+        <g className={reduce ? "" : "animate-spin-slow"} style={{ transformOrigin: "160px 160px", animationDuration: "96s" }}>
+          <circle cx="160" cy="160" r="84" fill="none" stroke="rgba(255,255,255,0.10)" strokeDasharray="3 11" />
+        </g>
+
+        <circle cx="160" cy="160" r="104" fill="url(#orb-core)" />
+
+        {/* Carril + arco de progreso: un noveno de vuelta por dígito. */}
+        <circle cx="160" cy="160" r={R} fill="none" stroke="rgba(255,255,255,0.10)" strokeWidth={2} />
+        <circle
+          cx="160"
+          cy="160"
+          r={R}
+          fill="none"
+          stroke={tono}
+          strokeWidth={4}
+          strokeLinecap="round"
+          strokeDasharray={CIRC}
+          strokeDashoffset={CIRC * (1 - progress)}
+          transform="rotate(-90 160 160)"
+          style={{ transition: "stroke-dashoffset 700ms cubic-bezier(0.16,1,0.3,1), stroke 500ms ease" }}
         />
 
-        <div className="relative overflow-hidden rounded-[1.1rem] bg-isel-paper px-6 py-6 shadow-lift">
-          <span
-            className="pointer-events-none absolute inset-0 opacity-[0.5]"
-            style={{
-              backgroundImage: "repeating-linear-gradient(to bottom, rgba(20,73,60,0.055) 0 1px, transparent 1px 26px)",
-            }}
+        {marcas.map((m, i) => (
+          <circle
+            key={i}
+            cx={m.x}
+            cy={m.y}
+            r={m.on ? 5 : 3}
+            fill={m.on ? tono : "rgba(255,255,255,0.18)"}
+            style={{ transition: "r 400ms cubic-bezier(0.34,1.56,0.64,1), fill 400ms ease" }}
           />
+        ))}
 
-          <div className="relative flex items-center justify-between gap-3 border-b border-isel-navy/15 pb-3">
-            <p className="text-[8.5px] font-bold uppercase tracking-[0.16em] text-isel-navy/60">
-              Universidad Mesoamericana
-            </p>
-            <p className="text-[8.5px] font-bold uppercase tracking-[0.22em] text-isel-gold2">ISEL</p>
-          </div>
+        {filled > 0 && !completo && (
+          <circle
+            cx={head.x}
+            cy={head.y}
+            r={8}
+            fill={tono}
+            opacity={0.22}
+            style={{ transition: "cx 700ms cubic-bezier(0.16,1,0.3,1), cy 700ms cubic-bezier(0.16,1,0.3,1)" }}
+          />
+        )}
+      </svg>
 
-          <p className="relative mt-4 font-display text-[13px] font-bold uppercase tracking-[0.1em] text-isel-navy">
-            Ficha de asignación de cursos
-          </p>
-
-          {/* El carné, casilla a casilla. */}
-          <div className="relative mt-6">
-            <p className="text-[8px] font-bold uppercase tracking-[0.14em] text-isel-ink/40">Carné</p>
-            <div className="mt-2 flex gap-[5px]">
-              {slots.map((d, i) => (
-                <span
-                  key={i}
-                  className={`flex h-9 flex-1 items-end justify-center border-b-2 pb-0.5 font-display text-[17px] font-semibold transition-[color,border-color,transform] duration-300 ease-back ${
-                    error
-                      ? "border-isel-alert/60 text-isel-alert"
-                      : d
-                        ? "-translate-y-px border-isel-emerald text-isel-navy"
-                        : "border-isel-navy/20 text-transparent"
-                  }`}
-                >
-                  {d || "0"}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <div className="relative mt-6">
-            <p className="text-[8px] font-bold uppercase tracking-[0.14em] text-isel-ink/40">Estudiante</p>
-            <span className="mt-3 block h-px w-full bg-isel-navy/20" />
-          </div>
-
-          <div className="relative mt-6 flex items-end gap-4">
-            <div className="flex-1">
-              <span className="block h-px w-full bg-isel-navy/20" />
-              <p className="mt-1.5 text-[8px] font-bold uppercase tracking-[0.14em] text-isel-ink/35">
-                Firma del estudiante
-              </p>
-            </div>
-
-            {/* El sello se "entinta" cuando el carné está completo. */}
-            <span
-              className={`relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 transition-colors duration-500 ease-crisp ${
-                completo ? "border-isel-gold" : "border-isel-gold/30"
-              }`}
-              style={{ transform: "translateZ(24px) rotate(-9deg)" }}
-            >
-              <span
-                className={`absolute inset-1 rounded-full border transition-colors duration-500 ease-crisp ${
-                  completo ? "border-isel-gold/60" : "border-isel-gold/20"
-                }`}
-              />
-              <span
-                className={`font-display text-[8.5px] font-bold uppercase tracking-[0.14em] transition-colors duration-500 ease-crisp ${
-                  completo ? "text-isel-gold2" : "text-isel-gold2/40"
-                }`}
-              >
-                ISEL
-              </span>
+      {/* Núcleo: el contador, o el remate cuando ya está completo. */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+        {completo && !error ? (
+          <>
+            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-isel-emerald text-white">
+              <Icon name="check" size={26} />
             </span>
-          </div>
-        </div>
+            <p className="mt-4 font-display text-[15px] font-semibold text-white">Carné completo</p>
+            <p className="mt-1.5 text-[10.5px] font-bold uppercase tracking-[0.18em] text-white/40">
+              Ya puedes entrar
+            </p>
+          </>
+        ) : (
+          <>
+            <p
+              className="tabular font-display text-[3.6rem] font-semibold leading-none tracking-ultratight transition-colors duration-500 ease-crisp"
+              style={{ color: error ? "#B23A2B" : filled ? "#ffffff" : "rgba(255,255,255,0.32)" }}
+            >
+              {filled}
+              <span className="text-[1.6rem] text-white/30">/{SLOTS}</span>
+            </p>
+            <p className="mt-3 text-[10.5px] font-bold uppercase tracking-[0.18em] text-white/40">
+              {error ? "Carné no encontrado" : filled ? "Dígitos escritos" : "Esperando tu carné"}
+            </p>
+          </>
+        )}
       </div>
     </div>
   );
