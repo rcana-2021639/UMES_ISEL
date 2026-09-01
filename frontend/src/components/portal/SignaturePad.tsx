@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 
 export interface SignaturePadHandle {
   /** PNG data URL, or null if nothing has been drawn. */
@@ -14,6 +14,16 @@ interface SignaturePadProps {
   className?: string;
   /** Solo lectura: se ve la firma guardada pero no se puede trazar encima. */
   readOnly?: boolean;
+}
+
+function setupContext(canvas: HTMLCanvasElement) {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.lineWidth = 2.4;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = "#0A2B24"; // isel-navy — tinta de pluma, sin degradado
+  return ctx;
 }
 
 function getPoint(canvas: HTMLCanvasElement, e: PointerEvent | React.PointerEvent) {
@@ -38,40 +48,70 @@ export const SignaturePad = forwardRef<SignaturePadHandle, SignaturePadProps>(fu
   const hasStroke = useRef(false);
   const [isEmpty, setIsEmpty] = useState(true);
 
-  const setupContext = (canvas: HTMLCanvasElement) => {
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return null;
-    ctx.lineWidth = 2.4;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.strokeStyle = "#0A2B24"; // isel-navy — tinta de pluma, sin degradado
-    return ctx;
-  };
+  /**
+   * Ajusta el lienzo a su caja CSS, a la resolución de la pantalla, conservando lo dibujado.
+   *
+   * Se vuelve a llamar cada vez que la caja cambia de tamaño, no solo al montar: si el pad nace sin
+   * medida —dentro de un panel que aún se está abriendo, una pestaña oculta, una ventana que todavía
+   * no ha maquetado— el lienzo se quedaba con esa medida de 0 para siempre, y la firma se guardaba
+   * como una tira de dos píxeles. Cambiar el tamaño de un canvas lo borra, así que lo trazado se
+   * recoge antes y se vuelve a pintar a la medida nueva.
+   */
+  const ajustarLienzo = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ratio = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    const ancho = Math.round(rect.width * ratio);
+    const alto = Math.round(rect.height * ratio);
+    if (ancho === 0 || alto === 0) return; // todavía sin maquetar: se reintenta cuando crezca
+    if (canvas.width === ancho && canvas.height === alto) return;
+
+    const previo = hasStroke.current && canvas.width > 1 && canvas.height > 1 ? canvas.toDataURL("image/png") : null;
+    canvas.width = ancho;
+    canvas.height = alto;
+    const ctx = setupContext(canvas);
+    if (!ctx) return;
+    if (previo) {
+      const img = new Image();
+      img.onload = () => {
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.drawImage(img, 0, 0, ancho, alto);
+        ctx.scale(ratio, ratio);
+      };
+      img.src = previo;
+    }
+    ctx.scale(ratio, ratio);
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    // Render at device pixel ratio for a crisp line, sized to its CSS box.
-    const ratio = window.devicePixelRatio || 1;
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * ratio;
-    canvas.height = rect.height * ratio;
+    ajustarLienzo();
     const ctx = setupContext(canvas);
-    if (ctx) ctx.scale(ratio, ratio);
 
     if (initialValue) {
       const img = new Image();
       img.onload = () => {
-        ctx?.save();
-        if (ctx) ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-        ctx?.restore();
-        if (ctx) ctx.scale(ratio, ratio);
+        if (!ctx) return;
+        // La firma guardada se pinta en píxeles del lienzo, no en píxeles CSS: por eso se aparta la
+        // escala mientras dura el dibujo y se devuelve con `restore` — que ya la trae puesta. (Antes
+        // se volvía a escalar después de restaurarla, y en pantallas de mucha densidad el lienzo
+        // acababa al cuadrado: los trazos nuevos caían lejos del cursor.)
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        ctx.restore();
         hasStroke.current = true;
         setIsEmpty(false);
       };
       img.src = initialValue;
     }
+
+    // El pad puede nacer sin medida y crecer después; el lienzo tiene que enterarse.
+    const observer = new ResizeObserver(() => ajustarLienzo());
+    observer.observe(canvas);
+    return () => observer.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -121,8 +161,12 @@ export const SignaturePad = forwardRef<SignaturePadHandle, SignaturePadProps>(fu
   };
 
   const endStroke = () => {
+    const estabaTrazando = drawing.current;
     drawing.current = false;
     lastPoint.current = null;
+    // Al soltar, no solo al primer trazo: quien escucha guarda el lienzo tal como quedó, así una
+    // firma de varios trazos no se queda con la foto del primero.
+    if (estabaTrazando && hasStroke.current) onChange?.(true);
   };
 
   return (

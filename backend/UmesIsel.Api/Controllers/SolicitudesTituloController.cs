@@ -130,6 +130,10 @@ public class SolicitudesTituloController : ControllerBase
         return Ok(ToDto(solicitud));
     }
 
+    /// <summary>Texto de un campo opcional: sin espacios de sobra, y vacío se guarda como null.</summary>
+    private static string? Limpio(string? valor) =>
+        string.IsNullOrWhiteSpace(valor) ? null : valor.Trim();
+
     private static string Juntar(params string?[] partes) =>
         string.Join(' ', partes.Where(p => !string.IsNullOrWhiteSpace(p)).Select(p => p!.Trim()));
 
@@ -205,30 +209,36 @@ public class SolicitudesTituloController : ControllerBase
         solicitud.Nombres = request.Nombres.Trim();
         solicitud.Apellidos = request.Apellidos.Trim();
         solicitud.FechaNacimiento = request.FechaNacimiento;
-        solicitud.EstadoCivil = request.EstadoCivil?.Trim();
-        solicitud.Sexo = string.IsNullOrWhiteSpace(request.Sexo) ? null : request.Sexo;
-        solicitud.DireccionDomicilio = request.DireccionDomicilio?.Trim();
-        solicitud.TelefonoDomicilio = request.TelefonoDomicilio?.Trim();
-        solicitud.TelefonoCelular = request.TelefonoCelular?.Trim();
-        solicitud.TelefonoEmergencia = request.TelefonoEmergencia?.Trim();
-        solicitud.CorreoElectronico = request.CorreoElectronico?.Trim();
-        solicitud.Empresa = request.Empresa?.Trim();
-        solicitud.Cargo = request.Cargo?.Trim();
-        solicitud.DireccionTrabajo = request.DireccionTrabajo?.Trim();
-        solicitud.TelefonoTrabajo = request.TelefonoTrabajo?.Trim();
-        solicitud.FacultadDepartamento = request.FacultadDepartamento?.Trim();
-        solicitud.TituloObtener = request.TituloObtener?.Trim();
+        solicitud.EstadoCivil = Limpio(request.EstadoCivil);
+        solicitud.Sexo = Limpio(request.Sexo);
+        solicitud.DireccionDomicilio = Limpio(request.DireccionDomicilio);
+        solicitud.TelefonoDomicilio = Limpio(request.TelefonoDomicilio);
+        solicitud.TelefonoCelular = Limpio(request.TelefonoCelular);
+        solicitud.TelefonoEmergencia = Limpio(request.TelefonoEmergencia);
+        solicitud.CorreoElectronico = Limpio(request.CorreoElectronico);
+        solicitud.Empresa = Limpio(request.Empresa);
+        solicitud.Cargo = Limpio(request.Cargo);
+        solicitud.DireccionTrabajo = Limpio(request.DireccionTrabajo);
+        solicitud.TelefonoTrabajo = Limpio(request.TelefonoTrabajo);
+        solicitud.FacultadDepartamento = Limpio(request.FacultadDepartamento);
+        solicitud.TituloObtener = Limpio(request.TituloObtener);
         solicitud.UpdatedAt = now;
 
-        // Foto y firma: una cadena vacía significa "quítala", null significa "déjala como está".
-        if (request.FotoBase64 is not null)
+        // Foto y firma: el cuerpo manda, igual que el resto de los campos.
+        //
+        // Antes null significaba "déjala como está", y eso hacía que la foto y la firma no se
+        // pudieran quitar nunca: "Cambiar fotografía" y "Limpiar firma" mandan null, así que el
+        // alumno las borraba en pantalla, guardaba, recargaba y volvían a aparecer. La ficha se
+        // guarda entera de una sola vez (no por secciones), así que lo que llega ES el estado
+        // completo: si no viene, es que ya no está.
+        solicitud.FotoBase64 = Limpio(request.FotoBase64);
+
+        var firma = Limpio(request.FirmaBase64);
+        if (firma != solicitud.FirmaBase64)
         {
-            solicitud.FotoBase64 = string.IsNullOrWhiteSpace(request.FotoBase64) ? null : request.FotoBase64;
-        }
-        if (!string.IsNullOrWhiteSpace(request.FirmaBase64))
-        {
-            solicitud.FirmaBase64 = request.FirmaBase64;
-            solicitud.FirmadoEn = now;
+            solicitud.FirmaBase64 = firma;
+            // El sello de firmado acompaña a la firma: si se borra, se va con ella.
+            solicitud.FirmadoEn = firma is null ? null : now;
         }
 
         await _db.SaveChangesAsync();
