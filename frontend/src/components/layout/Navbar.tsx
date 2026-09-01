@@ -109,25 +109,18 @@ export function Navbar() {
 
           <div className="hidden shrink-0 items-center gap-2 lg:flex">
             <Link
-              to="/inscripcion"
-              className="rounded-full px-4 py-2.5 text-[13px] font-semibold text-white/75 transition-colors duration-300 ease-snap hover:text-white"
-            >
-              Inscripción
-            </Link>
-            <Link
               to="/portal/login"
               className="rounded-full px-4 py-2.5 text-[13px] font-semibold text-white/75 transition-colors duration-300 ease-snap hover:text-white"
             >
               Asignación
             </Link>
             <ActionButton
-              href={href("admision")}
-              external={false}
+              to="/inscripcion"
               tone="accent"
               size="sm"
               className="[--accent:#12855C] [--accent-soft:rgba(18,133,92,0.25)]"
             >
-              Entrevista de admisión
+              Inscripción
             </ActionButton>
           </div>
 
@@ -191,17 +184,10 @@ export function Navbar() {
               transition={{ delay: 0.42, duration: 0.6, ease: SNAP }}
               className="relative mt-10 flex flex-col gap-3"
             >
-              <a
-                href={href("admision")}
-                onClick={() => setMobileOpen(false)}
-                className="rounded-full bg-isel-emerald px-6 py-4 text-center text-sm font-bold uppercase tracking-[0.12em] text-white"
-              >
-                Entrevista de admisión
-              </a>
               <Link
                 to="/inscripcion"
                 onClick={() => setMobileOpen(false)}
-                className="rounded-full border border-white/25 px-6 py-4 text-center text-sm font-bold uppercase tracking-[0.12em] text-white/85"
+                className="rounded-full bg-isel-emerald px-6 py-4 text-center text-sm font-bold uppercase tracking-[0.12em] text-white"
               >
                 Inscripción
               </Link>

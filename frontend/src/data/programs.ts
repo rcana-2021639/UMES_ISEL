@@ -5,11 +5,9 @@ import type { MasterProgram } from "@/types/program";
  * and whenever the .NET API (backend/UmesIsel.Api) isn't reachable.
  * Source of truth in production is the API; see src/lib/api.ts.
  *
- * IMPORTANT: PensumUrl / interviewUrl are placeholders pointing at the
+ * IMPORTANT: pensumUrl values are placeholders pointing at the
  * original UMES-hosted files. Swap them for your own once available.
  */
-const INTERVIEW_URL = "https://b24-we8qvv.bitrix24.site/crm_form_2iluh/";
-
 export const programs: MasterProgram[] = [
   {
     slug: "docencia-superior",
@@ -22,7 +20,6 @@ export const programs: MasterProgram[] = [
       "Al egresar del Postgrado el estudiante alcanzará competencias, conocimientos, habilidades y valores en Docencia Superior.",
     ],
     pensumUrl: "https://www.umes.edu.gt/_files/ugd/1724d0_d57062dfba2849a19b1b6c181325c1d2.pdf",
-    interviewUrl: INTERVIEW_URL,
     plan: {
       duracion: "Un año y medio (6 trimestres)",
       modalidad: "Modalidad online por medio de módulos de estudios.",
@@ -46,7 +43,6 @@ export const programs: MasterProgram[] = [
       "Los participantes deberán realizar ejercicios de aplicación real en las empresas para las cuales trabajan, como complemento permanente de las actividades académicas virtuales. Al mismo tiempo se estimulará la participación de los estudiantes de maestría en diversos eventos de actualización gerencial a través de los medios de comunicación y aprendizaje disponibles.",
     ],
     pensumUrl: "https://www.umes.edu.gt/_files/ugd/9726ef_305d2930272143ef936656e99966eae1.pdf",
-    interviewUrl: INTERVIEW_URL,
     plan: {
       duracion: "Un año y medio (6 trimestres)",
       modalidad: "Modalidad online por medio de módulo de estudios.",
@@ -70,7 +66,6 @@ export const programs: MasterProgram[] = [
       "Los participantes deberán realizar ejercicios de aplicación real en las empresas para las cuales trabajan, como complemento permanente de las actividades académicas virtuales. Al mismo tiempo se estimulará la participación de los estudiantes de maestría en diversos eventos de actualización gerencial a través de los medios de comunicación y aprendizaje disponibles.",
     ],
     pensumUrl: "https://www.umes.edu.gt/_files/ugd/9726ef_0126cb9e377141a5850faf2a2d0c49b3.pdf",
-    interviewUrl: INTERVIEW_URL,
     plan: {
       duracion: "Un año y medio (6 trimestres)",
       modalidad: "Modalidad online por medio de módulos de estudios.",
@@ -94,7 +89,6 @@ export const programs: MasterProgram[] = [
       "Los participantes deberán realizar ejercicios de aplicación real en las empresas para las cuales trabajan, como complemento permanente de las actividades académicas presenciales. Al mismo tiempo se estimulará la participación de los estudiantes de maestría en diversos eventos de actualización gerencial a través de los medios de comunicación y aprendizaje disponibles.",
     ],
     pensumUrl: "https://www.umes.edu.gt/_files/ugd/9726ef_70ad1326b00a4641a03b1f2d7e7889cf.pdf",
-    interviewUrl: INTERVIEW_URL,
     plan: {
       duracion: "Un año y medio (6 trimestres)",
       modalidad: "Modalidad online por medio de módulos de estudios.",
@@ -118,7 +112,6 @@ export const programs: MasterProgram[] = [
       "Nuestro programa combina teoría y práctica para que los estudiantes aprendan a diseñar e implementar estrategias innovadoras que fortalezcan la cultura organizacional, impulsen el desarrollo de equipos y aumenten la competitividad empresarial.",
     ],
     pensumUrl: "https://www.umes.edu.gt/_files/ugd/9726ef_87c46d0e7aa94fc58093bb6728a87a9f.pdf",
-    interviewUrl: INTERVIEW_URL,
     plan: {
       duracion: "Un año y medio (6 trimestres)",
       modalidad: "Modalidad online por medio de módulos de estudios.",
@@ -141,7 +134,6 @@ export const programs: MasterProgram[] = [
       "La auditoría de desempeño es de relevancia porque permite determinar el alcance de objetivos y metas con indicadores estratégicos y de gestión, para conocer los resultados de la aplicación de los recursos públicos y el impacto social que se genera a través de diversos programas, proyectos, obras, procesos, actividades, entre otros; por lo que promueve la gobernanza económica, eficaz y eficiente, contribuyendo a la rendición de cuentas y a la transparencia.",
     ],
     pensumUrl: "https://www.umes.edu.gt/_files/ugd/9726ef_a4f3bd66c17f4138a789a61c9a7bfb00.pdf",
-    interviewUrl: INTERVIEW_URL,
     plan: {
       duracion: "Un año y medio (6 trimestres)",
       modalidad: "Modalidad online por medio de módulos de estudios.",

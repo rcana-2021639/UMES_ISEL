@@ -25,6 +25,5 @@ export interface MasterProgram {
   detailImage?: string;
   paragraphs: string[];
   pensumUrl: string;
-  interviewUrl: string;
   plan: StudyPlan;
 }
