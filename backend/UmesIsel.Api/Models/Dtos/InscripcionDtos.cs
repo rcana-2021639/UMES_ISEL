@@ -82,6 +82,7 @@ public record AsignacionNuevoIngresoDto(
     bool TienePendientesMaterias,
     string? CorreoContacto,
     string? TelefonoContacto,
+    string? TipoPago,
     string? FirmaBase64,
     DateTime? FirmadoEn
 );
@@ -100,6 +101,7 @@ public record AsignacionNuevoIngresoUpsertRequest(
     bool TienePendientesMaterias,
     string? CorreoContacto,
     string? TelefonoContacto,
+    string? TipoPago,
     string? FirmaBase64
 );
 

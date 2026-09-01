@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getSession } from "@/lib/auth";
 import { useSession } from "@/hooks/useSession";
@@ -166,16 +166,32 @@ export function AdminPortalPage() {
   // esperando al final del scroll.
   const [fichaStudent, setFichaStudent] = useState<Student | null>(null);
   const [fichaEditing, setFichaEditing] = useState(false);
+  // El panel de papelería vive al final del modal, después de una ficha larga: quien
+  // solo quiere ver qué documentos subió el alumno entraba y no lo encontraba. Con
+  // este ref el botón "Documentos" de la tabla abre el modal ya puesto ahí.
+  const documentosRef = useRef<HTMLDivElement>(null);
+  const [irADocumentos, setIrADocumentos] = useState(false);
 
-  function openFicha(s: Student) {
+  function openFicha(s: Student, enDocumentos = false) {
     setFichaStudent(s);
     setFichaEditing(false);
+    setIrADocumentos(enDocumentos);
   }
 
   function closeFicha() {
     setFichaStudent(null);
     setFichaEditing(false);
+    setIrADocumentos(false);
   }
+
+  useEffect(() => {
+    if (!fichaStudent || !irADocumentos) return;
+    const id = window.setTimeout(
+      () => documentosRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+      120,
+    );
+    return () => window.clearTimeout(id);
+  }, [fichaStudent, irADocumentos]);
 
   async function handleDeleteAssignment(a: CourseAssignment) {
     const ok = await confirm({
@@ -585,18 +601,28 @@ export function AdminPortalPage() {
                         <Td className="text-center text-isel-ink/65">{s.seccion || "—"}</Td>
                         <Td className="tabular text-center text-isel-ink/65">{s.trimestre ?? "—"}</Td>
                         <Td className="text-center">
-                          {s.papeleriaEnOrden ? (
-                            <Chip tone="emerald" icon="check">Al día</Chip>
-                          ) : s.documentosSubidos > 0 ? (
-                            <Chip tone="gold" icon="file">{s.documentosSubidos} subidos</Chip>
-                          ) : (
-                            <span className="text-isel-ink/25">—</span>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => openFicha(s, true)}
+                            title={`Ver la papelería de ${s.nombreCompleto}`}
+                            className="rounded-full transition-transform duration-300 ease-snap hover:-translate-y-px"
+                          >
+                            {s.papeleriaEnOrden ? (
+                              <Chip tone="emerald" icon="check">Al día</Chip>
+                            ) : s.documentosSubidos > 0 ? (
+                              <Chip tone="gold" icon="file">{s.documentosSubidos} subidos</Chip>
+                            ) : (
+                              <Chip tone="neutral" icon="file">Ver</Chip>
+                            )}
+                          </button>
                         </Td>
                         <Td>
                           <div className="flex items-center justify-end gap-1">
                             <PortalButton tone="ghost" size="sm" icon="eye" onClick={() => openFicha(s)}>
                               Ver ficha
+                            </PortalButton>
+                            <PortalButton tone="ghost" size="sm" icon="file" onClick={() => openFicha(s, true)}>
+                              Documentos
                             </PortalButton>
                             <IconButton
                               icon="pencil"
@@ -674,7 +700,7 @@ export function AdminPortalPage() {
             onDismissSaved={closeFicha}
           />
 
-          <div className="mt-6">
+          <div ref={documentosRef} className="mt-6 scroll-mt-4">
             <StudentDocumentsPanel
               studentId={fichaStudent.id}
               papeleriaEnOrden={fichaStudent.papeleriaEnOrden}

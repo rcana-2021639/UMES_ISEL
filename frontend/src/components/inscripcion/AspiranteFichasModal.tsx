@@ -6,6 +6,7 @@ import { PreinscripcionForm } from "@/components/inscripcion/PreinscripcionForm"
 import { AsignacionNuevoIngresoForm } from "@/components/inscripcion/AsignacionNuevoIngresoForm";
 import { CartaCompromisoForm } from "@/components/inscripcion/CartaCompromisoForm";
 import { DocumentosForm } from "@/components/inscripcion/DocumentosForm";
+import { nombreNatural } from "@/lib/nombres";
 import type { Applicant } from "@/types/inscripcion";
 
 type Ficha = "preinscripcion" | "asignacion" | "compromiso" | "documentos";
@@ -18,9 +19,13 @@ const FICHAS: { value: Ficha; label: string }[] = [
 ];
 
 /**
- * "Ver fichas" / "Editar" del panel de admin — las 3 fichas del aspirante, navegables con botones
- * (no todas juntas), en modal. Abre siempre en consulta; pasar a edición es un clic aparte, misma
- * convención que el modal de ficha de Asignación.
+ * "Ver fichas" / "Editar" / "Documentos" del panel de admin — las 3 fichas del aspirante y su
+ * papelería, navegables con botones (no todas juntas), en modal. Abre siempre en consulta; pasar a
+ * edición es un clic aparte, misma convención que el modal de ficha de Asignación.
+ *
+ * `startFicha` existe porque los documentos estaban aquí desde el principio pero enterrados detrás
+ * de "Ver fichas" → cuarta pestaña: nadie los encontraba. Ahora la tabla trae su propio botón que
+ * abre directamente en ellos.
  */
 export function AspiranteFichasModal({
   applicant,
@@ -28,18 +33,20 @@ export function AspiranteFichasModal({
   onClose,
   onUpdated,
   startInEdit = false,
+  startFicha = "preinscripcion",
 }: {
   applicant: Applicant;
   open: boolean;
   onClose: () => void;
   onUpdated: (a: Applicant) => void;
   startInEdit?: boolean;
+  startFicha?: Ficha;
 }) {
-  const [ficha, setFicha] = useState<Ficha>("preinscripcion");
+  const [ficha, setFicha] = useState<Ficha>(startFicha);
   const [editing, setEditing] = useState(startInEdit);
 
   function handleClose() {
-    setFicha("preinscripcion");
+    setFicha(startFicha);
     setEditing(startInEdit);
     onClose();
   }
@@ -81,6 +88,7 @@ export function AspiranteFichasModal({
             <AsignacionNuevoIngresoForm
               applicantId={applicant.id}
               initial={applicant.asignacion}
+              nombreSugerido={applicant.preinscripcion?.nombreCompleto ?? applicant.nombreCompleto}
               readOnly={!editing}
               onSaved={(asn) => onUpdated({ ...applicant, asignacion: asn })}
             />
@@ -92,7 +100,9 @@ export function AspiranteFichasModal({
               readOnly={!editing}
               defaults={{
                 carrera: applicant.asignacion?.carrera ?? applicant.preinscripcion?.carrera,
-                nombreCompleto: applicant.preinscripcion?.nombreCompleto ?? applicant.nombreCompleto,
+                nombreCompleto:
+                  applicant.preinscripcion?.nombreCompleto ||
+                  (applicant.asignacion ? nombreNatural(applicant.asignacion) : applicant.nombreCompleto),
                 dpi: applicant.dpi ?? applicant.preinscripcion?.dpi,
               }}
               onSaved={(c) => onUpdated({ ...applicant, compromiso: c })}

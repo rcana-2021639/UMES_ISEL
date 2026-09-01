@@ -89,7 +89,7 @@ public class InscripcionPdfBuilder
             TienePendientesMaterias: a.TienePendientesMaterias,
             CorreoContacto: a.CorreoContacto,
             TelefonoContacto: a.TelefonoContacto,
-            TipoPago: null,
+            TipoPago: a.TipoPago,
             FirmaBase64: a.FirmaBase64,
             FirmadoEn: a.FirmadoEn,
             AutorizadoPorCodigo: null,

@@ -34,10 +34,23 @@ export function CartaCompromisoForm({ applicantId, initial, defaults, onSaved, r
   const [saved, setSaved] = useState(false);
   const signatureRef = useRef<SignaturePadHandle>(null);
 
+  /**
+   * Carrera, nombre y DPI ya se escribieron en la preinscripción: aquí solo se rellena
+   * lo que siga vacío. Nunca se pisa lo que alguien haya escrito a mano, y por eso el
+   * efecto también escucha a `defaults` — así el nombre baja hasta esta ficha en cuanto
+   * se guarda la preinscripción, sin esperar a que se recargue la página.
+   */
   useEffect(() => {
-    setForm(initial ?? blank(defaults));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initial]);
+    setForm((actual) => {
+      const base = initial ?? actual;
+      return {
+        ...base,
+        carrera: base.carrera || defaults.carrera || "",
+        nombreCompleto: base.nombreCompleto || defaults.nombreCompleto || "",
+        noDpi: base.noDpi || defaults.dpi || "",
+      };
+    });
+  }, [initial, defaults.carrera, defaults.nombreCompleto, defaults.dpi]);
 
   function set<K extends keyof CartaCompromisoInput>(key: K, value: CartaCompromisoInput[K]) {
     setForm((f) => ({ ...f, [key]: value }));
