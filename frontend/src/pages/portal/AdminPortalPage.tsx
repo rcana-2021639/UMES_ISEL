@@ -12,6 +12,7 @@ import { Modal } from "@/components/ui/Modal";
 import { StudentFormModal } from "@/components/portal/StudentFormModal";
 import { CourseAssignmentForm } from "@/components/portal/CourseAssignmentForm";
 import { InscripcionesAdminPanels } from "@/components/inscripcion/InscripcionesAdminPanels";
+import { SolicitudesTituloAdminPanels } from "@/components/titulo/SolicitudesTituloAdminPanels";
 import { StudentDocumentsPanel } from "@/components/portal/StudentDocumentsPanel";
 import { PrintOptionsModal, type PrintSelection } from "@/components/portal/PrintOptionsModal";
 import { getStudentDocumentos, openFichaYDocumentosPdf, openStudentDocumentosPdf } from "@/lib/studentDocumentsApi";
@@ -82,9 +83,9 @@ export function AdminPortalPage() {
   const session = getSession();
   const { confirm, dialog: confirmDialog } = useConfirm();
 
-  // Un solo panel de admin, dos superficies — igual que ya era, con "Inscripciones" como segunda
-  // pestaña en vez de una ruta aparte.
-  const [adminTab, setAdminTab] = useState<"asignaciones" | "inscripciones">("asignaciones");
+  // Un solo panel de admin, tres superficies — los tres trámites públicos del sitio, cada uno como
+  // una pestaña en vez de una ruta aparte.
+  const [adminTab, setAdminTab] = useState<"asignaciones" | "inscripciones" | "titulos">("asignaciones");
 
   useEffect(() => {
     document.title = "Panel administrativo | ISEL";
@@ -334,11 +335,14 @@ export function AdminPortalPage() {
           options={[
             { value: "asignaciones" as const, label: "Asignaciones" },
             { value: "inscripciones" as const, label: "Inscripciones" },
+            { value: "titulos" as const, label: "Solicitudes de título" },
           ]}
         />
 
         {adminTab === "inscripciones" ? (
           <InscripcionesAdminPanels />
+        ) : adminTab === "titulos" ? (
+          <SolicitudesTituloAdminPanels />
         ) : (
           <>
         {/* ------------------------------------------ fichas / impresión */}

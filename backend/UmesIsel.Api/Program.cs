@@ -22,6 +22,8 @@ builder.Services.AddSingleton<FichaPdfBuilder>();
 builder.Services.AddSingleton<PreinscripcionDocxBuilder>();
 builder.Services.AddSingleton<CartaCompromisoDocxBuilder>();
 builder.Services.AddSingleton<InscripcionPdfBuilder>();
+// Solicitud de impresión de título — ver Services/SolicitudTituloDocxBuilder.cs.
+builder.Services.AddSingleton<SolicitudTituloDocxBuilder>();
 // Documentos en PDF subidos por aspirantes/alumnos — ver Services/DocumentStorageService.cs.
 builder.Services.AddSingleton<DocumentStorageService>();
 

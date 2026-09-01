@@ -38,6 +38,12 @@
     <Content Include="Resources\CartaCompromisoTemplate.docx">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- El FORMATO de "Solicitud de Impresión de Título", preparado igual (ver
+         tools/docx-templates/prepare-solicitud-titulo.mjs). Además de tokens de texto lleva
+         rejillas de una letra por casilla, casillas-imagen y un hueco para la fotografía. -->
+    <Content Include="Resources\SolicitudTituloTemplate.docx">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>

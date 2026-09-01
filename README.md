@@ -17,6 +17,12 @@ alumno (ficha de asignación de cursos con firma digital), panel de admin
 (CRUD de alumnos, impresión de asignaciones por día/semana/mes, reporte por
 carrera y trimestre). Ver la sección **Portal ISEL** más abajo.
 
+**Fase 3 — Los tres trámites públicos**: además de **Asignación** (alumnos con
+carné), el sitio abre **Inscripción** (aspirantes de nuevo ingreso, sin carné,
+entran con su DPI) y **Solicitud de título** (alumnos por graduarse, entran con
+su carné). Los tres imprimen el FORMATO oficial de la universidad sin tocar su
+diseño, y los tres tienen su pestaña en el panel de admin.
+
 ## Stack
 
 - **Backend**: ASP.NET Core Web API (.NET 8) + Entity Framework Core (SQLite) — `backend/UmesIsel.Api`
@@ -176,6 +182,34 @@ transcrito directamente de los pénsums oficiales de cada maestría. Para
 corregir un curso, edita ese archivo (no la base de datos a mano) y borra
 `isel.db` para que se vuelva a sembrar, o ajústalo con una migración si ya
 hay fichas guardadas que no quieres perder.
+
+## Solicitud de impresión de título (`/solicitud-titulo`)
+
+El alumno entra **con su carné** y la ficha ya viene con su carné, sus nombres,
+sus apellidos, su carrera y la fecha del día. Solo hay una solicitud viva por
+alumno: volver a entrar con el mismo carné la reanuda.
+
+Lo particular de este FORMATO es que el carné, los nombres y los apellidos van
+**letra por letra**, una por casilla (13, 37 y 37). El formulario dibuja esas
+mismas casillas en vivo debajo de cada campo, así que se ve el nombre tal como
+va a quedar impreso y el límite se nota antes de chocarse con él.
+
+La **fotografía** se toma con la cámara del dispositivo o se sube desde un
+archivo; en los dos casos pasa por el mismo encuadre de proporción fija
+(3.5 × 4.5 cm, la medida del recuadro del papel) con zoom y arrastre, y sale
+recortada a 700 × 891 px. Una imagen de más de 12 MB se rechaza; el resto se
+reencuadra solo. Si no hay cámara o se niega el permiso, la pantalla lo dice y
+ofrece la subida.
+
+El PDF sale **en una sola hoja**, con las casillas de sede, ceremonia y sexo
+marcadas sobre el propio recuadro del documento (ver
+`tools/docx-templates/README.md`), la foto pegada en su hueco y la firma sobre
+el renglón de "Firma del Interesado".
+
+En el panel de admin, la pestaña **Solicitudes de título** tiene lo mismo que
+las otras dos: impresión filtrable por fecha y estado, tabla completa, ver y
+editar la ficha, imprimir una o todas, y un botón **Entregada** para cuando
+Secretaría ya la recibió.
 
 ## Notas de diseño
 
