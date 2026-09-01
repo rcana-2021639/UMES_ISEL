@@ -32,8 +32,6 @@ const DATOS = [
   { to: 6, pad: 2, label: "Trimestres por programa" },
 ];
 
-const INTERVIEW_URL = "https://b24-we8qvv.bitrix24.site/crm_form_2iluh/";
-
 /** Titular partido en líneas → palabras → letras, con acento serif en el remate. */
 function HeroTitle() {
   const reduce = useReducedMotion();
@@ -204,8 +202,8 @@ export function Hero() {
             <ActionButton href="#programas" external={false} tone="light" arrow="down">
               Ver las 6 maestrías
             </ActionButton>
-            <ActionButton href={INTERVIEW_URL} tone="outlineDark">
-              Solicitar entrevista
+            <ActionButton to="/inscripcion" tone="outlineDark">
+              Inscríbete en línea
             </ActionButton>
           </motion.div>
 

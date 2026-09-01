@@ -2,7 +2,7 @@
 
 | Archivo | Uso |
 |---|---|
-| `entrevista-admision.jpg` | Imagen junto al CTA "Solicita tu entrevista de admisión" |
+| `inscripcion.jpg` | Imagen junto al CTA "Comienza tu inscripción en línea" |
 
 Relación 4:3, recomendado 1000×750.
 

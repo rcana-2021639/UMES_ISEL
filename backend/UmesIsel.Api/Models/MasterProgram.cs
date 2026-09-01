@@ -29,6 +29,5 @@ public record MasterProgram(
     string? DetailImage,
     IReadOnlyList<string> Paragraphs,
     string PensumUrl,
-    string InterviewUrl,
     StudyPlan Plan
 );

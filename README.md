@@ -8,7 +8,7 @@ es 100% independiente y dedicado a ISEL.
 ## Fase actual
 
 **Fase 1 — Página principal de ISEL**: Hero, Programas (6 maestrías + página de
-"Información" de cada una con Pensum / Entrevista / Inscripción), Metodología,
+"Información" de cada una con Pensum / Inscripción / Asignación), Metodología,
 Objetivos, Dirección académica y CTA de admisión.
 
 **Fase 2 — Portal y base de datos**: base de datos SQLite (con los alumnos
@@ -103,15 +103,11 @@ Solo copia el archivo con ese nombre exacto — no hay que tocar código.
 
 ## Enlaces placeholder (reemplazar cuando los tengas)
 
-- **Entrevista de admisión**: actualmente apunta al formulario original de
-  Bitrix24. Cámbialo en `backend/UmesIsel.Api/Data/IselSeedData.cs` y en
-  `frontend/src/data/programs.ts` (constante `INTERVIEW_URL`).
 - **Pensum (PDF)** de cada maestría: actualmente apunta a los PDF ya
   publicados en umes.edu.gt. Reemplázalos por tus propios archivos cuando
   los tengas, en los mismos dos archivos (`pensumUrl` / `PensumUrl`).
-- **Inscripción**: ya está habilitado — lleva al Portal ISEL (`/portal/login`,
-  ver abajo). El flujo de pago/inscripción en sí sigue pendiente; por ahora el
-  botón conecta con el login y la ficha de asignación de cursos.
+- **Inscripción**: ya está habilitado — lleva al wizard público `/inscripcion`
+  (preinscripción, asignación de cursos, carta de compromiso y documentos).
 
 ## Portal ISEL (alumno y administrador)
 

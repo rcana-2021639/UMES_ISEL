@@ -7,14 +7,12 @@ namespace UmesIsel.Api.Data;
 /// Content (titles, paragraphs, costs, links) mirrors the original
 /// https://www.umes.edu.gt/isel-umes page 1:1, as requested.
 ///
-/// NOTE: PensumUrl / InterviewUrl currently point at the original UMES-hosted
-/// files as placeholders. Replace them with your own hosted PDF / form links
-/// when available — nothing else needs to change.
+/// NOTE: PensumUrl currently points at the original UMES-hosted file as a
+/// placeholder. Replace it with your own hosted PDF link when available —
+/// nothing else needs to change.
 /// </summary>
 public static class IselSeedData
 {
-    private const string InterviewUrl = "https://b24-we8qvv.bitrix24.site/crm_form_2iluh/";
-
     public static readonly IReadOnlyList<MasterProgram> Programs = new List<MasterProgram>
     {
         new(
@@ -29,7 +27,6 @@ public static class IselSeedData
                 "Al egresar del Postgrado el estudiante alcanzará competencias, conocimientos, habilidades y valores en Docencia Superior."
             },
             PensumUrl: "https://www.umes.edu.gt/_files/ugd/1724d0_d57062dfba2849a19b1b6c181325c1d2.pdf",
-            InterviewUrl: InterviewUrl,
             Plan: new StudyPlan(
                 Duracion: "Un año y medio (6 trimestres)",
                 Modalidad: "Modalidad online por medio de módulos de estudios.",
@@ -54,7 +51,6 @@ public static class IselSeedData
                 "Los participantes deberán realizar ejercicios de aplicación real en las empresas para las cuales trabajan, como complemento permanente de las actividades académicas virtuales. Al mismo tiempo se estimulará la participación de los estudiantes de maestría en diversos eventos de actualización gerencial a través de los medios de comunicación y aprendizaje disponibles."
             },
             PensumUrl: "https://www.umes.edu.gt/_files/ugd/9726ef_305d2930272143ef936656e99966eae1.pdf",
-            InterviewUrl: InterviewUrl,
             Plan: new StudyPlan(
                 Duracion: "Un año y medio (6 trimestres)",
                 Modalidad: "Modalidad online por medio de módulo de estudios.",
@@ -79,7 +75,6 @@ public static class IselSeedData
                 "Los participantes deberán realizar ejercicios de aplicación real en las empresas para las cuales trabajan, como complemento permanente de las actividades académicas virtuales. Al mismo tiempo se estimulará la participación de los estudiantes de maestría en diversos eventos de actualización gerencial a través de los medios de comunicación y aprendizaje disponibles."
             },
             PensumUrl: "https://www.umes.edu.gt/_files/ugd/9726ef_0126cb9e377141a5850faf2a2d0c49b3.pdf",
-            InterviewUrl: InterviewUrl,
             Plan: new StudyPlan(
                 Duracion: "Un año y medio (6 trimestres)",
                 Modalidad: "Modalidad online por medio de módulos de estudios.",
@@ -104,7 +99,6 @@ public static class IselSeedData
                 "Los participantes deberán realizar ejercicios de aplicación real en las empresas para las cuales trabajan, como complemento permanente de las actividades académicas presenciales. Al mismo tiempo se estimulará la participación de los estudiantes de maestría en diversos eventos de actualización gerencial a través de los medios de comunicación y aprendizaje disponibles."
             },
             PensumUrl: "https://www.umes.edu.gt/_files/ugd/9726ef_70ad1326b00a4641a03b1f2d7e7889cf.pdf",
-            InterviewUrl: InterviewUrl,
             Plan: new StudyPlan(
                 Duracion: "Un año y medio (6 trimestres)",
                 Modalidad: "Modalidad online por medio de módulos de estudios.",
@@ -129,7 +123,6 @@ public static class IselSeedData
                 "Nuestro programa combina teoría y práctica para que los estudiantes aprendan a diseñar e implementar estrategias innovadoras que fortalezcan la cultura organizacional, impulsen el desarrollo de equipos y aumenten la competitividad empresarial."
             },
             PensumUrl: "https://www.umes.edu.gt/_files/ugd/9726ef_87c46d0e7aa94fc58093bb6728a87a9f.pdf",
-            InterviewUrl: InterviewUrl,
             Plan: new StudyPlan(
                 Duracion: "Un año y medio (6 trimestres)",
                 Modalidad: "Modalidad online por medio de módulos de estudios.",
@@ -153,7 +146,6 @@ public static class IselSeedData
                 "La auditoría de desempeño es de relevancia porque permite determinar el alcance de objetivos y metas con indicadores estratégicos y de gestión, para conocer los resultados de la aplicación de los recursos públicos y el impacto social que se genera a través de diversos programas, proyectos, obras, procesos, actividades, entre otros; por lo que promueve la gobernanza económica, eficaz y eficiente, contribuyendo a la rendición de cuentas y a la transparencia."
             },
             PensumUrl: "https://www.umes.edu.gt/_files/ugd/9726ef_a4f3bd66c17f4138a789a61c9a7bfb00.pdf",
-            InterviewUrl: InterviewUrl,
             Plan: new StudyPlan(
                 Duracion: "Un año y medio (6 trimestres)",
                 Modalidad: "Modalidad online por medio de módulos de estudios.",

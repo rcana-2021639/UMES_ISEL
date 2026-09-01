@@ -5,8 +5,6 @@ import { RevealOnScroll, SplitHeading } from "@/components/ui/RevealOnScroll";
 import { ImageSlot } from "@/components/ui/ImageSlot";
 import { ActionButton } from "@/components/ui/ActionButton";
 
-const INTERVIEW_URL = "https://b24-we8qvv.bitrix24.site/crm_form_2iluh/";
-
 interface AdmissionCtaProps {
   programs?: MasterProgram[];
 }
@@ -15,9 +13,10 @@ interface AdmissionCtaProps {
  * Cierre de página: la banda de admisión.
  *
  * Arriba corre una cinta con los nombres de las maestrías (transform puro, se
- * detiene con prefers-reduced-motion), y debajo el llamado real a agendar la
- * entrevista, la nota de integridad académica con Turnitin y los datos de
- * contacto —todo el contenido de la página original, ordenado como un cierre.
+ * detiene con prefers-reduced-motion), y debajo el llamado real —abrir tu
+ * expediente de inscripción en línea—, la nota de integridad académica con
+ * Turnitin y los datos de contacto: todo el contenido de la página original,
+ * ordenado como un cierre.
  */
 export function AdmissionCta({ programs }: AdmissionCtaProps) {
   const reduce = useReducedMotion();
@@ -56,21 +55,22 @@ export function AdmissionCta({ programs }: AdmissionCtaProps) {
             </RevealOnScroll>
 
             <SplitHeading
-              text="Solicita tu entrevista de admisión"
+              text="Comienza tu inscripción en línea"
               className="mt-6 max-w-[14ch] font-display text-[clamp(2.3rem,5.4vw,4rem)] font-semibold leading-[1] tracking-tightest text-white"
             />
 
             <RevealOnScroll delay={0.12}>
               <p className="mt-7 max-w-xl text-[15px] leading-relaxed text-white/60 sm:text-lg">
-                Da el primer paso hacia tu maestría en línea. Agenda tu entrevista de admisión y un asesor académico
-                te acompañará durante todo el proceso.
+                Da el primer paso hacia tu maestría en línea. Abre tu expediente con tu DPI, llena tus fichas a tu
+                ritmo y sube tus documentos cuando los tengas listos: puedes cerrar la página y retomar donde te
+                quedaste.
               </p>
             </RevealOnScroll>
 
             <RevealOnScroll delay={0.18}>
               <div className="mt-9 flex flex-wrap items-center gap-3">
-                <ActionButton href={INTERVIEW_URL} tone="light">
-                  Solicitar entrevista
+                <ActionButton to="/inscripcion" tone="light">
+                  Inscribirme ahora
                 </ActionButton>
                 <ActionButton href="#programas" external={false} tone="outlineDark" arrow="down">
                   Revisar programas
@@ -105,9 +105,9 @@ export function AdmissionCta({ programs }: AdmissionCtaProps) {
           <RevealOnScroll delay={0.1} scale className="relative">
             <div className="aspect-[4/5] w-full overflow-hidden rounded-[2rem] border border-white/10 shadow-lift">
               <ImageSlot
-                src="/images/admission/entrevista-admision.avif"
-                alt="Entrevista de admisión ISEL"
-                label="Entrevista de admisión"
+                src="/images/admission/inscripcion.avif"
+                alt="Inscripción en línea ISEL"
+                label="Inscripción en línea"
                 tone="dark"
                 glyph="→"
               />

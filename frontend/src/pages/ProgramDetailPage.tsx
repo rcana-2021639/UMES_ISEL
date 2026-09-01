@@ -29,7 +29,7 @@ import { Footer } from "@/components/layout/Footer";
  * Después la página cuenta el programa en tres tiempos: la portada oscura
  * teñida con su acento, la descripción (que se enciende al leerla) con el
  * plan fijo al costado, y la ruta de inscripción en tres pasos con las tres
- * acciones reales: Pensum, Entrevista y Asignación.
+ * acciones reales: Pensum y Asignación.
  */
 export function ProgramDetailPage() {
   const { slug = "" } = useParams();
@@ -107,8 +107,8 @@ export function ProgramDetailPage() {
   const otros = localPrograms.filter((p) => p.slug !== program.slug).slice(0, 3);
 
   // Los tres pasos explican el proceso; las acciones viven una sola vez, en la
-  // columna fija. Repetir aquí Pensum/Entrevista/Asignación era decir lo mismo
-  // dos veces en la misma pantalla.
+  // columna fija. Repetir aquí Pensum/Asignación era decir lo mismo dos veces
+  // en la misma pantalla.
   const pasos = [
     {
       n: "01",
@@ -117,8 +117,8 @@ export function ProgramDetailPage() {
     },
     {
       n: "02",
-      titulo: "Agenda tu entrevista",
-      texto: "Un asesor académico resuelve tus dudas de admisión, horarios y costos antes de que decidas.",
+      titulo: "Reúne tu papelería",
+      texto: "DPI autenticado, fotografías y los títulos que te pidan: los subes en PDF desde tu propia inscripción.",
     },
     {
       n: "03",
@@ -311,8 +311,8 @@ export function ProgramDetailPage() {
                   <ActionButton href={program.pensumUrl} tone="outlineLight" full>
                     Pensum
                   </ActionButton>
-                  <ActionButton href={program.interviewUrl} tone="solid" full>
-                    Entrevista
+                  <ActionButton to="/inscripcion" tone="solid" full>
+                    Inscripción
                   </ActionButton>
                   <ActionButton to={`/portal/login?programa=${program.slug}`} tone="accent" full>
                     Asignación
@@ -380,11 +380,11 @@ export function ProgramDetailPage() {
 
             <RevealOnScroll delay={0.2}>
               <div className="mt-14 flex flex-wrap items-center gap-5 border-t border-white/10 pt-9">
-                <ActionButton to={`/portal/login?programa=${program.slug}`} tone="light">
+                <ActionButton to="/inscripcion" tone="light">
                   Comenzar mi inscripción
                 </ActionButton>
                 <p className="text-[13px] leading-relaxed text-white/45">
-                  ¿Prefieres hablarlo antes? Agenda la entrevista desde el panel del programa.
+                  Puedes cerrar la página y retomar tu expediente más tarde con el mismo DPI.
                 </p>
               </div>
             </RevealOnScroll>

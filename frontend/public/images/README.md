@@ -33,7 +33,7 @@ La única excepción es el favicon (ver más abajo), porque ese no pasa por
 | `logo-umes` | `hero/` | Footer | Cuadrado, fondo transparente, mín. 200×200 |
 | `favicon.png` | `hero/` | Ícono de la pestaña — **tiene que ser .png** | 512×512 |
 | `rolando-valdez` | `advisor/` | Retrato del Director en “Dirección” | 4:5 (vertical) — 800×1000 |
-| `entrevista-admision` | `admission/` | Imagen del CTA de admisión | 4:5 (vertical) — 1000×1250 |
+| `inscripcion` | `admission/` | Imagen del CTA de inscripción | 4:5 (vertical) — 1000×1250 |
 | `sesiones-sincronicas` | `methodology/` | Metodología · paso 1 | 16:10 — 1200×750 |
 | `trabajo-asincronico` | `methodology/` | Metodología · paso 2 | 16:10 — 1200×750 |
 | `tutoria` | `methodology/` | Metodología · paso 3 | 16:10 — 1200×750 |
