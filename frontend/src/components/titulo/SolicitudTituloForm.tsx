@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { PortalPanel } from "@/components/portal/PortalShell";
 import { SignaturePad, type SignaturePadHandle } from "@/components/portal/SignaturePad";
 import { ChoiceRow } from "@/components/portal/CourseAssignmentForm";
@@ -45,6 +45,22 @@ function aInput(s: SolicitudTitulo): SolicitudTituloInput {
   };
 }
 
+/** Lo que la página de afuera necesita saber de la ficha sin ser dueña de sus campos. */
+export interface EstadoSolicitudForm {
+  /** Lo que todavía falta para poder imprimir, tal como está la pantalla AHORA. */
+  faltantes: string[];
+  /** Hay cambios escritos que aún no han llegado al servidor. */
+  sinGuardar: boolean;
+  /** Foto y firma tal como están en pantalla — para los distintivos del encabezado. */
+  tieneFoto: boolean;
+  tieneFirma: boolean;
+}
+
+export interface SolicitudTituloFormHandle {
+  /** Guarda la ficha y devuelve lo que quedó grabado, o null si no se pudo. */
+  save: () => Promise<SolicitudTitulo | null>;
+}
+
 interface SolicitudTituloFormProps {
   solicitud: SolicitudTitulo;
   onSaved: (s: SolicitudTitulo) => void;
@@ -55,6 +71,8 @@ interface SolicitudTituloFormProps {
    * ahí se pide en línea, al final de la ficha.
    */
   stickyActions?: boolean;
+  /** Avisa a la página de lo que hay en pantalla, para que el paso 08 no hable de datos viejos. */
+  onEstadoChange?: (estado: EstadoSolicitudForm) => void;
 }
 
 /**
@@ -63,21 +81,33 @@ interface SolicitudTituloFormProps {
  * Se guarda de una sola vez (no por secciones como Inscripción) porque es un único papel: media
  * ficha guardada no sirve para imprimir nada. A cambio, el botón de guardar viaja en una barra fija
  * abajo con el recuento de lo que falta, así que nunca hay que ir a buscarlo al final del scroll.
+ *
+ * Lo que se ve aquí es el borrador del alumno, no lo que hay grabado. Por eso el formulario le
+ * cuenta a la página cómo va (`onEstadoChange`) y le deja guardar desde fuera (`save`): el paso 08
+ * miraba solo el servidor, así que quien llenaba todo y bajaba a descargar veía "Pendiente" junto a
+ * campos que tenía llenos delante de los ojos.
  */
-export function SolicitudTituloForm({ solicitud, onSaved, readOnly = false, stickyActions = true }: SolicitudTituloFormProps) {
+export const SolicitudTituloForm = forwardRef<SolicitudTituloFormHandle, SolicitudTituloFormProps>(
+  function SolicitudTituloForm(
+    { solicitud, onSaved, readOnly = false, stickyActions = true, onEstadoChange },
+    ref,
+  ) {
   const [form, setForm] = useState<SolicitudTituloInput>(() => aInput(solicitud));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [sinGuardar, setSinGuardar] = useState(false);
   const signatureRef = useRef<SignaturePadHandle>(null);
 
   useEffect(() => {
     setForm(aInput(solicitud));
+    setSinGuardar(false);
   }, [solicitud]);
 
   function set<K extends keyof SolicitudTituloInput>(key: K, value: SolicitudTituloInput[K]) {
     setForm((f) => ({ ...f, [key]: value }));
     setSaved(false);
+    setSinGuardar(true);
   }
 
   // Lo que falta para poder imprimir. Se calcula aquí y se muestra en la barra de abajo, para que
@@ -92,40 +122,57 @@ export function SolicitudTituloForm({ solicitud, onSaved, readOnly = false, stic
     if (!form.correoElectronico?.trim()) falta.push("el correo");
     if (!form.tituloObtener?.trim()) falta.push("el título a obtener");
     if (!form.fotoBase64) falta.push("la fotografía");
-    if (!form.firmaBase64 && !signatureRef.current?.getSignature()) falta.push("la firma");
+    if (!form.firmaBase64) falta.push("la firma");
     return falta;
   }, [form]);
+
+  // El paso 08 y los distintivos del encabezado viven en la página, pero lo que cuentan está aquí.
+  useEffect(() => {
+    onEstadoChange?.({
+      faltantes,
+      sinGuardar,
+      tieneFoto: !!form.fotoBase64,
+      tieneFirma: !!form.firmaBase64,
+    });
+  }, [faltantes, sinGuardar, form.fotoBase64, form.firmaBase64, onEstadoChange]);
 
   const nombresSobra = (form.nombres ?? "").length > CASILLAS_NOMBRES;
   const apellidosSobra = (form.apellidos ?? "").length > CASILLAS_APELLIDOS;
 
-  async function handleSave() {
+  const handleSave = useCallback(async (): Promise<SolicitudTitulo | null> => {
+    if (readOnly) return solicitud;
     if (!form.nombres?.trim() || !form.apellidos?.trim()) {
       setError("Tus nombres y apellidos son obligatorios: son los que se imprimen en el título.");
-      return;
+      return null;
     }
     if (nombresSobra || apellidosSobra) {
       setError("El nombre no cabe en las casillas de la ficha. Ajústalo antes de guardar.");
-      return;
+      return null;
     }
     setSaving(true);
     setError(null);
     try {
-      const firma = signatureRef.current?.getSignature() ?? form.firmaBase64 ?? null;
-      const saved = await saveSolicitudTitulo(solicitud.id, {
+      // La firma sale del formulario, igual que el resto: el lienzo la va copiando ahí a cada trazo.
+      // Leerla del lienzo aquí sería peligroso — si la firma guardada todavía no ha terminado de
+      // cargarse dentro del canvas, o la imagen viene dañada, el lienzo se ve vacío y guardar
+      // borraría una firma que sí existe.
+      const guardada = await saveSolicitudTitulo(solicitud.id, {
         ...form,
-        // El backend distingue "" (bórralo) de null (déjalo) — ver SolicitudesTituloController.Save.
         fechaNacimiento: form.fechaNacimiento || null,
-        firmaBase64: firma,
       });
-      onSaved(saved);
+      onSaved(guardada);
       setSaved(true);
+      setSinGuardar(false);
+      return guardada;
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "No se pudo guardar tu solicitud.");
+      return null;
     } finally {
       setSaving(false);
     }
-  }
+  }, [readOnly, solicitud, form, nombresSobra, apellidosSobra, onSaved]);
+
+  useImperativeHandle(ref, () => ({ save: handleSave }), [handleSave]);
 
   return (
     <div className={`space-y-6 ${stickyActions ? "pb-24" : ""}`}>
@@ -457,15 +504,27 @@ export function SolicitudTituloForm({ solicitud, onSaved, readOnly = false, stic
                 Limpiar firma
               </PortalButton>
             </div>
-            <SignaturePad ref={signatureRef} initialValue={form.firmaBase64} className="max-w-md" key={solicitud.id} />
+            {/*
+              El lienzo copia el trazo al formulario al soltar (y lo borra al limpiar), en vez de
+              leerse solo al guardar: así el recuento de abajo deja de decir "falta la firma" con la
+              firma ya hecha, y "Limpiar firma" de verdad la borra.
+            */}
+            <SignaturePad
+              ref={signatureRef}
+              initialValue={form.firmaBase64}
+              onChange={(hayFirma) => set("firmaBase64", hayFirma ? signatureRef.current?.getSignature() ?? null : null)}
+              className="max-w-md"
+              key={solicitud.id}
+            />
           </>
         )}
       </PortalPanel>
 
-      {error && <Alert kind="error">{error}</Alert>}
-      {saved && !error && <Alert kind="ok">Tu solicitud quedó guardada.</Alert>}
-
-      {/* El estado de la ficha y el botón de guardar, siempre al alcance. */}
+      {/*
+        El estado de la ficha y el botón de guardar, siempre al alcance — y el resultado del guardado
+        AQUÍ dentro, no suelto en el flujo del documento: la barra va fija al fondo de la ventana, así
+        que un aviso puesto más arriba caía fuera de la pantalla y guardar parecía no hacer nada.
+      */}
       {!readOnly && (
         <div
           className={
@@ -477,11 +536,21 @@ export function SolicitudTituloForm({ solicitud, onSaved, readOnly = false, stic
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-5 py-3 sm:px-8">
             <p className="flex min-w-0 items-center gap-2.5 text-[12.5px] leading-snug text-isel-ink/55">
               <Icon
-                name={faltantes.length === 0 ? "check" : "alert"}
+                name={error ? "alert" : saved ? "check" : sinGuardar ? "save" : faltantes.length === 0 ? "check" : "alert"}
                 size={15}
-                className={faltantes.length === 0 ? "shrink-0 text-isel-emerald" : "shrink-0 text-isel-gold2"}
+                className={`shrink-0 ${
+                  error ? "text-isel-alert" : saved ? "text-isel-emerald" : sinGuardar ? "text-isel-gold2" : faltantes.length === 0 ? "text-isel-emerald" : "text-isel-gold2"
+                }`}
               />
-              {faltantes.length === 0 ? (
+              {error ? (
+                <span className="font-semibold text-isel-alert">{error}</span>
+              ) : saved ? (
+                <span className="font-semibold text-isel-emerald2">Tu solicitud quedó guardada.</span>
+              ) : sinGuardar ? (
+                <span className="truncate font-semibold text-isel-navy">
+                  Tienes cambios sin guardar — pulsa "Guardar solicitud".
+                </span>
+              ) : faltantes.length === 0 ? (
                 <span className="font-semibold text-isel-emerald2">Tu ficha está completa.</span>
               ) : (
                 <span className="truncate">
@@ -490,7 +559,7 @@ export function SolicitudTituloForm({ solicitud, onSaved, readOnly = false, stic
                 </span>
               )}
             </p>
-            <PortalButton tone="accent" icon="save" loading={saving} onClick={handleSave} className="shrink-0">
+            <PortalButton tone="accent" icon="save" loading={saving} onClick={() => void handleSave()} className="shrink-0">
               Guardar solicitud
             </PortalButton>
           </div>
@@ -498,4 +567,4 @@ export function SolicitudTituloForm({ solicitud, onSaved, readOnly = false, stic
       )}
     </div>
   );
-}
+});
