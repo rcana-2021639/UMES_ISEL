@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { getCourses, getTrimestres } from "@/lib/coursesApi";
+import { useEffect, useRef, useState } from "react";
+import { getCarreras, getCourses, getTrimestres } from "@/lib/coursesApi";
 import { saveAsignacion } from "@/lib/inscripcionesApi";
 import { splitNombreCompleto } from "@/lib/nombres";
 import { ApiError } from "@/lib/http";
@@ -194,10 +194,24 @@ export function AsignacionNuevoIngresoForm({ applicantId, initial, nombreSugerid
     setSaved(false);
   }
 
-  const pickableCarreras = useMemo(
-    () => Array.from(new Set(allCourses.filter((c) => c.carrera !== "Inglés").map((c) => c.carrera))).sort((a, b) => a.localeCompare(b)),
-    [allCourses],
-  );
+  // Igual que en la ficha del alumno: la lista sale del registro de carreras, en
+  // el orden que fijó el admin en la pestaña "Pénsum", no de deducirla del
+  // catálogo filtrando por un nombre escrito a mano. Si la llamada falla, se cae
+  // al catálogo para no dejar al aspirante sin nada que elegir.
+  const [pickableCarreras, setPickableCarreras] = useState<string[]>([]);
+  useEffect(() => {
+    let active = true;
+    getCarreras()
+      .then((list) => active && setPickableCarreras(list))
+      .catch(() => {
+        if (!active) return;
+        setPickableCarreras(Array.from(new Set(allCourses.map((c) => c.carrera))));
+      });
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allCourses.length]);
 
   function updateAdditional(id: string, patch: Partial<AdditionalEntry>) {
     setAdditional((rows) => rows.map((r) => (r.id === id ? { ...r, ...patch } : r)));

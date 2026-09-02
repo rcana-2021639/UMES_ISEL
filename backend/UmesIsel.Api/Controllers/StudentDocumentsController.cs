@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using UmesIsel.Api.Data;
 using UmesIsel.Api.Models.Dtos;
 using UmesIsel.Api.Models.Entities;
+using UmesIsel.Api.Security;
 using UmesIsel.Api.Services;
 
 namespace UmesIsel.Api.Controllers;
@@ -13,8 +14,17 @@ namespace UmesIsel.Api.Controllers;
 /// <see cref="InscripcionDocumentsController"/> (un PDF a la vez, por tipo), reutilizando
 /// <see cref="DocumentStorageService"/> con un scope distinto ("students" en vez de "inscripciones").
 /// </summary>
+/// <summary>
+/// Papelería del alumno: DPI, título de nivel medio, fotos… los archivos más
+/// sensibles que guarda la aplicación.
+///
+/// TODAS las acciones exigen ser el propio alumno o un administrador. Antes
+/// estaban abiertas: bastaba recorrer /api/students/1..N/documentos/DpiAutenticado/archivo
+/// para descargarse el DPI escaneado de todo el padrón.
+/// </summary>
 [ApiController]
 [Route("api/students/{studentId:int}/documentos")]
+[RequireOwnerOrAdmin(SessionRole.Student, "studentId")]
 public class StudentDocumentsController : ControllerBase
 {
     private readonly IselDbContext _db;
@@ -98,6 +108,7 @@ public class StudentDocumentsController : ControllerBase
 
     /// <summary>GET /api/students/{id}/documentos/pdf — solo los documentos extra, combinados en un PDF (una hoja cada uno, ya que son PDFs subidos tal cual).</summary>
     [HttpGet("pdf")]
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting(RateLimitPolicies.Pesado)]
     public async Task<IActionResult> GetDocumentosPdf(int studentId)
     {
         var docs = await _db.StudentDocuments.AsNoTracking().Where(d => d.StudentId == studentId).OrderBy(d => d.Tipo).ToListAsync();

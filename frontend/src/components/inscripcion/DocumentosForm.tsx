@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { PortalPanel } from "@/components/portal/PortalShell";
 import { Icon } from "@/components/portal/Icon";
 import { Alert, Chip, PortalButton } from "@/components/portal/kit";
-import { deleteDocumento, getDocumentoUrl, uploadDocumento } from "@/lib/inscripcionesApi";
+import { abrirDocumento, deleteDocumento, uploadDocumento } from "@/lib/inscripcionesApi";
 import { ApiError } from "@/lib/http";
 import {
   DOCUMENTO_LABELS,
@@ -133,7 +133,7 @@ function DocumentoRow({
               tone="ghost"
               size="sm"
               icon="eye"
-              onClick={() => window.open(getDocumentoUrl(applicantId, tipo), "_blank", "noopener,noreferrer")}
+              onClick={() => { void abrirDocumento(applicantId, tipo); }}
             >
               Ver
             </PortalButton>

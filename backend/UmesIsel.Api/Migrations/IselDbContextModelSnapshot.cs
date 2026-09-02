@@ -57,6 +57,56 @@ namespace UmesIsel.Api.Migrations
                     b.ToTable("AdditionalCourseRows");
                 });
 
+            modelBuilder.Entity("UmesIsel.Api.Models.Entities.AdminUser", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("BloqueadaHasta")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("DebeCambiarPassword")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("IntentosFallidos")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("NombreCompleto")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("UltimoAcceso")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Username")
+                        .IsUnique();
+
+                    b.ToTable("AdminUsers");
+                });
+
             modelBuilder.Entity("UmesIsel.Api.Models.Entities.Applicant", b =>
                 {
                     b.Property<int>("Id")
@@ -344,6 +394,45 @@ namespace UmesIsel.Api.Migrations
                     b.ToTable("AssignedCourseRows");
                 });
 
+            modelBuilder.Entity("UmesIsel.Api.Models.Entities.Carrera", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("Activa")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("EsPrograma")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Orden")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Nombre")
+                        .IsUnique();
+
+                    b.ToTable("Carreras");
+                });
+
             modelBuilder.Entity("UmesIsel.Api.Models.Entities.CartaCompromiso", b =>
                 {
                     b.Property<int>("Id")
@@ -417,6 +506,9 @@ namespace UmesIsel.Api.Migrations
                         .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Carrera", "Trimestre", "Nombre")
+                        .IsUnique();
 
                     b.ToTable("Courses");
                 });
@@ -620,6 +712,45 @@ namespace UmesIsel.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("Preinscripciones");
+                });
+
+            modelBuilder.Entity("UmesIsel.Api.Models.Entities.SecurityEvent", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Actor")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Detalle")
+                        .HasMaxLength(400)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("EsAlerta")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Ip")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("OcurridoEn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OcurridoEn");
+
+                    b.HasIndex("EsAlerta", "OcurridoEn");
+
+                    b.ToTable("SecurityEvents");
                 });
 
             modelBuilder.Entity("UmesIsel.Api.Models.Entities.SolicitudTitulo", b =>

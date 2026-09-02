@@ -12,6 +12,7 @@ type Name =
   | "arrowRight"
   | "arrowLeft"
   | "arrowDown"
+  | "arrowUp"
   | "check"
   | "close"
   | "plus"
@@ -49,6 +50,7 @@ const PATHS: Record<Name, string> = {
   arrowRight: "M4 12h16M14 6l6 6-6 6",
   arrowLeft: "M20 12H4M10 18l-6-6 6-6",
   arrowDown: "M12 4v16M6 14l6 6 6-6",
+  arrowUp: "M12 20V4M6 10l6-6 6 6",
   check: "M4 12.5l5.5 5.5L20 6.5",
   close: "M6 6l12 12M18 6L6 18",
   plus: "M12 5v14M5 12h14",

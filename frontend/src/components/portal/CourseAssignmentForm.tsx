@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import type { Student } from "@/types/student";
 import type { CourseAssignment, TipoPago } from "@/types/courseAssignment";
 import { getAssignmentByStudent, saveAssignment } from "@/lib/assignmentsApi";
-import { getCourses, getTrimestres } from "@/lib/coursesApi";
+import { getCarreras, getCourses, getTrimestres } from "@/lib/coursesApi";
 import type { Course } from "@/types/course";
 import { SignaturePad, type SignaturePadHandle } from "@/components/portal/SignaturePad";
 import { Modal } from "@/components/ui/Modal";
@@ -278,16 +278,24 @@ export function CourseAssignmentForm({
     [],
   );
 
-  // Only maestrías that actually have a pénsum loaded (i.e. exist in the course catalog) are
-  // selectable here — e.g. a "Diplomado" or a cross-listed cohort group in the student roster has
-  // no trimestre/course data and isn't a real ISEL maestría, so it has no business in this list.
-  const pickableCarreras = useMemo(
-    () =>
-      Array.from(new Set(allCourses.filter((c) => c.carrera !== "Inglés").map((c) => c.carrera))).sort((a, b) =>
-        a.localeCompare(b),
-      ),
-    [allCourses],
-  );
+  // Las carreras en las que un alumno puede estar inscrito, en el orden que fijó el admin en la
+  // pestaña "Pénsum". Sale del registro de carreras y no de deducirla del catálogo: así los grupos
+  // de cursos sueltos (Inglés) quedan fuera por su propia marca, y una carrera archivada desaparece
+  // de aquí sola. Si algo falla al cargarla, se cae al catálogo para no dejar la lista vacía.
+  const [pickableCarreras, setPickableCarreras] = useState<string[]>([]);
+  useEffect(() => {
+    let active = true;
+    getCarreras()
+      .then((list) => active && setPickableCarreras(list))
+      .catch(() => {
+        if (!active) return;
+        setPickableCarreras(Array.from(new Set(allCourses.map((c) => c.carrera))));
+      });
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allCourses.length]);
 
   function updateAdditional(id: string, patch: Partial<AdditionalEntry>) {
     setAdditional((rows) => rows.map((r) => (r.id === id ? { ...r, ...patch } : r)));
@@ -1015,7 +1023,7 @@ export function AdditionalRow({
               <span className="mt-0.5 block text-[12px] text-isel-ink/40">
                 {repetir
                   ? "Se abre en tu maestría; puedes cambiar a cualquier otra"
-                  : "Inglés y las seis maestrías, separadas por trimestre"}
+                  : "Todo el catálogo, separado por carrera y trimestre"}
               </span>
             </>
           )}

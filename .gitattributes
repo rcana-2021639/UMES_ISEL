@@ -1,0 +1,23 @@
+# Este repositorio se edita en Windows pero el contenedor corre en Linux.
+#
+# Git está configurado para convertir a CRLF al sacar los archivos (autocrlf).
+# Para un .cs o un .tsx da igual, pero para un script de shell NO: Linux
+# interpreta el retorno de carro como parte del nombre del intérprete y falla con
+# un "no such file or directory" que señala a /bin/sh y no dice nada útil.
+#
+# Estas reglas fuerzan LF en todo lo que ejecuta Linux, sin tocar el resto.
+*.sh            text eol=lf
+docker-entrypoint.sh text eol=lf
+Dockerfile      text eol=lf
+*.dockerfile    text eol=lf
+.dockerignore   text eol=lf
+
+# Los binarios no se tocan nunca: convertir saltos de línea dentro de un .xlsx o
+# un .docx lo corrompe, y son las plantillas de los formatos oficiales.
+*.xlsx          binary
+*.docx          binary
+*.pdf           binary
+*.png           binary
+*.jpg           binary
+*.avif          binary
+*.db            binary

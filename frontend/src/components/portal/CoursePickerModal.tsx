@@ -8,19 +8,19 @@ import { EmptyState, PortalButton, fieldClass } from "./kit";
  * Selector de curso adicional.
  *
  * Antes esto era un desplegable de autocompletar con TODO el catálogo dentro:
- * Inglés y las seis maestrías, cada una con sus trimestres, en una sola lista
- * de cientos de líneas. Para encontrar un curso había que acordarse del nombre
- * exacto o bajar a ciegas.
+ * todas las carreras con todos sus trimestres, en una sola lista de cientos de
+ * líneas. Para encontrar un curso había que acordarse del nombre exacto o bajar
+ * a ciegas.
  *
- * Ahora es lo que siempre debió ser: primero eliges de dónde —Inglés o una
- * maestría—, luego el trimestre, y solo entonces ves sus cursos, que son lo
- * único que se puede pulsar. El buscador sigue ahí para quien sí sabe el
- * nombre, y entonces enseña resultados planos diciendo de qué maestría y
- * trimestre viene cada uno, para que nadie elija el curso de otra carrera por
- * error.
+ * Ahora es lo que siempre debió ser: primero eliges de qué carrera, luego el
+ * trimestre, y solo entonces ves sus cursos, que son lo único que se puede
+ * pulsar. El buscador sigue ahí para quien sí sabe el nombre, y entonces enseña
+ * resultados planos diciendo de qué carrera y trimestre viene cada uno, para que
+ * nadie elija el curso de otra carrera por error.
+ *
+ * La lista de carreras sale del catálogo tal como lo devolvió el servidor, en el
+ * orden que fijó el admin en la pestaña "Pénsum".
  */
-
-const INGLES = "Inglés";
 
 interface CoursePickerModalProps {
   open: boolean;
@@ -57,12 +57,12 @@ export function CoursePickerModal({
   const [trimestre, setTrimestre] = useState<number | null>(null);
   const [query, setQuery] = useState("");
 
-  /** Inglés primero — es transversal a todas las maestrías, no una más. */
-  const groups = useMemo(() => {
-    const all = Array.from(new Set(courses.map((c) => c.carrera)));
-    const rest = all.filter((c) => c !== INGLES).sort((a, b) => a.localeCompare(b));
-    return all.includes(INGLES) ? [INGLES, ...rest] : rest;
-  }, [courses]);
+  /**
+   * En el orden en que vinieron del catálogo, que es el que el admin fijó en la
+   * pestaña "Pénsum" — antes esto ponía "Inglés" primero por su nombre escrito a
+   * mano aquí, y renombrarlo desde el panel lo mandaba al montón.
+   */
+  const groups = useMemo(() => Array.from(new Set(courses.map((c) => c.carrera))), [courses]);
 
   const current = group ?? groups[0] ?? null;
 
@@ -154,7 +154,7 @@ export function CoursePickerModal({
                       course={c}
                       selected={c.id === value}
                       onClick={() => choose(c.id)}
-                      caption={c.carrera === INGLES ? INGLES : `${c.carrera} · Trimestre ${c.trimestre}`}
+                      caption={`${c.carrera} · Trimestre ${c.trimestre}`}
                     />
                   </li>
                 ))}
@@ -168,7 +168,6 @@ export function CoursePickerModal({
             <div className="max-h-[24rem] overflow-y-auto rounded-xl border border-isel-line bg-white p-1.5">
               {groups.map((g) => {
                 const on = g === current;
-                const ingles = g === INGLES;
                 return (
                   <button
                     key={g}
@@ -179,7 +178,7 @@ export function CoursePickerModal({
                     }`}
                   >
                     <Icon
-                      name={ingles ? "sparkle" : "layers"}
+                      name="layers"
                       size={14}
                       className={on ? "text-isel-gold" : "text-isel-ink/30"}
                     />

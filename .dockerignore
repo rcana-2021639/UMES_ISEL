@@ -1,0 +1,35 @@
+# Lo que NO debe entrar en la imagen.
+#
+# Además de hacerla más ligera, esto es una medida de seguridad: sin estas
+# líneas, un `docker build` metería dentro de la imagen la base de datos con los
+# 170 alumnos, los DPI escaneados y la clave que firma las sesiones — y una
+# imagen se sube a un registro y se comparte.
+
+# Datos reales y secretos
+backend/**/App_Data/
+backend/**/*.db
+backend/**/*.db-shm
+backend/**/*.db-wal
+**/appsettings.Development.json
+**/.env
+**/.env.*
+
+# Artefactos de compilación (se compila dentro de la imagen)
+backend/**/bin/
+backend/**/obj/
+frontend/node_modules/
+frontend/dist/
+tools/**/node_modules/
+
+# El frontend no va en esta imagen: es estático y se publica aparte
+frontend/
+
+# Repositorio y herramientas
+.git/
+.github/
+.claude/
+tools/
+*.md
+
+# El script de arranque SÍ tiene que entrar (lo copia el Dockerfile)
+!docker-entrypoint.sh

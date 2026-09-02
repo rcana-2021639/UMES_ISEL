@@ -13,6 +13,10 @@ import { StudentFormModal } from "@/components/portal/StudentFormModal";
 import { CourseAssignmentForm } from "@/components/portal/CourseAssignmentForm";
 import { InscripcionesAdminPanels } from "@/components/inscripcion/InscripcionesAdminPanels";
 import { SolicitudesTituloAdminPanels } from "@/components/titulo/SolicitudesTituloAdminPanels";
+import { PensumAdminPanels } from "@/components/pensum/PensumAdminPanels";
+import { InicioAdminPanels } from "@/components/admin/InicioAdminPanels";
+import { SeguridadAdminPanels } from "@/components/admin/SeguridadAdminPanels";
+import { CambiarPasswordGate } from "@/components/admin/CambiarPasswordGate";
 import { StudentDocumentsPanel } from "@/components/portal/StudentDocumentsPanel";
 import { PrintOptionsModal, type PrintSelection } from "@/components/portal/PrintOptionsModal";
 import { getStudentDocumentos, openFichaYDocumentosPdf, openStudentDocumentosPdf } from "@/lib/studentDocumentsApi";
@@ -83,9 +87,15 @@ export function AdminPortalPage() {
   const session = getSession();
   const { confirm, dialog: confirmDialog } = useConfirm();
 
-  // Un solo panel de admin, tres superficies — los tres trámites públicos del sitio, cada uno como
-  // una pestaña en vez de una ruta aparte.
-  const [adminTab, setAdminTab] = useState<"asignaciones" | "inscripciones" | "titulos">("asignaciones");
+  // Un solo panel de admin: los tres trámites públicos del sitio, cada uno como una pestaña en vez
+  // de una ruta aparte, más el pénsum del que los tres se alimentan.
+  const [adminTab, setAdminTab] = useState<
+    "inicio" | "asignaciones" | "inscripciones" | "titulos" | "pensum" | "seguridad"
+  >("inicio");
+
+  // Una cuenta con contraseña temporal no llega al panel: la pantalla de cambio
+  // se interpone entera. Ver CambiarPasswordGate.
+  const [debeCambiar, setDebeCambiar] = useState(() => getSession()?.admin?.debeCambiarPassword ?? false);
 
   useEffect(() => {
     document.title = "Panel administrativo | ISEL";
@@ -129,7 +139,12 @@ export function AdminPortalPage() {
 
   // ---- Alumnos (CRUD) ----
   const [students, setStudents] = useState<Student[]>([]);
-  const [carnetFilter, setCarnetFilter] = useState("");
+  // Antes esto era un filtro por carné que había que confirmar con Enter o con
+  // el botón "Buscar", y cada pulsación iba al servidor. Con la lista completa
+  // ya en memoria no hace falta: se busca aquí, en vivo, y por lo que uno de
+  // verdad recuerda del alumno — su nombre tanto como su carné.
+  const [studentSearch, setStudentSearch] = useState("");
+  const [studentCarreraFilter, setStudentCarreraFilter] = useState("todas");
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [studentModalOpen, setStudentModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
@@ -137,11 +152,31 @@ export function AdminPortalPage() {
   async function loadStudents() {
     setLoadingStudents(true);
     try {
-      setStudents(await getStudents({ carnet: carnetFilter || undefined }));
+      setStudents(await getStudents());
     } finally {
       setLoadingStudents(false);
     }
   }
+
+  /** Las carreras que de verdad aparecen en el padrón, para el desplegable. */
+  const studentCarreras = useMemo(
+    () => Array.from(new Set(students.map((s) => s.carrera))).sort((a, b) => a.localeCompare(b)),
+    [students],
+  );
+
+  const filteredStudents = useMemo(() => {
+    const q = normalize(studentSearch.trim());
+    return students.filter((s) => {
+      if (studentCarreraFilter !== "todas" && s.carrera !== studentCarreraFilter) return false;
+      if (!q) return true;
+      return (
+        normalize(s.carnet).includes(q) ||
+        normalize(s.nombreCompleto).includes(q) ||
+        normalize(s.correoInstitucional ?? "").includes(q) ||
+        normalize(s.correoPersonal ?? "").includes(q)
+      );
+    });
+  }, [students, studentSearch, studentCarreraFilter]);
 
   useEffect(() => {
     loadStudents();
@@ -295,6 +330,10 @@ export function AdminPortalPage() {
   const linkCount = useMemo(() => assignments.filter((a) => a.tipoPago === "Link").length, [assignments]);
   const presencialCount = useMemo(() => assignments.filter((a) => a.tipoPago === "Presencial").length, [assignments]);
 
+  if (debeCambiar) {
+    return <CambiarPasswordGate onListo={() => setDebeCambiar(false)} />;
+  }
+
   return (
     <main className="min-h-screen bg-isel-paper pb-24">
       <PortalTopBar
@@ -333,16 +372,25 @@ export function AdminPortalPage() {
           value={adminTab}
           onChange={setAdminTab}
           options={[
+            { value: "inicio" as const, label: "Inicio" },
             { value: "asignaciones" as const, label: "Asignaciones" },
             { value: "inscripciones" as const, label: "Inscripciones" },
             { value: "titulos" as const, label: "Solicitudes de título" },
+            { value: "pensum" as const, label: "Pénsum" },
+            { value: "seguridad" as const, label: "Seguridad" },
           ]}
         />
 
-        {adminTab === "inscripciones" ? (
+        {adminTab === "inicio" ? (
+          <InicioAdminPanels />
+        ) : adminTab === "seguridad" ? (
+          <SeguridadAdminPanels />
+        ) : adminTab === "inscripciones" ? (
           <InscripcionesAdminPanels />
         ) : adminTab === "titulos" ? (
           <SolicitudesTituloAdminPanels />
+        ) : adminTab === "pensum" ? (
+          <PensumAdminPanels />
         ) : (
           <>
         {/* ------------------------------------------ fichas / impresión */}
@@ -555,16 +603,40 @@ export function AdminPortalPage() {
                 className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-isel-ink/30"
               />
               <input
-                value={carnetFilter}
-                onChange={(e) => setCarnetFilter(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && loadStudents()}
-                placeholder="Filtrar por carné y pulsa Enter…"
-                className={`${fieldClass} pl-10`}
+                value={studentSearch}
+                onChange={(e) => setStudentSearch(e.target.value)}
+                placeholder="Buscar por carné, nombre o correo…"
+                className={`${fieldClass} pl-10 pr-9`}
               />
+              {studentSearch && (
+                <button
+                  type="button"
+                  onClick={() => setStudentSearch("")}
+                  aria-label="Limpiar búsqueda"
+                  className="absolute right-2.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-isel-ink/35 transition-colors duration-200 hover:bg-isel-navy/[0.07] hover:text-isel-navy"
+                >
+                  <Icon name="close" size={14} />
+                </button>
+              )}
             </div>
-            <PortalButton tone="ghost" icon="search" onClick={loadStudents} loading={loadingStudents}>
-              Buscar
-            </PortalButton>
+            <select
+              value={studentCarreraFilter}
+              onChange={(e) => setStudentCarreraFilter(e.target.value)}
+              aria-label="Filtrar por carrera"
+              className={`${fieldClass} w-auto max-w-[22rem]`}
+            >
+              <option value="todas">Todas las carreras</option>
+              {studentCarreras.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            <span className="tabular text-[12.5px] text-isel-ink/45">
+              {filteredStudents.length === students.length
+                ? `${students.length} alumno${students.length === 1 ? "" : "s"}`
+                : `${filteredStudents.length} de ${students.length} alumnos`}
+            </span>
           </div>
 
           <div className="mt-5 overflow-hidden rounded-xl border border-isel-line">
@@ -573,8 +645,14 @@ export function AdminPortalPage() {
             ) : students.length === 0 ? (
               <EmptyState
                 icon="users"
-                title="Ningún alumno con ese carné"
-                hint="Vacía el filtro y pulsa Buscar para volver a ver la lista completa."
+                title="Todavía no hay ningún alumno"
+                hint="Agrega el primero con el botón de arriba, o revisa que el backend esté corriendo."
+              />
+            ) : filteredStudents.length === 0 ? (
+              <EmptyState
+                icon="search"
+                title="Ningún alumno coincide con la búsqueda"
+                hint="La búsqueda mira el carné, el nombre y los correos. Prueba también con “Todas las carreras”."
               />
             ) : (
               <div className="overflow-x-auto">
@@ -591,7 +669,7 @@ export function AdminPortalPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-isel-line/70">
-                    {students.map((s) => (
+                    {filteredStudents.map((s) => (
                       <tr key={s.id} className="group/tr relative transition-colors duration-200 ease-crisp hover:bg-isel-paper/60">
                         <Td className="tabular relative font-semibold text-isel-navy">
                           <span

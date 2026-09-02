@@ -3,17 +3,37 @@ using Microsoft.EntityFrameworkCore;
 using UmesIsel.Api.Data;
 using UmesIsel.Api.Models.Dtos;
 using UmesIsel.Api.Models.Entities;
+using UmesIsel.Api.Security;
+using UmesIsel.Api.Services;
 
 namespace UmesIsel.Api.Controllers;
 
-/// <summary>Admin CRUD over the student roster (used by the "Panel administrativo").</summary>
+/// <summary>
+/// El padrón de alumnos.
+///
+/// Todo lo que hay aquí son datos personales —nombres, correos, celulares— de
+/// 170 personas, así que el controlador entero exige sesión y por defecto es de
+/// administrador. Las dos únicas excepciones están marcadas una por una: un
+/// alumno puede consultar SU propia ficha, y nada más.
+///
+/// Antes esto estaba abierto: un GET a /api/students devolvía el padrón completo
+/// a cualquiera que supiera la dirección, y un DELETE borraba a quien fuera.
+/// </summary>
 [ApiController]
 [Route("api/[controller]")]
+[RequireAdmin]
 public class StudentsController : ControllerBase
 {
     private readonly IselDbContext _db;
+    private readonly CurrentUser _currentUser;
+    private readonly AuditService _audit;
 
-    public StudentsController(IselDbContext db) => _db = db;
+    public StudentsController(IselDbContext db, CurrentUser currentUser, AuditService audit)
+    {
+        _db = db;
+        _currentUser = currentUser;
+        _audit = audit;
+    }
 
     private static StudentDto ToDto(Student s, int documentosSubidos = 0) => new(
         s.Id, s.Carnet, s.PrimerApellido, s.SegundoApellido, s.PrimerNombre, s.SegundoNombre,
@@ -69,18 +89,28 @@ public class StudentsController : ControllerBase
         return Ok(carreras);
     }
 
+    /// <summary>El alumno puede pedir SU ficha; el admin, la de cualquiera.</summary>
     [HttpGet("{id:int}")]
+    [RequireOwnerOrAdmin(SessionRole.Student, "id")]
     public async Task<ActionResult<StudentDto>> GetById(int id)
     {
         var student = await _db.Students.AsNoTracking().FirstOrDefaultAsync(s => s.Id == id);
         return student is null ? NotFound() : Ok(ToDto(student, await CountDocumentos(id)));
     }
 
+    /// <summary>
+    /// Igual que el anterior pero por carné. Como la ruta trae el carné y no el
+    /// id, el atributo de dueño no sirve y la comprobación se hace aquí: se
+    /// busca primero y se compara el id con el de la sesión.
+    /// </summary>
     [HttpGet("by-carnet/{carnet}")]
+    [RequireSession]
     public async Task<ActionResult<StudentDto>> GetByCarnet(string carnet)
     {
         var student = await _db.Students.AsNoTracking().FirstOrDefaultAsync(s => s.Carnet == carnet);
-        return student is null ? NotFound() : Ok(ToDto(student, await CountDocumentos(student.Id)));
+        if (student is null) return NotFound();
+        if (!_currentUser.IsAdminOr(SessionRole.Student, student.Id)) return this.NoEsTuyo();
+        return Ok(ToDto(student, await CountDocumentos(student.Id)));
     }
 
     /// <summary>PUT /api/students/{id}/papeleria-en-orden — "¿Tiene su papelería al día?"; en Sí, el panel deja de pedir subir documentos.</summary>
@@ -167,6 +197,11 @@ public class StudentsController : ControllerBase
         return Ok(ToDto(student, await CountDocumentos(student.Id)));
     }
 
+    /// <summary>
+    /// Borra al alumno y, en cascada, sus fichas y documentos. Queda registrado
+    /// en la bitácora: es la operación más destructiva del panel y la pregunta
+    /// "¿quién borró a este alumno?" tiene que tener respuesta.
+    /// </summary>
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {
@@ -175,6 +210,9 @@ public class StudentsController : ControllerBase
 
         _db.Students.Remove(student);
         await _db.SaveChangesAsync();
+
+        await _audit.LogAsync(SecurityEventTypes.RegistroEliminado,
+            $"alumno {student.Carnet} ({student.NombreCompleto})", esAlerta: true);
         return NoContent();
     }
 }

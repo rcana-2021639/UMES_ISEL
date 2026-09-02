@@ -19,9 +19,30 @@ public static class CourseCatalogSeedData
     private const string InteligenciaNegocios = "Maestría en Administración de Empresas e Inteligencia de Negocios";
     private const string MarketingDigital = "Maestría en Marketing Digital y Comercio Electrónico";
     private const string AuditoriaDesempeno = "Maestría en Auditoria de desempeño";
+    private const string TeologiaPastoral = "Actualización profesional de la licenciatura en Teología con especialidad en Pastoral";
     private const string Ingles = "Inglés";
 
     public static readonly IReadOnlyList<Course> Courses = Build();
+
+    /// <summary>
+    /// El registro de carreras que acompaña al pénsum: mismo nombre exacto que
+    /// usan los cursos, más el tipo, si es un programa en el que uno se inscribe
+    /// y el orden en que se listan. A partir de aquí el admin lo edita desde la
+    /// pestaña "Pénsum" — esta lista solo es el punto de partida.
+    /// </summary>
+    public static readonly IReadOnlyList<Carrera> Carreras = new List<Carrera>
+    {
+        new() { Nombre = DocenciaSuperior, Tipo = "Maestría", EsPrograma = true, Orden = 1 },
+        new() { Nombre = InteligenciaNegocios, Tipo = "Maestría", EsPrograma = true, Orden = 2 },
+        new() { Nombre = MarketingDigital, Tipo = "Maestría", EsPrograma = true, Orden = 3 },
+        new() { Nombre = Fintech, Tipo = "Maestría", EsPrograma = true, Orden = 4 },
+        new() { Nombre = TalentoHumano, Tipo = "Maestría", EsPrograma = true, Orden = 5 },
+        new() { Nombre = AuditoriaDesempeno, Tipo = "Maestría", EsPrograma = true, Orden = 6 },
+        new() { Nombre = TeologiaPastoral, Tipo = "Actualización profesional", EsPrograma = true, Orden = 7 },
+        // Inglés no es un programa: nadie se inscribe en él, pero sus cursos I–IV
+        // se eligen como "curso adicional" al lado de cualquier maestría.
+        new() { Nombre = Ingles, Tipo = "Cursos libres", EsPrograma = false, Orden = 90 },
+    };
 
     private static IReadOnlyList<Course> Build()
     {
@@ -82,6 +103,15 @@ public static class CourseCatalogSeedData
         Add(AuditoriaDesempeno, 4, "Auditoría de desempeño III", "Formulación y evaluación de proyectos", "Comunicación oral y escrita");
         Add(AuditoriaDesempeno, 5, "Habilidades directivas", "Proyecto académico I");
         Add(AuditoriaDesempeno, 6, "Ética", "Proyecto académico II");
+
+
+        // Actualización profesional de la licenciatura en Teología con especialidad en Pastoral
+        // (el programa de los sacerdotes — hoja "Sacerdotes" del Excel del trimestre). No es una
+        // maestría, pero sí un programa en el que se inscribe gente, así que va en los tres trámites.
+        Add(TeologiaPastoral, 1, "Teología pastoral fundamental", "Iniciación cristiana de adultos");
+        Add(TeologiaPastoral, 2, "Teología pastoral social", "Metodología pastoral");
+        Add(TeologiaPastoral, 3, "Teología pastoral de la comunión", "Actualización del derecho canónico (Procedimientos en casos de abuso sexual y anulación de matrimonio)");
+        Add(TeologiaPastoral, 4, "Sacramento de la reconciliación y acompañamiento espiritual", "Seminario de pastoral juvenil");
 
         // Inglés I–IV — not a maestría; standalone courses offered alongside any program.
         Add(Ingles, 1, "Inglés I");

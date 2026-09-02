@@ -3,6 +3,13 @@ namespace UmesIsel.Api.Models.Dtos;
 /// <summary>POST /api/inscripciones/acceso — DPI o pasaporte, sin contraseña; crea el aspirante si no existía.</summary>
 public record InscripcionAccesoRequest(string? Dpi, string? Pasaporte);
 
+/// <summary>
+/// Lo que se devuelve al abrir un expediente de inscripción: el expediente y la
+/// llave para seguir trabajando en él. El token queda atado a ESE expediente, así
+/// que no sirve para abrir el del vecino.
+/// </summary>
+public record InscripcionAccesoResponse(ApplicantDto Aspirante, string Token, DateTimeOffset ExpiresAt);
+
 public record PreinscripcionDto(
     string NombreCompleto,
     string? Dpi,

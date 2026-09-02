@@ -18,9 +18,39 @@
     </PackageReference>
   </ItemGroup>
 
+  <!-- ===================== Elevaciones por seguridad =====================
+       Estas dos NO se usan directamente: entran como dependencias de otros
+       paquetes, que las traen en versiones con CVE conocido. Se declaran aquí
+       solo para forzar la versión parcheada (una referencia directa gana sobre
+       la transitiva). Se verifica con "dotnet list package" pasándole los
+       modificadores de paquetes vulnerables y transitivos, que debe salir limpio.
+
+       · SixLabors.ImageSharp — PdfSharpCore 1.3.67 (la última que existe) pide
+         la 1.0.4, que arrastra 7 avisos, 3 de severidad alta. La línea 1.x está
+         abandonada y no tiene parche, así que se sube a la 2.1.x, que sigue bajo
+         licencia Apache-2.0 (la 3.x cambió a una licencia comercial por tramos y
+         no quiero meter ese problema legal aquí). Nuestro código solo usa
+         PdfSharpCore para UNIR PDFs, nunca para decodificar imágenes, que es
+         donde viven esos CVE — pero la app sí recibe imágenes del público (la
+         foto de la solicitud de título), así que no se deja la versión vulnerable
+         cargada en el proceso "porque no se llama".
+
+       · SQLitePCLRaw — EF Core 8.0.11 trae la 2.1.6 (aviso de severidad alta en
+         la librería nativa de SQLite). Se sube dentro de la misma línea 2.1.x
+         para no salirse de lo que EF Core 8 soporta. -->
+  <ItemGroup>
+    <PackageReference Include="SixLabors.ImageSharp" Version="2.1.13" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.13" />
+  </ItemGroup>
+
   <ItemGroup>
     <!-- Seed data (student roster imported from the trimester Excel) travels with the build. -->
     <Content Update="Data\Seed\students.seed.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <!-- Roster de la Actualización en Teología (hoja "Sacerdotes" del mismo Excel). Va aparte
+         porque llegó después: se importa aunque la base ya tenga alumnos. -->
+    <Content Update="Data\Seed\sacerdotes.seed.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <!-- The official "Ficha de Asignación de Cursos" workbook — FichaXlsxBuilder fills a copy of

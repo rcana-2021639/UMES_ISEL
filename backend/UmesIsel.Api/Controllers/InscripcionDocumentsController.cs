@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using UmesIsel.Api.Data;
 using UmesIsel.Api.Models.Dtos;
 using UmesIsel.Api.Models.Entities;
+using UmesIsel.Api.Security;
 using UmesIsel.Api.Services;
 
 namespace UmesIsel.Api.Controllers;
@@ -11,8 +12,14 @@ namespace UmesIsel.Api.Controllers;
 /// Documentos en PDF que un aspirante sube para su carta de compromiso — opcional, uno a la vez
 /// (subir solo el DPI porque es lo único que faltaba no debería obligar a resubir todo lo demás).
 /// </summary>
+/// <summary>
+/// Papelería del aspirante de nuevo ingreso. Mismo criterio que la del alumno:
+/// solo el dueño del expediente o un administrador. El "dueño" aquí es la sesión
+/// que se abrió con ese DPI (ver InscripcionesController.Acceso).
+/// </summary>
 [ApiController]
 [Route("api/inscripciones/{applicantId:int}/documentos")]
+[RequireOwnerOrAdmin(SessionRole.Applicant, "applicantId")]
 public class InscripcionDocumentsController : ControllerBase
 {
     private readonly IselDbContext _db;
