@@ -4,7 +4,8 @@ frontend/dist/
 frontend/.vite/
 frontend/*.local
 frontend/.env
-frontend/.env.*.local
+frontend/.env.*
+!frontend/.env.production.example
 frontend/*.tsbuildinfo
 frontend/vite.config.js
 frontend/vite.config.d.ts
@@ -23,7 +24,8 @@ backend/**/*.db-shm
 backend/**/*.db-wal
 backend/**/*.db.bak-*
 
-# --- Documentos subidos (DPI, títulos, fotos...) — nunca al repo ---
+# --- Documentos subidos (DPI, títulos, fotos...), clave de firma de sesiones y
+#     respaldos de la base — NADA de App_Data va al repositorio ---
 backend/**/App_Data/
 
 # --- Editors / OS ---

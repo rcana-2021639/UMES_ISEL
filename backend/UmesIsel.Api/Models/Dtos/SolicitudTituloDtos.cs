@@ -1,7 +1,15 @@
 namespace UmesIsel.Api.Models.Dtos;
 
 /// <summary>POST /api/solicitudes-titulo/acceso — solo el carné, sin contraseña (igual que el portal de asignación).</summary>
-public record SolicitudTituloAccesoRequest(string Carnet);
+/// <summary>
+/// Acceso a la solicitud de título: carné MÁS correo institucional, igual que el
+/// portal del alumno. Antes bastaba el carné, y esta ficha lleva fotografía y
+/// firma digitalizadas — de lo más sensible que guarda la aplicación.
+/// </summary>
+public record SolicitudTituloAccesoRequest(string Carnet, string? CorreoInstitucional);
+
+/// <summary>La solicitud y la llave de sesión para poder seguir editándola.</summary>
+public record SolicitudTituloAccesoResponse(SolicitudTituloDto Solicitud, string Token, DateTimeOffset ExpiresAt);
 
 /// <summary>La solicitud completa — lo que el formulario carga para reanudar y lo que el admin ve.</summary>
 public record SolicitudTituloDto(

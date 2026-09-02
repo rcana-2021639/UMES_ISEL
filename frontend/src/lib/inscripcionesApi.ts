@@ -1,5 +1,5 @@
-import { http, ApiError } from "@/lib/http";
-import { API_BASE } from "@/lib/config";
+import { http, postFile, openProtectedFile } from "@/lib/http";
+import { guardarSesionExterna } from "@/lib/auth";
 import { openPdf } from "@/lib/printPdf";
 import { toDateParam } from "@/lib/assignmentsApi";
 import type { Student } from "@/types/student";
@@ -19,9 +19,22 @@ import type {
 
 export type EstadoInscripcion = "todas" | "completa" | "pendiente";
 
-/** POST /api/inscripciones/acceso — DPI o pasaporte, sin contraseña; crea el aspirante o reanuda si ya existía. */
-export function accesoInscripcion(input: { dpi?: string; pasaporte?: string }): Promise<Applicant> {
-  return http.post<Applicant>("/api/inscripciones/acceso", input);
+/**
+ * POST /api/inscripciones/acceso — DPI o pasaporte; crea el expediente o reanuda
+ * el que ya había.
+ *
+ * Además del expediente devuelve la LLAVE de la sesión, atada a ese expediente
+ * concreto. Se guarda aquí mismo porque todo lo que viene después —guardar cada
+ * sección, subir documentos, imprimir— ya la exige; antes esos endpoints estaban
+ * abiertos y bastaba cambiar el número de la URL para leer el de otro.
+ */
+export async function accesoInscripcion(input: { dpi?: string; pasaporte?: string }): Promise<Applicant> {
+  const res = await http.post<{ aspirante: Applicant; token: string; expiresAt: string }>(
+    "/api/inscripciones/acceso",
+    input,
+  );
+  guardarSesionExterna("applicant", res.token, res.expiresAt);
+  return res.aspirante;
 }
 
 export function getApplicant(id: number): Promise<Applicant> {
@@ -63,24 +76,17 @@ export function getDocumentos(applicantId: number): Promise<ApplicantDocument[]>
   return http.get<ApplicantDocument[]>(`/api/inscripciones/${applicantId}/documentos`);
 }
 
-/** URL directa del PDF ya subido — para el botón "Ver" (se abre en una pestaña nueva, no hace falta pasar por fetch). */
-export function getDocumentoUrl(applicantId: number, tipo: DocumentoTipo): string {
-  return `${API_BASE}/api/inscripciones/${applicantId}/documentos/${tipo}/archivo`;
+/**
+ * Abre el PDF ya subido — el botón "Ver". Se descarga con la sesión puesta y se
+ * abre el blob: el archivo está protegido y un <a href> no manda la cabecera.
+ */
+export function abrirDocumento(applicantId: number, tipo: DocumentoTipo): Promise<void> {
+  return openProtectedFile(`/api/inscripciones/${applicantId}/documentos/${tipo}/archivo`);
 }
 
 /** Sube un PDF para un tipo de documento — reemplaza cualquier subida anterior de ese mismo tipo. */
-export async function uploadDocumento(applicantId: number, tipo: DocumentoTipo, file: File): Promise<ApplicantDocument> {
-  const form = new FormData();
-  form.append("file", file);
-  const res = await fetch(`${API_BASE}/api/inscripciones/${applicantId}/documentos/${tipo}`, {
-    method: "POST",
-    body: form,
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new ApiError(text || `Error ${res.status}`, res.status);
-  }
-  return (await res.json()) as ApplicantDocument;
+export function uploadDocumento(applicantId: number, tipo: DocumentoTipo, file: File): Promise<ApplicantDocument> {
+  return postFile<ApplicantDocument>(`/api/inscripciones/${applicantId}/documentos/${tipo}`, file);
 }
 
 export function deleteDocumento(applicantId: number, tipo: DocumentoTipo): Promise<void> {

@@ -23,6 +23,14 @@ entran con su DPI) y **Solicitud de título** (alumnos por graduarse, entran con
 su carné). Los tres imprimen el FORMATO oficial de la universidad sin tocar su
 diseño, y los tres tienen su pestaña en el panel de admin.
 
+**Fase 4 — Pénsum editable**: el plan de estudios deja de estar clavado en el
+código y pasa a una cuarta pestaña del panel (**Pénsum**), desde donde el admin
+crea, renombra, archiva y borra carreras y edita sus cursos trimestre por
+trimestre; los tres trámites leen de ahí en el acto. Entra también la
+**Actualización profesional de la licenciatura en Teología con especialidad en
+Pastoral** (el programa de los sacerdotes) con su roster y su pénsum de cuatro
+trimestres.
+
 ## Stack
 
 - **Backend**: ASP.NET Core Web API (.NET 8) + Entity Framework Core (SQLite) — `backend/UmesIsel.Api`
@@ -83,6 +91,11 @@ las migraciones y — solo si la tabla `Students` está vacía — importa el
 roster real desde `Data/Seed/students.seed.json` (144 alumnos, ver el
 `README.md` de esa carpeta). Las corridas siguientes no vuelven a importar.
 
+Aparte va `Data/Seed/sacerdotes.seed.json` (26 alumnos de la Actualización en
+Teología, hoja "Sacerdotes" del mismo Excel): ese sí se importa aunque la base
+ya tenga alumnos, porque llegó después — se salta solo si la base ya tiene algún
+alumno de esa carrera.
+
 Si cambias algún `Model/Entities/*`, genera una migración nueva:
 ```bash
 dotnet tool install --global dotnet-ef   # una sola vez
@@ -117,13 +130,27 @@ Solo copia el archivo con ese nombre exacto — no hay que tocar código.
 
 ## Portal ISEL (alumno y administrador)
 
-Un solo campo de texto decide a dónde va el usuario — no hay contraseña:
+La pantalla de acceso tiene dos puertas separadas:
 
-- **Carné de un alumno real** (de `Data/Seed/students.seed.json`, p. ej.
-  `202630503`) → entra a su ficha de asignación de cursos.
-- **El código de administrador** (`AdminAccess:Code` en
-  `backend/UmesIsel.Api/appsettings.json`, por defecto `ADMINISEL2026`) →
-  entra al panel administrativo. Cámbialo ahí cuando quieras.
+- **Soy alumno** — carné **+ correo institucional** (@umes.edu.gt; basta con lo
+  que va antes de la arroba). Los carnés son correlativos, así que pedir solo el
+  carné permitía entrar como cualquier alumno contando hacia arriba.
+- **Administración** — usuario y contraseña. Son cuentas nombradas (ver
+  `Models/Entities/AdminUser.cs`), no un código compartido: se sabe quién hizo
+  cada cosa y se le puede quitar el acceso a una persona sin cambiarle la clave a
+  todas. La primera se crea sola al arrancar; si no configuras
+  `AdminAccess__BootstrapPassword`, se genera una y **se escribe en el log de
+  arranque**.
+
+Al entrar, el servidor emite un **token de sesión firmado** que el navegador
+reenvía en `Authorization: Bearer`. Ese token es lo único que da acceso: el
+servidor lo verifica y vuelve a leer el rol de la base en cada llamada, así que
+desactivar una cuenta surte efecto al instante. Lo que hay guardado en el
+navegador ya no decide nada.
+
+> **Seguridad y despliegue**: todo lo relativo a salir a producción —dominio,
+> HTTPS, variables de entorno, respaldos y la lista de comprobación del día del
+> lanzamiento— está en **[DESPLIEGUE.md](DESPLIEGUE.md)**.
 
 ### Alumno (`/portal/estudiante`)
 Ve sus datos (de la base de datos, no editables). **"Cursos por
@@ -168,20 +195,55 @@ Vuelve a entrar con el mismo carné para ver/editar lo guardado.
   (`Services/FichaPdfBuilder.cs`). "Imprimir todas" abre un solo PDF
   combinado con todas las fichas del rango/filtro, una por página. El tipo
   de pago nunca se escribe en el archivo — es admin-only.
-- **Alumnos**: tabla filtrable por carné, con **Agregar alumno** (pide todos
+- **Inicio**: el resumen del trimestre (fichas de hoy, papelería pendiente,
+  aspirantes a medias, último respaldo, y el desglose por carrera), la
+  **exportación a CSV** de alumnos/fichas/inscripciones y la **carga masiva**
+  desde el Excel del trimestre. La carga siempre hace primero una pasada en
+  seco: enseña qué pasaría —altas, actualizaciones y filas que se omiten, con
+  su motivo— y solo escribe si se confirma. Nunca borra a nadie.
+- **Seguridad**: las cuentas del panel, la **bitácora** (quién entró, qué se
+  borró, qué se exportó, y los intentos fallidos) y los **respaldos**.
+- **Alumnos**: tabla con búsqueda en vivo por **carné, nombre o correo** y
+  filtro por carrera, con **Agregar alumno** (pide todos
   los campos del Excel — carné, nombres, carrera, sección, trimestre,
   correos, celular) para no tener que tocar la base de datos a mano, más
   Editar/Eliminar y "Ver ficha" (abre/edita la ficha de ese alumno). Editar y
   Eliminar siempre piden confirmación en una alerta centrada en pantalla
   (nunca el `confirm()` nativo del navegador).
 
-El catálogo de cursos (`Courses`, con Carrera/Trimestre/Nombre) ya no lo
-administra nadie desde la interfaz — se carga una sola vez, al iniciar el
-backend por primera vez, desde `backend/UmesIsel.Api/Data/CourseCatalogSeedData.cs`,
-transcrito directamente de los pénsums oficiales de cada maestría. Para
-corregir un curso, edita ese archivo (no la base de datos a mano) y borra
-`isel.db` para que se vuelva a sembrar, o ajústalo con una migración si ya
-hay fichas guardadas que no quieres perder.
+### Pénsum (pestaña del panel de admin)
+
+El plan de estudios se edita **desde la interfaz**, en la pestaña **Pénsum**.
+Ahí están todas las carreras —las seis maestrías, la Actualización en Teología
+de los sacerdotes y los cursos sueltos de Inglés— con su pénsum abierto por
+trimestres. Se puede: crear una carrera, renombrarla, archivarla, eliminarla, y
+dentro de cada una agregar/editar/quitar cursos y trimestres enteros.
+
+Lo que se guarde ahí sale **al instante** en los tres trámites (asignación,
+inscripción y solicitud de título), porque los tres leen de la misma tabla
+`Courses`: no hay una segunda copia del pénsum en el código.
+
+Tres reglas que sostienen el módulo (ver `Services/PensumService.cs`):
+
+- **Renombrar arrastra.** El nombre de la carrera es la clave con la que
+  consulta media aplicación (`Students.Carrera`, `CourseAssignments.Carrera`,
+  `Preinscripciones.Carrera`…). Al renombrar se actualizan las ocho tablas que
+  lo guardan, en una sola transacción. Si no, los alumnos quedarían apuntando a
+  una carrera inexistente y su pénsum saldría vacío.
+- **Borrar ≠ archivar.** Una carrera con alumnos, fichas o expedientes NO se
+  puede borrar (el servidor responde 409 diciendo cuántos la usan); la salida es
+  **archivarla**: desaparece de los formularios y el historial sigue en pie.
+- **Las fichas ya guardadas no se tocan.** Cambiar el pénsum no reescribe una
+  ficha firmada: sigue diciendo lo que decía el día que se imprimió.
+
+El punto de partida sigue siendo `Data/CourseCatalogSeedData.cs`, pero ya solo
+se usa la primera vez que la base ve una carrera (ver `DbInitializer.SeedPensum`):
+nunca pisa lo que el admin haya editado, y si borra una carrera a propósito,
+reiniciar el backend no la resucita.
+
+Todos los endpoints de escritura del pénsum exigen el código de administrador en
+la cabecera `X-Admin-Code` (`Security/AdminOnlyAttribute.cs`); el frontend lo
+manda solo desde una sesión de admin (`lib/http.ts`).
 
 ## Solicitud de impresión de título (`/solicitud-titulo`)
 
@@ -218,3 +280,12 @@ Secretaría ya la recibió.
 - Animaciones: reveal-on-scroll en toda la página, tilt 3D por cursor en
   tarjetas (no es un "aura" global, solo la tarjeta bajo el cursor reacciona),
   navbar que se transforma al hacer scroll, botones con micro-interacciones.
+- **Metodología** no lleva imágenes: es tipografía sobre el fondo, sin tarjeta,
+  con un filete vertical que se llena del color del paso activo. El movimiento
+  son tres capas que no compiten por la misma propiedad — entrada (una vez),
+  parallax de lectura sobre el encabezado, y el encendido palabra a palabra del
+  párrafo con el scroll.
+- El navbar lleva un botón **Canvas** (aula virtual, se abre en otra pestaña).
+  Va en el grupo de acciones de la derecha y no dentro de `<nav>`, para que la
+  píldora deslizante que marca la sección activa no lo cuente y la animación de
+  la barra quede igual.

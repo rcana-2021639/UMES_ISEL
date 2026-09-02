@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useReducedMotion } from "framer-motion";
-import { login } from "@/lib/auth";
+import { loginAdmin, loginEstudiante } from "@/lib/auth";
+import { ApiError } from "@/lib/http";
 import { ImageSlot } from "@/components/ui/ImageSlot";
 import { Icon } from "@/components/portal/Icon";
-import { Alert, PortalButton } from "@/components/portal/kit";
+import { Alert, PortalButton, Segmented, fieldClass } from "@/components/portal/kit";
 
 /**
  * Asignación — acceso al portal.
@@ -35,8 +36,21 @@ const PASOS = [
 /** Nº de dígitos del carné que el emblema cuenta. Los de la UMES son de 9. */
 const SLOTS = 9;
 
+type Modo = "alumno" | "admin";
+
 export function LoginPage() {
+  // Dos puertas separadas en vez de una caja que aceptaba "un carné o el código
+  // de admin". Con una sola, la misma petición podía acabar en el panel
+  // administrativo y probar valores al azar tenía como premio mayor el control
+  // total; además obligaba a que el mensaje de error sirviera para los dos
+  // casos, que es como se acaba diciendo de más.
+  const [modo, setModo] = useState<Modo>("alumno");
+
   const [value, setValue] = useState("");
+  const [correo, setCorreo] = useState("");
+  const [usuario, setUsuario] = useState("");
+  const [password, setPassword] = useState("");
+
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -51,21 +65,28 @@ export function LoginPage() {
     return () => window.clearTimeout(id);
   }, []);
 
+  const puedeEnviar =
+    modo === "alumno" ? value.trim().length > 0 && correo.trim().length > 0 : usuario.trim().length > 0 && password.length > 0;
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!value.trim()) return;
+    if (!puedeEnviar || loading) return;
     setLoading(true);
     setError(null);
     try {
-      const session = await login(value.trim());
-      const programa = searchParams.get("programa");
-      if (session.role === "admin") {
-        navigate("/portal/admin");
-      } else {
+      if (modo === "alumno") {
+        await loginEstudiante(value.trim(), correo.trim());
+        const programa = searchParams.get("programa");
         navigate(`/portal/estudiante${programa ? `?programa=${programa}` : ""}`);
+      } else {
+        await loginAdmin(usuario.trim(), password);
+        navigate("/portal/admin");
       }
-    } catch {
-      setError("No encontramos ese carné. Verifica el número e intenta de nuevo.");
+    } catch (err) {
+      // El mensaje del servidor es deliberadamente ambiguo (no dice si falló el
+      // usuario o la contraseña) y ya viene redactado para leerse; se muestra
+      // tal cual en vez de inventar aquí uno que diga de más.
+      setError(err instanceof ApiError ? err.message : "No se pudo conectar con el servidor. Revisa tu conexión.");
     } finally {
       setLoading(false);
     }
@@ -118,14 +139,18 @@ export function LoginPage() {
               Tu ficha empieza aquí
             </h1>
 
-            <div className={`mt-10 flex justify-center lg:justify-start ${beat} ${state}`} style={delay(380)}>
-              <CarnetOrb value={value} error={error !== null} reduce={!!reduce} />
-            </div>
+            {modo === "alumno" && (
+              <div className={`mt-10 flex justify-center lg:justify-start ${beat} ${state}`} style={delay(380)}>
+                <CarnetOrb value={value} error={error !== null} reduce={!!reduce} />
+              </div>
+            )}
           </div>
 
           <p className={`flex items-center gap-2.5 text-[12.5px] text-white/35 ${beat} ${state}`} style={delay(620)}>
             <Icon name="lock" size={14} />
-            Tu carné es lo único que necesitas: este portal no usa contraseña.
+            {modo === "alumno"
+              ? "Tu carné y tu correo institucional: los dos, para que nadie entre por ti."
+              : "Acceso administrativo. Cada cuenta tiene su propia contraseña."}
           </p>
         </div>
       </section>
@@ -139,45 +164,131 @@ export function LoginPage() {
             <BackButton to="/">Volver al inicio</BackButton>
           </div>
 
-          <div className={`${beat} ${state}`} style={delay(300)}>
-            <p className="text-[10.5px] font-bold uppercase tracking-[0.2em] text-isel-gold2">Ingreso de estudiantes</p>
+          <div className={`${beat} ${state}`} style={delay(260)}>
+            <Segmented
+              value={modo}
+              onChange={(m) => {
+                setModo(m);
+                setError(null);
+              }}
+              options={[
+                { value: "alumno" as const, label: "Soy alumno" },
+                { value: "admin" as const, label: "Administración" },
+              ]}
+            />
+          </div>
+
+          <div className={`mt-8 ${beat} ${state}`} style={delay(300)}>
+            <p className="text-[10.5px] font-bold uppercase tracking-[0.2em] text-isel-gold2">
+              {modo === "alumno" ? "Ingreso de estudiantes" : "Ingreso administrativo"}
+            </p>
             <h2 className="mt-3 font-display text-[1.9rem] font-semibold leading-[1.05] tracking-ultratight text-isel-navy">
-              Escribe tu carné
+              {modo === "alumno" ? "Escribe tu carné" : "Entra con tu cuenta"}
             </h2>
             <p className="mt-3 text-[14px] leading-relaxed text-isel-ink/55">
-              El mismo número que aparece en tus registros de la Universidad Mesoamericana.
+              {modo === "alumno"
+                ? "Tu carné y tu correo institucional (@umes.edu.gt), tal como los tiene la Universidad."
+                : "La cuenta que te dieron para administrar el portal. Si es la primera vez, se te pedirá cambiar la contraseña."}
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className={`mt-9 ${beat} ${state}`} style={delay(420)}>
-            <label className="block">
-              <span className="mb-3 block text-[10.5px] font-bold uppercase tracking-[0.16em] text-isel-ink/45">
-                Número de carné
-              </span>
+            {modo === "alumno" ? (
+              <>
+                <label className="block">
+                  <span className="mb-3 block text-[10.5px] font-bold uppercase tracking-[0.16em] text-isel-ink/45">
+                    Número de carné
+                  </span>
 
-              <div className="relative">
-                <input
-                  autoFocus
-                  inputMode="numeric"
-                  value={value}
-                  onChange={(e) => {
-                    setValue(e.target.value);
-                    if (error) setError(null);
-                  }}
-                  onFocus={() => setFocused(true)}
-                  onBlur={() => setFocused(false)}
-                  placeholder="202630503"
-                  aria-invalid={error !== null}
-                  className="carnet-input w-full border-0 border-b-2 border-isel-line bg-transparent px-0 pb-3 font-display text-[2rem] font-semibold text-isel-navy transition-colors duration-300 ease-crisp placeholder:font-normal placeholder:text-isel-ink/20 focus:outline-none sm:text-[2.4rem]"
-                />
-                <span
-                  aria-hidden
-                  className={`absolute -bottom-[2px] left-0 h-[2px] w-full origin-left transition-[transform,background-color] duration-[600ms] ease-snap ${
-                    error ? "bg-isel-alert" : "bg-isel-emerald"
-                  } ${focused || value ? "scale-x-100" : "scale-x-0"}`}
-                />
-              </div>
-            </label>
+                  <div className="relative">
+                    <input
+                      autoFocus
+                      inputMode="numeric"
+                      autoComplete="username"
+                      value={value}
+                      onChange={(e) => {
+                        setValue(e.target.value);
+                        if (error) setError(null);
+                      }}
+                      onFocus={() => setFocused(true)}
+                      onBlur={() => setFocused(false)}
+                      placeholder="202630503"
+                      aria-invalid={error !== null}
+                      className="carnet-input w-full border-0 border-b-2 border-isel-line bg-transparent px-0 pb-3 font-display text-[2rem] font-semibold text-isel-navy transition-colors duration-300 ease-crisp placeholder:font-normal placeholder:text-isel-ink/20 focus:outline-none sm:text-[2.4rem]"
+                    />
+                    <span
+                      aria-hidden
+                      className={`absolute -bottom-[2px] left-0 h-[2px] w-full origin-left transition-[transform,background-color] duration-[600ms] ease-snap ${
+                        error ? "bg-isel-alert" : "bg-isel-emerald"
+                      } ${focused || value ? "scale-x-100" : "scale-x-0"}`}
+                    />
+                  </div>
+                </label>
+
+                <label className="mt-7 block">
+                  <span className="mb-2 block text-[10.5px] font-bold uppercase tracking-[0.16em] text-isel-ink/45">
+                    Correo institucional
+                  </span>
+                  <input
+                    // type="text" y NO "email": la ayuda de abajo dice que basta
+                    // con lo que va antes de la arroba, y con type="email" el
+                    // navegador rechaza eso con su propia validación y bloquea el
+                    // envío SIN mensaje — el botón simplemente no hacía nada.
+                    type="text"
+                    inputMode="email"
+                    autoComplete="email"
+                    value={correo}
+                    onChange={(e) => {
+                      setCorreo(e.target.value);
+                      if (error) setError(null);
+                    }}
+                    placeholder="apellidonombre@umes.edu.gt"
+                    aria-invalid={error !== null}
+                    className={fieldClass}
+                  />
+                  <span className="mt-2 block text-[12px] leading-snug text-isel-ink/40">
+                    El de @umes.edu.gt. Si no te lo sabes completo, basta con lo que va antes de la arroba.
+                  </span>
+                </label>
+              </>
+            ) : (
+              <>
+                <label className="block">
+                  <span className="mb-2 block text-[10.5px] font-bold uppercase tracking-[0.16em] text-isel-ink/45">
+                    Usuario
+                  </span>
+                  <input
+                    autoFocus
+                    autoComplete="username"
+                    value={usuario}
+                    onChange={(e) => {
+                      setUsuario(e.target.value);
+                      if (error) setError(null);
+                    }}
+                    placeholder="tu.usuario"
+                    aria-invalid={error !== null}
+                    className={fieldClass}
+                  />
+                </label>
+
+                <label className="mt-6 block">
+                  <span className="mb-2 block text-[10.5px] font-bold uppercase tracking-[0.16em] text-isel-ink/45">
+                    Contraseña
+                  </span>
+                  <input
+                    type="password"
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      if (error) setError(null);
+                    }}
+                    aria-invalid={error !== null}
+                    className={fieldClass}
+                  />
+                </label>
+              </>
+            )}
 
             {error && (
               <div className="mt-6">
@@ -192,7 +303,7 @@ export function LoginPage() {
               iconRight
               full
               loading={loading}
-              disabled={!value.trim()}
+              disabled={!puedeEnviar}
               className="mt-8 py-3.5 text-[14px]"
             >
               Entrar al portal

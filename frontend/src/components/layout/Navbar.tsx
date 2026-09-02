@@ -16,6 +16,9 @@ const NAV_LINKS = [
 
 const IDS = NAV_LINKS.map((l) => l.id);
 
+/** El aula virtual de ISEL. Es otro sitio, no una sección de este. */
+const CANVAS_URL = "https://isel.instructure.com/login/canvas";
+
 /**
  * Navegación solo-ISEL. Todo lo que apuntaba al resto del sitio UMES
  * (Facultades, UMES virtual, Egresados, buscador...) no vive aquí; en su lugar
@@ -108,6 +111,31 @@ export function Navbar() {
           </nav>
 
           <div className="hidden shrink-0 items-center gap-2 lg:flex">
+            {/* Canvas vive fuera de este sitio, así que no es un enlace de texto más
+                entre los tres trámites: va en cápsula con borde y con la flecha que
+                anuncia que se abre en otra pestaña. Al ir en el grupo de acciones y
+                no en <nav>, la píldora deslizante (layoutId) no lo ve y la animación
+                de la barra queda exactamente igual que antes. */}
+            <a
+              href={CANVAS_URL}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="group/canvas inline-flex items-center gap-1.5 rounded-full border border-white/20 px-3.5 py-2 text-[13px] font-semibold text-white/75 transition-[color,border-color,background-color] duration-300 ease-snap hover:border-white/40 hover:bg-white/[0.07] hover:text-white"
+            >
+              Canvas
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+                className="h-3 w-3 opacity-60 transition-transform duration-300 ease-snap group-hover/canvas:-translate-y-px group-hover/canvas:translate-x-px"
+              >
+                <path d="M8 16L16 8M9 8h7v7" />
+              </svg>
+            </a>
             <Link
               to="/portal/login"
               className="rounded-full px-3.5 py-2.5 text-[13px] font-semibold text-white/75 transition-colors duration-300 ease-snap hover:text-white"
@@ -211,6 +239,27 @@ export function Navbar() {
               >
                 Solicitud de título
               </Link>
+              <a
+                href={CANVAS_URL}
+                target="_blank"
+                rel="noreferrer noopener"
+                onClick={() => setMobileOpen(false)}
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-white/25 px-6 py-4 text-center text-sm font-bold uppercase tracking-[0.12em] text-white/85"
+              >
+                Canvas
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                  className="h-3.5 w-3.5 opacity-60"
+                >
+                  <path d="M8 16L16 8M9 8h7v7" />
+                </svg>
+              </a>
             </motion.div>
           </motion.div>
         )}

@@ -1,4 +1,4 @@
-import { ApiError } from "@/lib/http";
+import { ApiError, authHeaders } from "@/lib/http";
 import { API_BASE } from "@/lib/config";
 
 /**
@@ -14,7 +14,9 @@ import { API_BASE } from "@/lib/config";
  * iframe is never blocked, so there's no "must be a synchronous click, before any await" constraint.
  */
 export async function openPdf(path: string): Promise<void> {
-  const res = await fetch(`${API_BASE}${path}`);
+  // Con la sesión puesta: estos PDF llevan datos personales y el servidor ya no
+  // los entrega sin token.
+  const res = await fetch(`${API_BASE}${path}`, { headers: authHeaders() });
   if (!res.ok) {
     const text = await res.text();
     let message = text || `Error ${res.status}`;

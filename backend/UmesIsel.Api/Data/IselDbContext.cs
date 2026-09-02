@@ -12,6 +12,10 @@ public class IselDbContext : DbContext
     public DbSet<AssignedCourseRow> AssignedCourseRows => Set<AssignedCourseRow>();
     public DbSet<AdditionalCourseRow> AdditionalCourseRows => Set<AdditionalCourseRow>();
     public DbSet<Course> Courses => Set<Course>();
+    public DbSet<Carrera> Carreras => Set<Carrera>();
+
+    public DbSet<AdminUser> AdminUsers => Set<AdminUser>();
+    public DbSet<SecurityEvent> SecurityEvents => Set<SecurityEvent>();
 
     public DbSet<Applicant> Applicants => Set<Applicant>();
     public DbSet<Preinscripcion> Preinscripciones => Set<Preinscripcion>();
@@ -29,6 +33,37 @@ public class IselDbContext : DbContext
         modelBuilder.Entity<Student>(e =>
         {
             e.HasIndex(s => s.Carnet).IsUnique();
+        });
+
+        // Cuentas del panel. El usuario se guarda ya en minúsculas (ver
+        // AuthController), así que un índice único normal basta para que no
+        // existan "mrodriguez" y "MRodriguez" como cuentas distintas.
+        modelBuilder.Entity<AdminUser>(e =>
+        {
+            e.HasIndex(a => a.Username).IsUnique();
+        });
+
+        // Bitácora de seguridad. Los índices son los de las dos preguntas que se
+        // le hacen: "¿qué pasó últimamente?" y "¿qué alertas hay?".
+        modelBuilder.Entity<SecurityEvent>(e =>
+        {
+            e.HasIndex(x => x.OcurridoEn);
+            e.HasIndex(x => new { x.EsAlerta, x.OcurridoEn });
+        });
+
+        // Registro de carreras del pénsum. El nombre es la clave real con la que
+        // el resto de la app consulta (Students.Carrera, Courses.Carrera...), así
+        // que no puede haber dos iguales — ver PensumService.
+        modelBuilder.Entity<Carrera>(e =>
+        {
+            e.HasIndex(c => c.Nombre).IsUnique();
+        });
+
+        // El pénsum no puede tener el mismo curso dos veces en el mismo trimestre
+        // de la misma carrera: sale duplicado en la ficha impresa.
+        modelBuilder.Entity<Course>(e =>
+        {
+            e.HasIndex(c => new { c.Carrera, c.Trimestre, c.Nombre }).IsUnique();
         });
 
         modelBuilder.Entity<CourseAssignment>(e =>

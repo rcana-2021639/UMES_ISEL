@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { PortalPanel } from "@/components/portal/PortalShell";
 import { Icon } from "@/components/portal/Icon";
 import { Alert, Chip, PortalButton, Segmented } from "@/components/portal/kit";
-import { deleteStudentDocumento, getStudentDocumentoUrl, getStudentDocumentos, uploadStudentDocumento } from "@/lib/studentDocumentsApi";
+import { abrirStudentDocumento, deleteStudentDocumento, getStudentDocumentos, uploadStudentDocumento } from "@/lib/studentDocumentsApi";
 import { setPapeleriaEnOrden } from "@/lib/studentsApi";
 import { ApiError } from "@/lib/http";
 import {
@@ -184,7 +184,7 @@ function DocRow({
               tone="ghost"
               size="sm"
               icon="eye"
-              onClick={() => window.open(getStudentDocumentoUrl(studentId, tipo), "_blank", "noopener,noreferrer")}
+              onClick={() => { void abrirStudentDocumento(studentId, tipo); }}
             >
               Ver
             </PortalButton>

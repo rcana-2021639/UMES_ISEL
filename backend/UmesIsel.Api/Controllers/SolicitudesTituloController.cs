@@ -3,7 +3,9 @@ using Microsoft.EntityFrameworkCore;
 using UmesIsel.Api.Data;
 using UmesIsel.Api.Models.Dtos;
 using UmesIsel.Api.Models.Entities;
+using UmesIsel.Api.Security;
 using UmesIsel.Api.Services;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace UmesIsel.Api.Controllers;
 
@@ -16,19 +18,54 @@ namespace UmesIsel.Api.Controllers;
 /// Un alumno tiene una sola solicitud viva: volver a entrar con el mismo carné la reanuda. Cuando
 /// Secretaría la procesa, el admin la marca como entregada y deja de contar como pendiente.
 /// </summary>
+/// <remarks>
+/// Autorización: por defecto, administrador. El propio alumno solo puede tocar
+/// SU solicitud, y esas acciones van marcadas una a una comprobando de quién es
+/// la solicitud (la ruta trae el id de la solicitud, no el del alumno, así que la
+/// comparación se hace dentro con <see cref="CurrentUser.IsAdminOr"/>).
+///
+/// Esta ficha guarda la FOTOGRAFÍA y la FIRMA del alumno. Antes cualquiera podía
+/// recorrer /api/solicitudes-titulo/{id} y descargarse las dos.
+/// </remarks>
 [ApiController]
 [Route("api/solicitudes-titulo")]
+[RequireAdmin]
 public class SolicitudesTituloController : ControllerBase
 {
     private readonly IselDbContext _db;
     private readonly SolicitudTituloDocxBuilder _docxBuilder;
     private readonly FichaPdfBuilder _pdfConverter;
+    private readonly SessionTokenService _tokens;
+    private readonly AuditService _audit;
+    private readonly CurrentUser _currentUser;
 
-    public SolicitudesTituloController(IselDbContext db, SolicitudTituloDocxBuilder docxBuilder, FichaPdfBuilder pdfConverter)
+    public SolicitudesTituloController(
+        IselDbContext db,
+        SolicitudTituloDocxBuilder docxBuilder,
+        FichaPdfBuilder pdfConverter,
+        SessionTokenService tokens,
+        AuditService audit,
+        CurrentUser currentUser)
     {
         _db = db;
         _docxBuilder = docxBuilder;
         _pdfConverter = pdfConverter;
+        _tokens = tokens;
+        _audit = audit;
+        _currentUser = currentUser;
+    }
+
+    /// <summary>
+    /// Comprueba que la solicitud sea del alumno de la sesión (o que quien llama
+    /// sea admin). Devuelve la solicitud ya cargada para no consultarla dos veces.
+    /// </summary>
+    private async Task<(SolicitudTitulo? Solicitud, ActionResult? Error)> CargarPropiaAsync(int id, bool tracking = false)
+    {
+        var query = tracking ? FullQuery() : FullQuery().AsNoTracking();
+        var solicitud = await query.FirstOrDefaultAsync(s => s.Id == id);
+        if (solicitud is null) return (null, NotFound());
+        if (!_currentUser.IsAdminOr(SessionRole.Student, solicitud.StudentId)) return (null, this.NoEsTuyo());
+        return (solicitud, null);
     }
 
     private const string PdfContentType = "application/pdf";
@@ -79,22 +116,36 @@ public class SolicitudesTituloController : ControllerBase
     // ---- Acceso --------------------------------------------------------------------------------
 
     /// <summary>
-    /// POST /api/solicitudes-titulo/acceso — solo el carné. La primera vez crea la solicitud ya
-    /// sembrada con lo que el padrón sabe del alumno; después la reanuda tal como quedó.
+    /// POST /api/solicitudes-titulo/acceso — carné MÁS correo institucional. La
+    /// primera vez crea la solicitud ya sembrada con lo que el padrón sabe del
+    /// alumno; después la reanuda tal como quedó, y devuelve la llave de sesión.
+    ///
+    /// Pedía solo el carné. Como los carnés son correlativos, eso permitía abrir
+    /// —y editar— la solicitud de cualquiera, con su fotografía y su firma
+    /// dentro. Ahora es la misma pareja de datos que el portal de asignación.
     /// </summary>
     [HttpPost("acceso")]
-    public async Task<ActionResult<SolicitudTituloDto>> Acceso(SolicitudTituloAccesoRequest request)
+    [AllowAnonymousAccess]
+    [EnableRateLimiting(RateLimitPolicies.Login)]
+    public async Task<ActionResult<SolicitudTituloAccesoResponse>> Acceso(SolicitudTituloAccesoRequest request)
     {
         var carnet = request.Carnet?.Trim();
-        if (string.IsNullOrWhiteSpace(carnet))
+        var correo = request.CorreoInstitucional?.Trim();
+        if (string.IsNullOrWhiteSpace(carnet) || string.IsNullOrWhiteSpace(correo))
         {
-            return BadRequest("Escribe tu número de carné.");
+            return BadRequest("Escribe tu número de carné y tu correo institucional.");
         }
 
         var student = await _db.Students.FirstOrDefaultAsync(s => s.Carnet == carnet);
-        if (student is null)
+
+        // Misma respuesta para "ese carné no existe" y "ese correo no es el suyo":
+        // distinguirlas convertiría esta pantalla en un buscador de carnés válidos.
+        if (student is null || !CorreoInstitucionalCoincide(student.CorreoInstitucional, correo))
         {
-            return NotFound("No encontramos ese carné. Verifica el número e intenta de nuevo.");
+            await _audit.LogAsync(SecurityEventTypes.AccesoTituloFallido,
+                $"carné {new string((carnet ?? string.Empty).Where(c => !char.IsControl(c)).Take(40).ToArray())}",
+                actor: "anónimo", esAlerta: true);
+            return Unauthorized("Los datos no coinciden con ningún alumno. Revísalos e intenta de nuevo.");
         }
 
         var solicitud = await FullQuery().FirstOrDefaultAsync(s => s.StudentId == student.Id);
@@ -127,7 +178,35 @@ public class SolicitudesTituloController : ControllerBase
             return Conflict("Esta solicitud ya fue procesada por Secretaría — si necesitas corregir algo, comunícate con ellos.");
         }
 
-        return Ok(ToDto(solicitud));
+        // El token se ata al ALUMNO, no a la solicitud: es la misma identidad que
+        // usa el portal de asignación, así que quien entra por aquí no necesita
+        // volver a identificarse allá.
+        var (token, expires) = _tokens.Issue(SessionRole.Student, student.Id, student.Carnet);
+        await _audit.LogAsync(SecurityEventTypes.AccesoTitulo, actor: $"alumno:{student.Carnet}");
+
+        return Ok(new SolicitudTituloAccesoResponse(ToDto(solicitud), token, expires));
+    }
+
+    /// <summary>
+    /// Mismo criterio que el portal de asignación (ver AuthController): tolera
+    /// mayúsculas, espacios y escribir solo la parte anterior a la arroba, pero
+    /// no acepta otro dominio — el correo personal no sirve para entrar.
+    /// </summary>
+    private static bool CorreoInstitucionalCoincide(string? registrado, string escrito)
+    {
+        if (string.IsNullOrWhiteSpace(registrado)) return false;
+
+        static string Norm(string v) =>
+            new string(v.Where(c => !char.IsControl(c) && c is not (char)0x200B and not (char)0x200E and not (char)0xFEFF).ToArray())
+                .Trim().ToLowerInvariant();
+
+        var esperado = Norm(registrado);
+        var recibido = Norm(escrito);
+        if (esperado.Length == 0) return false;
+        if (esperado == recibido) return true;
+
+        var arroba = esperado.IndexOf((char)64);
+        return arroba > 0 && recibido == esperado[..arroba];
     }
 
     /// <summary>Texto de un campo opcional: sin espacios de sobra, y vacío se guarda como null.</summary>
@@ -138,10 +217,11 @@ public class SolicitudesTituloController : ControllerBase
         string.Join(' ', partes.Where(p => !string.IsNullOrWhiteSpace(p)).Select(p => p!.Trim()));
 
     [HttpGet("{id:int}")]
+    [RequireSession]
     public async Task<ActionResult<SolicitudTituloDto>> GetById(int id)
     {
-        var solicitud = await FullQuery().AsNoTracking().FirstOrDefaultAsync(s => s.Id == id);
-        return solicitud is null ? NotFound() : Ok(ToDto(solicitud));
+        var (solicitud, error) = await CargarPropiaAsync(id);
+        return error ?? Ok(ToDto(solicitud!));
     }
 
     /// <summary>GET /api/solicitudes-titulo?estado=completa|pendiente|entregada — la tabla del panel de admin.</summary>
@@ -171,10 +251,11 @@ public class SolicitudesTituloController : ControllerBase
     // ---- Guardar -------------------------------------------------------------------------------
 
     [HttpPut("{id:int}")]
+    [RequireSession]
     public async Task<ActionResult<SolicitudTituloDto>> Save(int id, SolicitudTituloUpsertRequest request)
     {
-        var solicitud = await FullQuery().FirstOrDefaultAsync(s => s.Id == id);
-        if (solicitud is null) return NotFound();
+        var (solicitud, error) = await CargarPropiaAsync(id, tracking: true);
+        if (error is not null) return error;
 
         if (string.IsNullOrWhiteSpace(request.Nombres) || string.IsNullOrWhiteSpace(request.Apellidos))
         {
@@ -204,7 +285,7 @@ public class SolicitudesTituloController : ControllerBase
         }
 
         var now = DateTime.UtcNow;
-        solicitud.Campus = request.Campus;
+        solicitud!.Campus = request.Campus;
         solicitud.ParticipaCeremonia = request.ParticipaCeremonia;
         solicitud.Nombres = request.Nombres.Trim();
         solicitud.Apellidos = request.Apellidos.Trim();
@@ -273,17 +354,20 @@ public class SolicitudesTituloController : ControllerBase
     // ---- Impresión -----------------------------------------------------------------------------
 
     [HttpGet("{id:int}/solicitud.pdf")]
+    [RequireSession]
+    [EnableRateLimiting(RateLimitPolicies.Pesado)]
     public async Task<IActionResult> GetPdf(int id)
     {
-        var solicitud = await FullQuery().AsNoTracking().FirstOrDefaultAsync(s => s.Id == id);
-        if (solicitud is null) return NotFound();
+        var (solicitud, error) = await CargarPropiaAsync(id);
+        if (error is not null) return error;
 
-        var bytes = _pdfConverter.ConvertToPdf(_docxBuilder.Build(ToDto(solicitud)), "solicitud.docx");
-        return File(bytes, PdfContentType, $"{FileLabel(solicitud)} - Solicitud de titulo.pdf");
+        var bytes = _pdfConverter.ConvertToPdf(_docxBuilder.Build(ToDto(solicitud!)), "solicitud.docx");
+        return File(bytes, PdfContentType, $"{FileLabel(solicitud!)} - Solicitud de titulo.pdf");
     }
 
     /// <summary>"Imprimir todas" del panel de admin — mismos filtros que GetAll, un PDF con todas.</summary>
     [HttpGet("batch.pdf")]
+    [EnableRateLimiting(RateLimitPolicies.Pesado)]
     public async Task<IActionResult> GetBatchPdf([FromQuery] DateOnly? from, [FromQuery] DateOnly? to, [FromQuery] string? estado)
     {
         var solicitudes = await FullQuery().AsNoTracking().ToListAsync();

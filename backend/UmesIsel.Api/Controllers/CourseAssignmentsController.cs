@@ -4,7 +4,9 @@ using Microsoft.EntityFrameworkCore;
 using UmesIsel.Api.Data;
 using UmesIsel.Api.Models.Dtos;
 using UmesIsel.Api.Models.Entities;
+using UmesIsel.Api.Security;
 using UmesIsel.Api.Services;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace UmesIsel.Api.Controllers;
 
@@ -12,19 +14,48 @@ namespace UmesIsel.Api.Controllers;
 /// The "Ficha de Asignación de Cursos": students save their own (portal),
 /// the admin panel lists/prints/filters them by date range.
 /// </summary>
+/// <remarks>
+/// Autorización: por defecto administrador. El alumno solo alcanza SU ficha —
+/// consultarla, guardarla e imprimirla— y esa comprobación se hace contra el
+/// StudentId de la propia ficha, no contra lo que venga en la petición.
+///
+/// El detalle que más importaba aquí: al guardar, el carné llegaba en el CUERPO
+/// de la petición y se usaba tal cual. Es decir, un alumno podía firmar la ficha
+/// de otro con solo cambiar ese campo. Ahora, si quien guarda es un alumno, el
+/// carné del cuerpo se ignora y manda el de su sesión.
+/// </remarks>
 [ApiController]
 [Route("api/course-assignments")]
+[RequireAdmin]
 public class CourseAssignmentsController : ControllerBase
 {
     private readonly IselDbContext _db;
     private readonly FichaXlsxBuilder _fichaBuilder;
     private readonly FichaPdfBuilder _fichaPdfBuilder;
+    private readonly CurrentUser _currentUser;
+    private readonly AuditService _audit;
 
-    public CourseAssignmentsController(IselDbContext db, FichaXlsxBuilder fichaBuilder, FichaPdfBuilder fichaPdfBuilder)
+    public CourseAssignmentsController(
+        IselDbContext db,
+        FichaXlsxBuilder fichaBuilder,
+        FichaPdfBuilder fichaPdfBuilder,
+        CurrentUser currentUser,
+        AuditService audit)
     {
         _db = db;
         _fichaBuilder = fichaBuilder;
         _fichaPdfBuilder = fichaPdfBuilder;
+        _currentUser = currentUser;
+        _audit = audit;
+    }
+
+    /// <summary>Carga una ficha comprobando que sea del alumno de la sesión (o que llame un admin).</summary>
+    private async Task<(CourseAssignment? Ficha, ActionResult? Error)> CargarPropiaAsync(int id)
+    {
+        var ca = await WithIncludes().AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
+        if (ca is null) return (null, NotFound());
+        if (!_currentUser.IsAdminOr(SessionRole.Student, ca.StudentId)) return (null, this.NoEsTuyo());
+        return (ca, null);
     }
 
     private static CourseAssignmentDto ToDto(CourseAssignment ca) => new(
@@ -84,16 +115,24 @@ public class CourseAssignmentsController : ControllerBase
     }
 
     [HttpGet("{id:int}")]
+    [RequireSession]
     public async Task<ActionResult<CourseAssignmentDto>> GetById(int id)
     {
-        var ca = await WithIncludes().AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
-        return ca is null ? NotFound() : Ok(ToDto(ca));
+        var (ca, error) = await CargarPropiaAsync(id);
+        return error ?? Ok(ToDto(ca!));
     }
 
     /// <summary>GET /api/course-assignments/by-student/{carnet}?trimestre=3 — the student portal's own ficha (latest if trimestre omitted).</summary>
     [HttpGet("by-student/{carnet}")]
+    [RequireSession]
     public async Task<ActionResult<CourseAssignmentDto>> GetByStudent(string carnet, [FromQuery] int? trimestre)
     {
+        // Se resuelve el carné a un alumno ANTES de leer nada, para poder
+        // compararlo con la sesión: si no, bastaria pedir el carné del vecino.
+        var titular = await _db.Students.AsNoTracking().FirstOrDefaultAsync(s => s.Carnet == carnet);
+        if (titular is null) return NotFound();
+        if (!_currentUser.IsAdminOr(SessionRole.Student, titular.Id)) return this.NoEsTuyo();
+
         var query = WithIncludes().AsNoTracking().Where(ca => ca.Student!.Carnet == carnet);
         if (trimestre.HasValue)
         {
@@ -110,9 +149,26 @@ public class CourseAssignmentsController : ControllerBase
     /// always stamped to the day it was actually (re)generated.
     /// </summary>
     [HttpPost]
+    [RequireSession]
     public async Task<ActionResult<CourseAssignmentDto>> Save(CourseAssignmentUpsertRequest request)
     {
-        var student = await _db.Students.FirstOrDefaultAsync(s => s.Carnet == request.Carnet);
+        // Un alumno guarda SU ficha y nada más: se ignora el carné que venga en
+        // el cuerpo y manda el de la sesión. Un admin sí puede guardar la de
+        // cualquiera, que es justo para lo que existe su panel.
+        Student? student;
+        if (_currentUser.IsStudent)
+        {
+            student = await _db.Students.FirstOrDefaultAsync(s => s.Id == _currentUser.SubjectId);
+        }
+        else if (_currentUser.IsAdmin)
+        {
+            student = await _db.Students.FirstOrDefaultAsync(s => s.Carnet == request.Carnet);
+        }
+        else
+        {
+            return this.NoEsTuyo();
+        }
+
         if (student is null)
         {
             return NotFound("No existe un alumno con ese carné.");
@@ -201,13 +257,15 @@ public class CourseAssignmentsController : ControllerBase
     /// (Resources/FichaTemplate.xlsx), ready to open and print from Excel with the exact design.
     /// </summary>
     [HttpGet("{id:int}/ficha.xlsx")]
+    [RequireSession]
+    [EnableRateLimiting(RateLimitPolicies.Pesado)]
     public async Task<IActionResult> GetFichaXlsx(int id)
     {
-        var ca = await WithIncludes().AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
-        if (ca is null) return NotFound();
+        var (ca, error) = await CargarPropiaAsync(id);
+        if (error is not null) return error;
 
-        var bytes = _fichaBuilder.Build(ToDto(ca));
-        return File(bytes, XlsxContentType, FichaFileName(ca.Student));
+        var bytes = _fichaBuilder.Build(ToDto(ca!));
+        return File(bytes, XlsxContentType, FichaFileName(ca!.Student));
     }
 
     /// <summary>
@@ -215,6 +273,7 @@ public class CourseAssignmentsController : ControllerBase
     /// but returns one filled .xlsx per matching ficha inside a single .zip ("Imprimir todas").
     /// </summary>
     [HttpGet("ficha-batch.zip")]
+    [EnableRateLimiting(RateLimitPolicies.Pesado)]
     public async Task<IActionResult> GetFichaBatchZip(
         [FromQuery] DateOnly? from, [FromQuery] DateOnly? to, [FromQuery] string? tipoPago)
     {
@@ -258,15 +317,17 @@ public class CourseAssignmentsController : ControllerBase
     /// print directly, no need to open Excel first.
     /// </summary>
     [HttpGet("{id:int}/ficha.pdf")]
+    [RequireSession]
+    [EnableRateLimiting(RateLimitPolicies.Pesado)]
     public async Task<IActionResult> GetFichaPdf(int id)
     {
-        var ca = await WithIncludes().AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
-        if (ca is null) return NotFound();
+        var (ca, error) = await CargarPropiaAsync(id);
+        if (error is not null) return error;
 
         try
         {
-            var bytes = _fichaPdfBuilder.BuildOne(ToDto(ca));
-            return File(bytes, PdfContentType, FichaFileName(ca.Student, "pdf"));
+            var bytes = _fichaPdfBuilder.BuildOne(ToDto(ca!));
+            return File(bytes, PdfContentType, FichaFileName(ca!.Student, "pdf"));
         }
         catch (InvalidOperationException ex)
         {
@@ -279,6 +340,7 @@ public class CourseAssignmentsController : ControllerBase
     /// one combined PDF with every matching ficha's page(s) in order ("Imprimir todas" — one print job).
     /// </summary>
     [HttpGet("ficha-batch.pdf")]
+    [EnableRateLimiting(RateLimitPolicies.Pesado)]
     public async Task<IActionResult> GetFichaBatchPdf(
         [FromQuery] DateOnly? from, [FromQuery] DateOnly? to, [FromQuery] string? tipoPago)
     {
@@ -308,16 +370,18 @@ public class CourseAssignmentsController : ControllerBase
     /// ninguno, "Imprimir" sigue yendo directo a GetFichaPdf — este endpoint es solo para ese caso.
     /// </summary>
     [HttpGet("{id:int}/ficha-y-documentos.pdf")]
+    [RequireSession]
+    [EnableRateLimiting(RateLimitPolicies.Pesado)]
     public async Task<IActionResult> GetFichaYDocumentosPdf(int id)
     {
-        var ca = await WithIncludes().AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
-        if (ca is null) return NotFound();
+        var (ca, error) = await CargarPropiaAsync(id);
+        if (error is not null) return error;
 
         try
         {
-            var pdfs = new List<byte[]> { _fichaPdfBuilder.BuildOne(ToDto(ca)) };
+            var pdfs = new List<byte[]> { _fichaPdfBuilder.BuildOne(ToDto(ca!)) };
             var docs = await _db.StudentDocuments.AsNoTracking()
-                .Where(d => d.StudentId == ca.StudentId)
+                .Where(d => d.StudentId == ca!.StudentId)
                 .OrderBy(d => d.Tipo)
                 .ToListAsync();
             foreach (var d in docs)
@@ -329,7 +393,7 @@ public class CourseAssignmentsController : ControllerBase
             }
 
             var merged = pdfs.Count == 1 ? pdfs[0] : FichaPdfBuilder.MergePdfs(pdfs);
-            return File(merged, PdfContentType, FichaFileName(ca.Student, "pdf"));
+            return File(merged, PdfContentType, FichaFileName(ca!.Student, "pdf"));
         }
         catch (InvalidOperationException ex)
         {
@@ -361,11 +425,14 @@ public class CourseAssignmentsController : ControllerBase
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var ca = await _db.CourseAssignments.FirstOrDefaultAsync(x => x.Id == id);
+        var ca = await _db.CourseAssignments.Include(x => x.Student).FirstOrDefaultAsync(x => x.Id == id);
         if (ca is null) return NotFound();
 
+        var etiqueta = ca.Student?.Carnet ?? ca.StudentId.ToString();
         _db.CourseAssignments.Remove(ca);
         await _db.SaveChangesAsync();
+
+        await _audit.LogAsync(SecurityEventTypes.RegistroEliminado, $"ficha de asignación de {etiqueta}", esAlerta: true);
         return NoContent();
     }
 }

@@ -34,9 +34,6 @@ La única excepción es el favicon (ver más abajo), porque ese no pasa por
 | `favicon.png` | `hero/` | Ícono de la pestaña — **tiene que ser .png** | 512×512 |
 | `rolando-valdez` | `advisor/` | Retrato del Director en “Dirección” | 4:5 (vertical) — 800×1000 |
 | `inscripcion` | `admission/` | Imagen del CTA de inscripción | 4:5 (vertical) — 1000×1250 |
-| `sesiones-sincronicas` | `methodology/` | Metodología · paso 1 | 16:10 — 1200×750 |
-| `trabajo-asincronico` | `methodology/` | Metodología · paso 2 | 16:10 — 1200×750 |
-| `tutoria` | `methodology/` | Metodología · paso 3 | 16:10 — 1200×750 |
 | `docencia-superior` | `programs/` | Tarjeta de la maestría | 4:3 — 1200×900 |
 | `docencia-superior-detalle` | `programs/` | Cabecera de su página | 16:9 — 1600×900 |
 | `administracion-empresas` | `programs/` | Tarjeta | 4:3 — 1200×900 |

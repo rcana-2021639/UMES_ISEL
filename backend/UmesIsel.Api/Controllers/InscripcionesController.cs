@@ -3,7 +3,9 @@ using Microsoft.EntityFrameworkCore;
 using UmesIsel.Api.Data;
 using UmesIsel.Api.Models.Dtos;
 using UmesIsel.Api.Models.Entities;
+using UmesIsel.Api.Security;
 using UmesIsel.Api.Services;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace UmesIsel.Api.Controllers;
 
@@ -14,17 +16,39 @@ namespace UmesIsel.Api.Controllers;
 /// en vez de <see cref="Student"/>, y con un botón final —"migrar"— que gradúa un aspirante a alumno
 /// real una vez el otro departamento le da carné y sección.
 /// </summary>
+/// <remarks>
+/// Autorización: por defecto todo el controlador es de administrador. Las
+/// acciones que el propio aspirante usa para llenar SU expediente están marcadas
+/// una por una con el id del expediente, y la puerta de entrada
+/// (<c>POST acceso</c>) es la única pública.
+///
+/// Antes nada de esto estaba protegido: cambiar el número en
+/// /api/inscripciones/{id} enseñaba el expediente completo del siguiente
+/// aspirante —DPI, dirección, teléfono de emergencia— y su PDF combinado.
+/// </remarks>
 [ApiController]
 [Route("api/inscripciones")]
+[RequireAdmin]
 public class InscripcionesController : ControllerBase
 {
     private readonly IselDbContext _db;
     private readonly InscripcionPdfBuilder _pdfBuilder;
+    private readonly SessionTokenService _tokens;
+    private readonly AuditService _audit;
+    private readonly CurrentUser _currentUser;
 
-    public InscripcionesController(IselDbContext db, InscripcionPdfBuilder pdfBuilder)
+    public InscripcionesController(
+        IselDbContext db,
+        InscripcionPdfBuilder pdfBuilder,
+        SessionTokenService tokens,
+        AuditService audit,
+        CurrentUser currentUser)
     {
         _db = db;
         _pdfBuilder = pdfBuilder;
+        _tokens = tokens;
+        _audit = audit;
+        _currentUser = currentUser;
     }
 
     private const string PdfContentType = "application/pdf";
@@ -121,9 +145,25 @@ public class InscripcionesController : ControllerBase
 
     // ---- Acceso / consulta -------------------------------------------------------------------
 
-    /// <summary>POST /api/inscripciones/acceso — DPI o pasaporte, sin contraseña; crea el aspirante la primera vez, o reanuda si ya existía.</summary>
+    /// <summary>
+    /// POST /api/inscripciones/acceso — DPI o pasaporte; crea el expediente la
+    /// primera vez, o reanuda el que ya existía.
+    ///
+    /// Es la única acción pública del controlador, y la que reparte la llave: al
+    /// entrar se emite un token de sesión atado a ESE expediente, y todo lo demás
+    /// —leer, guardar, imprimir, subir documentos— lo exige. Sin él, el aspirante
+    /// podía llenar su ficha, sí, pero también leer la del resto cambiando el
+    /// número de la URL.
+    ///
+    /// El DPI sigue siendo la única credencial, porque un aspirante todavía no
+    /// tiene nada más: no hay carné, ni correo institucional, ni contraseña que
+    /// darle antes de que se inscriba. Lo que sí se hace es no premiar el ensayo
+    /// y error — límite de intentos por IP — y registrar cada acceso.
+    /// </summary>
     [HttpPost("acceso")]
-    public async Task<ActionResult<ApplicantDto>> Acceso(InscripcionAccesoRequest request)
+    [AllowAnonymousAccess]
+    [EnableRateLimiting(RateLimitPolicies.Login)]
+    public async Task<ActionResult<InscripcionAccesoResponse>> Acceso(InscripcionAccesoRequest request)
     {
         var dpi = string.IsNullOrWhiteSpace(request.Dpi) ? null : request.Dpi.Trim();
         var pasaporte = string.IsNullOrWhiteSpace(request.Pasaporte) ? null : request.Pasaporte.Trim();
@@ -147,10 +187,16 @@ public class InscripcionesController : ControllerBase
             return Conflict("Esta inscripción ya fue revisada y migrada a la base de datos de alumnos — si necesitas corregir algo, contacta a coordinación.");
         }
 
-        return Ok(ToApplicantDto(applicant));
+        var (token, expires) = _tokens.Issue(SessionRole.Applicant, applicant.Id, $"exp-{applicant.Id}");
+        // El DPI NO se registra en la bitácora: es un dato personal, y el
+        // identificador interno del expediente basta para reconstruir qué pasó.
+        await _audit.LogAsync(SecurityEventTypes.AccesoInscripcion, $"expediente {applicant.Id}", actor: $"aspirante:exp-{applicant.Id}");
+
+        return Ok(new InscripcionAccesoResponse(ToApplicantDto(applicant), token, expires));
     }
 
     [HttpGet("{id:int}")]
+    [RequireOwnerOrAdmin(SessionRole.Applicant, "id")]
     public async Task<ActionResult<ApplicantDto>> GetById(int id)
     {
         var applicant = await FullQuery().AsNoTracking().FirstOrDefaultAsync(a => a.Id == id);
@@ -186,6 +232,7 @@ public class InscripcionesController : ControllerBase
     // ---- Guardar cada sección (reemplazo total, igual que CourseAssignmentsController.Save) ----
 
     [HttpPut("{id:int}/preinscripcion")]
+    [RequireOwnerOrAdmin(SessionRole.Applicant, "id")]
     public async Task<ActionResult<PreinscripcionDto>> SavePreinscripcion(int id, PreinscripcionUpsertRequest request)
     {
         var applicant = await _db.Applicants.Include(a => a.Preinscripcion).FirstOrDefaultAsync(a => a.Id == id);
@@ -245,6 +292,7 @@ public class InscripcionesController : ControllerBase
     }
 
     [HttpPut("{id:int}/asignacion")]
+    [RequireOwnerOrAdmin(SessionRole.Applicant, "id")]
     public async Task<ActionResult<AsignacionNuevoIngresoDto>> SaveAsignacion(int id, AsignacionNuevoIngresoUpsertRequest request)
     {
         var applicant = await _db.Applicants
@@ -315,6 +363,7 @@ public class InscripcionesController : ControllerBase
     }
 
     [HttpPut("{id:int}/compromiso")]
+    [RequireOwnerOrAdmin(SessionRole.Applicant, "id")]
     public async Task<ActionResult<CartaCompromisoDto>> SaveCompromiso(int id, CartaCompromisoUpsertRequest request)
     {
         var applicant = await _db.Applicants.Include(a => a.CartaCompromiso).FirstOrDefaultAsync(a => a.Id == id);
@@ -450,6 +499,8 @@ public class InscripcionesController : ControllerBase
     // ---- Impresión ---------------------------------------------------------------------------
 
     [HttpGet("{id:int}/preinscripcion.pdf")]
+    [RequireOwnerOrAdmin(SessionRole.Applicant, "id")]
+    [EnableRateLimiting(RateLimitPolicies.Pesado)]
     public async Task<IActionResult> GetPreinscripcionPdf(int id)
     {
         var applicant = await FullQuery().AsNoTracking().FirstOrDefaultAsync(a => a.Id == id);
@@ -459,6 +510,8 @@ public class InscripcionesController : ControllerBase
     }
 
     [HttpGet("{id:int}/asignacion.pdf")]
+    [RequireOwnerOrAdmin(SessionRole.Applicant, "id")]
+    [EnableRateLimiting(RateLimitPolicies.Pesado)]
     public async Task<IActionResult> GetAsignacionPdf(int id)
     {
         var applicant = await FullQuery().AsNoTracking().FirstOrDefaultAsync(a => a.Id == id);
@@ -468,6 +521,8 @@ public class InscripcionesController : ControllerBase
     }
 
     [HttpGet("{id:int}/compromiso.pdf")]
+    [RequireOwnerOrAdmin(SessionRole.Applicant, "id")]
+    [EnableRateLimiting(RateLimitPolicies.Pesado)]
     public async Task<IActionResult> GetCompromisoPdf(int id)
     {
         var applicant = await FullQuery().AsNoTracking().FirstOrDefaultAsync(a => a.Id == id);
@@ -479,6 +534,8 @@ public class InscripcionesController : ControllerBase
 
     /// <summary>Las 3 fichas que ya existan, combinadas — botón "Imprimir" del panel de admin.</summary>
     [HttpGet("{id:int}/completas.pdf")]
+    [RequireOwnerOrAdmin(SessionRole.Applicant, "id")]
+    [EnableRateLimiting(RateLimitPolicies.Pesado)]
     public async Task<IActionResult> GetCompletasPdf(int id)
     {
         var applicant = await FullQuery().AsNoTracking().FirstOrDefaultAsync(a => a.Id == id);
@@ -496,6 +553,7 @@ public class InscripcionesController : ControllerBase
 
     /// <summary>"Imprimir todas" — mismos filtros que GetAll, un PDF combinado por aspirante, todos en un solo archivo.</summary>
     [HttpGet("ficha-batch.pdf")]
+    [EnableRateLimiting(RateLimitPolicies.Pesado)]
     public async Task<IActionResult> GetBatchPdf([FromQuery] DateOnly? from, [FromQuery] DateOnly? to, [FromQuery] string? estado)
     {
         var applicants = await FullQuery().AsNoTracking().Where(a => a.MigradoStudentId == null).ToListAsync();

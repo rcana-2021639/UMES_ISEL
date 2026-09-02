@@ -4,7 +4,7 @@ import { useReducedMotion } from "framer-motion";
 import { ImageSlot } from "@/components/ui/ImageSlot";
 import { Icon } from "@/components/portal/Icon";
 import { BackButton } from "@/pages/portal/LoginPage";
-import { Alert, PortalButton } from "@/components/portal/kit";
+import { Alert, PortalButton, fieldClass } from "@/components/portal/kit";
 import { accesoSolicitudTitulo } from "@/lib/solicitudTituloApi";
 import { ApiError } from "@/lib/http";
 import type { SolicitudTitulo } from "@/types/solicitudTitulo";
@@ -32,6 +32,9 @@ const PASOS = [
 
 export function AccesoTituloGate({ onEnter }: { onEnter: (s: SolicitudTitulo) => void }) {
   const [value, setValue] = useState("");
+  // Esta ficha guarda la fotografía y la firma del alumno, así que ya no basta
+  // el carné: se pide el mismo par de datos que el portal de asignación.
+  const [correo, setCorreo] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -45,11 +48,11 @@ export function AccesoTituloGate({ onEnter }: { onEnter: (s: SolicitudTitulo) =>
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!value.trim()) return;
+    if (!value.trim() || !correo.trim()) return;
     setLoading(true);
     setError(null);
     try {
-      onEnter(await accesoSolicitudTitulo(value.trim()));
+      onEnter(await accesoSolicitudTitulo(value.trim(), correo.trim()));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "No se pudo abrir tu solicitud. Intenta de nuevo.");
     } finally {
@@ -127,7 +130,7 @@ export function AccesoTituloGate({ onEnter }: { onEnter: (s: SolicitudTitulo) =>
               Escribe tu carné
             </h2>
             <p className="mt-3 text-[14px] leading-relaxed text-isel-ink/55">
-              Con él traemos tu nombre y tu carrera tal como están registrados, para que la ficha salga sin errores.
+              Con ellos traemos tu nombre y tu carrera tal como están registrados, para que la ficha salga sin errores.
             </p>
           </div>
 
@@ -160,6 +163,30 @@ export function AccesoTituloGate({ onEnter }: { onEnter: (s: SolicitudTitulo) =>
               </div>
             </label>
 
+            <label className="mt-7 block">
+              <span className="mb-2 block text-[10.5px] font-bold uppercase tracking-[0.16em] text-isel-ink/45">
+                Correo institucional
+              </span>
+              <input
+                // type="text" y NO "email": se acepta escribir solo la parte
+                // anterior a la arroba, y type="email" lo rechazaría en silencio.
+                type="text"
+                inputMode="email"
+                autoComplete="email"
+                value={correo}
+                onChange={(e) => {
+                  setCorreo(e.target.value);
+                  if (error) setError(null);
+                }}
+                placeholder="apellidonombre@umes.edu.gt"
+                aria-invalid={error !== null}
+                className={fieldClass}
+              />
+              <span className="mt-2 block text-[12px] leading-snug text-isel-ink/40">
+                El de @umes.edu.gt. Basta con lo que va antes de la arroba.
+              </span>
+            </label>
+
             {error && (
               <div className="mt-6">
                 <Alert kind="error">{error}</Alert>
@@ -173,7 +200,7 @@ export function AccesoTituloGate({ onEnter }: { onEnter: (s: SolicitudTitulo) =>
               iconRight
               full
               loading={loading}
-              disabled={!value.trim()}
+              disabled={!value.trim() || !correo.trim()}
               className="mt-8 py-3.5 text-[14px]"
             >
               Abrir mi solicitud
