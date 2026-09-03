@@ -1,5 +1,6 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { PortalPanel } from "@/components/portal/PortalShell";
+import { StepGuide } from "@/components/portal/StepGuide";
 import { SignaturePad, type SignaturePadHandle } from "@/components/portal/SignaturePad";
 import { ChoiceRow } from "@/components/portal/CourseAssignmentForm";
 import { Icon } from "@/components/portal/Icon";
@@ -184,6 +185,15 @@ export const SolicitudTituloForm = forwardRef<SolicitudTituloFormHandle, Solicit
         title="Sede y ceremonia"
         description="Dónde estudiaste y si vas a participar en el acto de graduación."
       >
+        <StepGuide
+          steps={[
+            "Toca la sede donde estudiaste. Solo se puede marcar una.",
+            "Después responde si vas a asistir al acto de graduación.",
+            "Si todavía no lo sabes, responde lo que creas hoy: esto se puede cambiar mientras no entregues la solicitud.",
+          ]}
+          outcome="Cuando marques las dos cosas, sigue bajando. No hay que guardar paso por paso: al final se guarda todo junto."
+        />
+
         <div>
           <span className="mb-2.5 block text-[10.5px] font-bold uppercase tracking-[0.14em] text-isel-ink/45">
             Sede *
@@ -246,6 +256,17 @@ export const SolicitudTituloForm = forwardRef<SolicitudTituloFormHandle, Solicit
           </Chip>
         }
       >
+        <StepGuide
+          title="Este es el paso más importante"
+          steps={[
+            "Copia tus nombres y apellidos EXACTAMENTE como están en tu DPI o pasaporte, con sus tildes.",
+            "Escribe la primera letra en mayúscula y el resto en minúsculas: María Fernanda, no MARIA FERNANDA.",
+            "Mira las casillas grises de abajo mientras escribes: eso es literalmente lo que se va a imprimir en tu título.",
+            "Si el aviso de arriba se pone rojo, tu nombre no cabe en el renglón. Avísale a Secretaría antes de seguir.",
+          ]}
+          outcome="Un título mal impreso se vuelve a tramitar desde cero. Vale la pena revisar este paso dos veces."
+        />
+
         <Alert kind="info">
           La ficha oficial reserva una casilla por letra. Debajo de cada campo verás las casillas reales llenándose:
           lo que aparezca ahí es exactamente lo que se imprimirá en tu título.
@@ -296,6 +317,14 @@ export const SolicitudTituloForm = forwardRef<SolicitudTituloFormHandle, Solicit
         title="Datos personales"
         description="Los que la universidad necesita para localizarte cuando el título esté listo."
       >
+        <StepGuide
+          steps={[
+            "Llena tu fecha de nacimiento y los demás datos que te pida.",
+            "Pon un teléfono y un correo a los que de verdad contestes: por ahí te avisan cuando el título esté listo.",
+            "Los campos con asterisco (*) son los obligatorios; el resto puedes dejarlo vacío.",
+          ]}
+        />
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Field label="Fecha de nacimiento *">
             <input
@@ -397,6 +426,15 @@ export const SolicitudTituloForm = forwardRef<SolicitudTituloFormHandle, Solicit
         title="Dónde trabajas"
         description="Opcional — déjalo en blanco si por ahora no aplica."
       >
+        <StepGuide
+          title="Puedes saltarte este paso"
+          steps={[
+            "Si trabajas, escribe el nombre del lugar y tu puesto.",
+            "Si no trabajas, o prefieres no ponerlo, déjalo todo en blanco y sigue de largo.",
+          ]}
+          outcome="Este paso no bloquea nada: la solicitud se guarda igual con estos campos vacíos."
+        />
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Nombre de la empresa">
             <input
@@ -443,6 +481,14 @@ export const SolicitudTituloForm = forwardRef<SolicitudTituloFormHandle, Solicit
         title="El título que vas a obtener"
         description="Viene de tu registro académico. Corrígelo solo si no coincide con lo que te dijo Secretaría."
       >
+        <StepGuide
+          steps={[
+            "Lee el nombre del título que aparece abajo. Normalmente ya viene correcto de tu expediente.",
+            "Cámbialo solo si no coincide con lo que te dijo Secretaría.",
+            "Si dudas, déjalo tal como está: es lo que consta en tu registro académico.",
+          ]}
+        />
+
         <div className="grid grid-cols-1 gap-4">
           <Field label="Facultad o departamento">
             <input
@@ -476,6 +522,16 @@ export const SolicitudTituloForm = forwardRef<SolicitudTituloFormHandle, Solicit
           </Chip>
         }
       >
+        <StepGuide
+          steps={[
+            "Ponte de frente, con fondo claro y buena luz. Sin lentes oscuros ni gorra.",
+            "Si estás en el teléfono, pulsa para tomarte la foto ahí mismo; si ya tienes una, súbela desde tu galería.",
+            "Encuadra la cara dentro del recuadro: es el mismo espacio que ocupa en la ficha impresa.",
+            "¿No te gustó? Vuelve a tomarla las veces que quieras; solo se queda la última.",
+          ]}
+          outcome="Esta es la foto que va pegada en tu solicitud, así que procura que se te vea bien la cara."
+        />
+
         <FotoCapture value={form.fotoBase64} onChange={(v) => set("fotoBase64", v)} readOnly={readOnly} />
       </PortalPanel>
 
@@ -495,6 +551,17 @@ export const SolicitudTituloForm = forwardRef<SolicitudTituloFormHandle, Solicit
           )
         ) : (
           <>
+            <StepGuide
+              title="El último paso"
+              steps={[
+                "Firma dentro del recuadro blanco: con el dedo si estás en el teléfono, con el ratón si estás en la computadora.",
+                "Hazla despacio y de un solo trazo; no tiene que quedar idéntica a la de tu DPI.",
+                "¿Quedó torcida? Pulsa “Limpiar firma” y vuelve a intentarlo. No se gasta nada.",
+                "Cuando te guste, baja a la barra verde y pulsa guardar.",
+              ]}
+              outcome="Después de guardar puedes descargar tu solicitud en PDF, imprimirla y llevarla a Secretaría."
+            />
+
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
               <p className="flex items-center gap-2 text-[13px] font-semibold text-isel-ink">
                 <Icon name="pen" size={16} className="text-isel-gold2" />

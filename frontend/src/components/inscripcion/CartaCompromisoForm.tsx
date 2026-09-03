@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { PortalPanel } from "@/components/portal/PortalShell";
+import { StepGuide } from "@/components/portal/StepGuide";
 import { SignaturePad, type SignaturePadHandle } from "@/components/portal/SignaturePad";
 import { ChoiceRow } from "@/components/portal/CourseAssignmentForm";
 import { Icon } from "@/components/portal/Icon";
@@ -85,6 +86,16 @@ export function CartaCompromisoForm({ applicantId, initial, defaults, onSaved, r
       title="Carta de compromiso"
       description="Confirma que sabes qué documentos debes entregar. Súbelos en el siguiente paso, uno a la vez."
     >
+      <StepGuide
+        steps={[
+          "Confirma que la maestría escrita arriba es la correcta.",
+          "Dinos si eres estudiante extranjero: de eso depende qué papeles te van a pedir.",
+          "Lee la lista de documentos que aparece debajo. Aquí solo estás diciendo que ya sabes cuáles son; todavía no hay que subir nada.",
+          "Firma en el recuadro y pulsa guardar.",
+        ]}
+        outcome="Los documentos se suben en el paso siguiente, uno por uno y cuando los tengas listos."
+      />
+
       <form onSubmit={handleSubmit} className="space-y-5">
         <Field label="Carrera / maestría *">
           <input className={fieldClass} disabled={readOnly} value={form.carrera} onChange={(e) => set("carrera", e.target.value)} />

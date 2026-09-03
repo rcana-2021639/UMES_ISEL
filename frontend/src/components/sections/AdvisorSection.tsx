@@ -134,7 +134,7 @@ export function AdvisorSection() {
 
             <p
               style={delay(330)}
-              className={`dropcap mt-10 max-w-[62ch] text-[16.5px] leading-[1.85] text-isel-ink/80 sm:text-[17.5px] ${beat} ${beatState}`}
+              className={`dropcap prose-justify mt-10 max-w-[62ch] text-[16.5px] leading-[1.85] text-isel-ink/80 sm:text-[17.5px] ${beat} ${beatState}`}
             >
               Educador y administrador con sólida experiencia en coordinación académica, gestión de proyectos y
               docencia en educación superior. Se ha destacado por liderar equipos, diseñar estrategias educativas y
@@ -143,7 +143,7 @@ export function AdvisorSection() {
 
             <p
               style={delay(480)}
-              className={`mt-6 max-w-[62ch] text-[16.5px] leading-[1.85] text-isel-ink/80 sm:text-[17.5px] ${beat} ${beatState}`}
+              className={`prose-justify mt-6 max-w-[62ch] text-[16.5px] leading-[1.85] text-isel-ink/80 sm:text-[17.5px] ${beat} ${beatState}`}
             >
               Comprometido con el acompañamiento a jóvenes y la innovación educativa, impulsa programas que generan
               impacto significativo en la formación profesional y humana. Actualmente, desempeña funciones directivas

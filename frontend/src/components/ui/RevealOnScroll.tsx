@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import {
   motion,
   useInView,
@@ -347,8 +347,11 @@ function HighlightWord({
   dim: number;
 }) {
   const opacity = useTransform(progress, [start, end], [dim, 1]);
+  // Sin margen a la derecha: la separación es un espacio de verdad (lo pone
+  // quien renderiza). Un `margin-right` fijo no se estira, así que con él el
+  // párrafo NO se puede justificar — el navegador no tiene de dónde repartir.
   return (
-    <motion.span style={{ opacity }} className="mr-[0.26em] inline-block">
+    <motion.span style={{ opacity }} className="inline-block">
       {word}
     </motion.span>
   );
@@ -376,14 +379,16 @@ export function ScrollHighlightText({ text, className = "", dim = 0.22 }: Scroll
       {words.map((w, i) => {
         const start = i / words.length;
         return (
-          <HighlightWord
-            key={`${w}-${i}`}
-            word={w}
-            progress={scrollYProgress}
-            start={start}
-            end={Math.min(start + 1.6 / words.length, 1)}
-            dim={dim}
-          />
+          <Fragment key={`${w}-${i}`}>
+            <HighlightWord
+              word={w}
+              progress={scrollYProgress}
+              start={start}
+              end={Math.min(start + 1.6 / words.length, 1)}
+              dim={dim}
+            />
+            {i < words.length - 1 ? " " : ""}
+          </Fragment>
         );
       })}
     </p>

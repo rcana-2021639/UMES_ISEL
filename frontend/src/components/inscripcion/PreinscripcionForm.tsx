@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { PortalPanel } from "@/components/portal/PortalShell";
+import { StepGuide } from "@/components/portal/StepGuide";
 import { SignaturePad, type SignaturePadHandle } from "@/components/portal/SignaturePad";
 import { Icon } from "@/components/portal/Icon";
 import { Alert, Field, PortalButton, fieldClass } from "@/components/portal/kit";
@@ -122,6 +123,16 @@ export function PreinscripcionForm({ applicantId, initial, onSaved, readOnly = f
       title="Ficha de preinscripción"
       description="Los datos personales con los que quedas registrado como aspirante de nuevo ingreso."
     >
+      <StepGuide
+        steps={[
+          "Escribe tu nombre y tus apellidos tal como aparecen en tu DPI o pasaporte. Sin abreviar.",
+          "Sigue hacia abajo llenando lo que te pregunte: los campos con asterisco (*) son los únicos obligatorios.",
+          "Elige la maestría que vas a estudiar en la lista.",
+          "Al final firma en el recuadro con el dedo o con el ratón, y pulsa el botón verde de guardar.",
+        ]}
+        outcome="Con eso quedas registrado como aspirante. Si te tienes que ir, no pasa nada: vuelves con tu mismo DPI y sigues donde lo dejaste."
+      />
+
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Nombre completo *">

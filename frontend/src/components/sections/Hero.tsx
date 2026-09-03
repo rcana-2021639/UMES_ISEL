@@ -186,7 +186,7 @@ export function Hero() {
             initial={{ opacity: 0, y: 22 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.9, delay: 0.95, ease: SNAP }}
-            className="mt-8 max-w-xl text-[15px] leading-relaxed text-white/60 sm:text-lg"
+            className="prose-justify mt-8 max-w-xl text-[15px] leading-relaxed text-white/60 sm:text-lg"
           >
             El Instituto Salesiano de Educación en Línea —ISEL— se dedica al desarrollo e implementación dinámica de
             programas de enseñanza-aprendizaje en línea. Ofrece un ambiente educativo donde estudiantes y docentes

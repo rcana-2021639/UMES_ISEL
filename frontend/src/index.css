@@ -74,6 +74,31 @@
 }
 
 @layer utilities {
+  /**
+   * Texto corrido justificado.
+   *
+   * Se aplica SOLO a párrafos de lectura —los que ocupan varios renglones—,
+   * nunca a etiquetas, versalitas, datos de una línea ni a los pasos de tres
+   * columnas: justificar una línea corta abre ríos blancos y se lee peor que
+   * en bandera. Va con partición de palabras activada (`hyphens`), que es la
+   * mitad que falta del justificado clásico: sin ella el navegador reparte
+   * todo el sobrante en los espacios y aparecen los huecos.
+   *
+   * `text-justify: inter-word` deja explícito que se estira el espacio entre
+   * palabras y no entre letras, y `text-wrap: pretty` evita la línea huérfana
+   * de una sola palabra al final del párrafo, que es donde el justificado
+   * queda peor. El documento declara `lang="es"`, así que la partición usa el
+   * diccionario correcto.
+   */
+  .prose-justify {
+    text-align: justify;
+    text-justify: inter-word;
+    -webkit-hyphens: auto;
+    hyphens: auto;
+    hyphenate-limit-chars: 6 3 3;
+    text-wrap: pretty;
+  }
+
   .preserve-3d {
     transform-style: preserve-3d;
   }

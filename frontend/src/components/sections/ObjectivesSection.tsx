@@ -128,7 +128,7 @@ export function ObjectivesSection() {
                   </div>
 
                   <p
-                    className={`text-[15px] leading-relaxed transition-colors duration-500 ease-snap ${
+                    className={`prose-justify text-[15px] leading-relaxed transition-colors duration-500 ease-snap ${
                       on ? "text-white/85" : "text-isel-ink/60"
                     }`}
                   >

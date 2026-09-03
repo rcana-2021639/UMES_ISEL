@@ -60,7 +60,7 @@ export function AdmissionCta({ programs }: AdmissionCtaProps) {
             />
 
             <RevealOnScroll delay={0.12}>
-              <p className="mt-7 max-w-xl text-[15px] leading-relaxed text-white/60 sm:text-lg">
+              <p className="prose-justify mt-7 max-w-xl text-[15px] leading-relaxed text-white/60 sm:text-lg">
                 Da el primer paso hacia tu maestría en línea. Abre tu expediente con tu DPI, llena tus fichas a tu
                 ritmo y sube tus documentos cuando los tengas listos: puedes cerrar la página y retomar donde te
                 quedaste.
@@ -122,7 +122,7 @@ export function AdmissionCta({ programs }: AdmissionCtaProps) {
         </div>
 
         <RevealOnScroll delay={0.1}>
-          <p className="mt-24 max-w-4xl border-t border-white/10 pt-8 text-[13px] leading-relaxed text-white/40">
+          <p className="prose-justify mt-24 max-w-4xl border-t border-white/10 pt-8 text-[13px] leading-relaxed text-white/40">
             La promoción de la integridad académica, honestidad intelectual, la consistencia del pensamiento crítico y
             el rigor del ejercicio pedagógico de la comunidad académica de la Universidad Mesoamericana está
             acompañada por{" "}

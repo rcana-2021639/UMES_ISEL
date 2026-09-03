@@ -20,7 +20,7 @@ public static class IselSeedData
             Title: "Maestría en Innovación de los Aprendizajes en la Educación Superior",
             Tagline: "Programa en modalidad online",
             CardImage: "/images/programs/docencia-superior.avif",
-            DetailImage: "/images/programs/docencia-superior-detalle.avif",
+            DetailImage: "/images/programs/programa-detalle.avif",
             Paragraphs: new[]
             {
                 "El egresado de la Maestría en Innovación de los Aprendizajes en la Educación Superior de Universidad Mesoamericana ha adquirido conocimientos profundos y extensos de las tendencias de la educación superior, como también en competencias digitales que podrá aplicar inmediatamente en su ejercicio docente, acompañado del dominio de diversidad de métodos, estrategias y procesos de enseñanza diversificados, orientados a la consecución de aprendizajes efectivos e integrales dentro de un ambiente colaborativo; respaldados en la reflexión crítica de su quehacer docente y los principios de la institución en la que labore.",
@@ -44,7 +44,7 @@ public static class IselSeedData
             Title: "Maestría en Administración de Empresas e Inteligencia de Negocios",
             Tagline: "Programa en modalidad online",
             CardImage: "/images/programs/administracion-empresas.avif",
-            DetailImage: "/images/programs/administracion-empresas-detalle.avif",
+            DetailImage: "/images/programs/programa-detalle.avif",
             Paragraphs: new[]
             {
                 "Este programa de Maestrías está basado en las competencias gerenciales requeridas por las organizaciones del futuro. Por estas razones, el currículum de cada una de nuestras maestrías ha sido diseñado como un clúster interactivo de cuatro grandes áreas de conocimiento: dirección estratégica, competencias gerenciales, finanzas, legislación y marketing.",
@@ -68,7 +68,7 @@ public static class IselSeedData
             Title: "Maestría en Marketing Digital y Comercio Electrónico",
             Tagline: "Programa en modalidad online",
             CardImage: "/images/programs/marketing-digital.avif",
-            DetailImage: "/images/programs/marketing-digital-detalle.avif",
+            DetailImage: "/images/programs/programa-detalle.avif",
             Paragraphs: new[]
             {
                 "Este programa de Maestrías está basado en las competencias gerenciales requeridas por las organizaciones del futuro. Por estas razones, el currículum de cada una de nuestras maestrías ha sido diseñado como un clúster interactivo de cuatro grandes áreas de conocimiento: dirección estratégica, competencias gerenciales, finanzas, legislación y marketing.",
@@ -92,7 +92,7 @@ public static class IselSeedData
             Title: "Maestría en Administración de Empresas con Especialidad en Finanzas y Tecnología (FINTECH)",
             Tagline: "Programa en modalidad online",
             CardImage: "/images/programs/fintech.avif",
-            DetailImage: "/images/programs/fintech-detalle.avif",
+            DetailImage: "/images/programs/programa-detalle.avif",
             Paragraphs: new[]
             {
                 "Este programa de Maestrías está basado en las competencias gerenciales requeridas por las organizaciones del futuro. Por estas razones, el currículum de cada una de nuestras maestrías ha sido diseñado como un clúster interactivo de cuatro grandes áreas de conocimiento: dirección estratégica, competencias gerenciales, finanzas, legislación y marketing.",
@@ -116,7 +116,7 @@ public static class IselSeedData
             Title: "Maestría en Gestión Estratégica del Talento Humano",
             Tagline: "Programa en modalidad online",
             CardImage: "/images/programs/talento-humano.avif",
-            DetailImage: "/images/programs/talento-humano-detalle.avif",
+            DetailImage: "/images/programs/programa-detalle.avif",
             Paragraphs: new[]
             {
                 "La Maestría en Gestión Estratégica del Talento Humano forma líderes capaces de transformar a las personas en el motor principal de las organizaciones.",
@@ -140,7 +140,7 @@ public static class IselSeedData
             Title: "Maestría en Auditoría de Desempeño",
             Tagline: "Programa en modalidad online",
             CardImage: "/images/programs/auditoria-desempeno.avif",
-            DetailImage: "/images/programs/auditoria-desempeno-detalle.avif",
+            DetailImage: "/images/programs/programa-detalle.avif",
             Paragraphs: new[]
             {
                 "La auditoría de desempeño es de relevancia porque permite determinar el alcance de objetivos y metas con indicadores estratégicos y de gestión, para conocer los resultados de la aplicación de los recursos públicos y el impacto social que se genera a través de diversos programas, proyectos, obras, procesos, actividades, entre otros; por lo que promueve la gobernanza económica, eficaz y eficiente, contribuyendo a la rendición de cuentas y a la transparencia."

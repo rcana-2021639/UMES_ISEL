@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { PortalPanel } from "@/components/portal/PortalShell";
+import { StepGuide } from "@/components/portal/StepGuide";
 import { Icon } from "@/components/portal/Icon";
 import { Alert, Chip, PortalButton } from "@/components/portal/kit";
 import { abrirDocumento, deleteDocumento, uploadDocumento } from "@/lib/inscripcionesApi";
@@ -41,6 +42,16 @@ export function DocumentosForm({ applicantId, esExtranjero, documentos, onChange
         </Chip>
       }
     >
+      <StepGuide
+        steps={[
+          "Escanea o fotografía cada documento y guárdalo como PDF. Si solo tienes una foto, hay apps gratuitas de escáner en el teléfono que la convierten.",
+          "Busca en la lista el documento que vas a subir y pulsa su botón de subir.",
+          "Elige el archivo. Se sube solo: cuando termina, el renglón se pone en verde.",
+          "Repite con el resto. Si te equivocaste de archivo, bórralo en ese mismo renglón y súbelo otra vez.",
+        ]}
+        outcome="Este paso es opcional para cerrar tu inscripción: si hoy no tienes los papeles, sal tranquilo y vuelve a subirlos cuando los consigas."
+      />
+
       <ul className="divide-y divide-isel-line overflow-hidden rounded-xl border border-isel-line">
         {tipos.map((tipo) => (
           <DocumentoRow

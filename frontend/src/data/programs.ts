@@ -14,7 +14,7 @@ export const programs: MasterProgram[] = [
     title: "Maestría en Innovación de los Aprendizajes en la Educación Superior",
     tagline: "Programa en modalidad online",
     cardImage: "/images/programs/docencia-superior.avif",
-    detailImage: "/images/programs/docencia-superior-detalle.avif",
+    detailImage: "/images/programs/programa-detalle.avif",
     paragraphs: [
       "El egresado de la Maestría en Innovación de los Aprendizajes en la Educación Superior de Universidad Mesoamericana ha adquirido conocimientos profundos y extensos de las tendencias de la educación superior, como también en competencias digitales que podrá aplicar inmediatamente en su ejercicio docente, acompañado del dominio de diversidad de métodos, estrategias y procesos de enseñanza diversificados, orientados a la consecución de aprendizajes efectivos e integrales dentro de un ambiente colaborativo; respaldados en la reflexión crítica de su quehacer docente y los principios de la institución en la que labore.",
       "Al egresar del Postgrado el estudiante alcanzará competencias, conocimientos, habilidades y valores en Docencia Superior.",
@@ -37,7 +37,7 @@ export const programs: MasterProgram[] = [
     title: "Maestría en Administración de Empresas e Inteligencia de Negocios",
     tagline: "Programa en modalidad online",
     cardImage: "/images/programs/administracion-empresas.avif",
-    detailImage: "/images/programs/administracion-empresas-detalle.avif",
+    detailImage: "/images/programs/programa-detalle.avif",
     paragraphs: [
       "Este programa de Maestrías está basado en las competencias gerenciales requeridas por las organizaciones del futuro. Por estas razones, el currículum de cada una de nuestras maestrías ha sido diseñado como un clúster interactivo de cuatro grandes áreas de conocimiento: dirección estratégica, competencias gerenciales, finanzas, legislación y marketing.",
       "Los participantes deberán realizar ejercicios de aplicación real en las empresas para las cuales trabajan, como complemento permanente de las actividades académicas virtuales. Al mismo tiempo se estimulará la participación de los estudiantes de maestría en diversos eventos de actualización gerencial a través de los medios de comunicación y aprendizaje disponibles.",
@@ -60,7 +60,7 @@ export const programs: MasterProgram[] = [
     title: "Maestría en Marketing Digital y Comercio Electrónico",
     tagline: "Programa en modalidad online",
     cardImage: "/images/programs/marketing-digital.avif",
-    detailImage: "/images/programs/marketing-digital-detalle.avif",
+    detailImage: "/images/programs/programa-detalle.avif",
     paragraphs: [
       "Este programa de Maestrías está basado en las competencias gerenciales requeridas por las organizaciones del futuro. Por estas razones, el currículum de cada una de nuestras maestrías ha sido diseñado como un clúster interactivo de cuatro grandes áreas de conocimiento: dirección estratégica, competencias gerenciales, finanzas, legislación y marketing.",
       "Los participantes deberán realizar ejercicios de aplicación real en las empresas para las cuales trabajan, como complemento permanente de las actividades académicas virtuales. Al mismo tiempo se estimulará la participación de los estudiantes de maestría en diversos eventos de actualización gerencial a través de los medios de comunicación y aprendizaje disponibles.",
@@ -83,7 +83,7 @@ export const programs: MasterProgram[] = [
     title: "Maestría en Administración de Empresas con Especialidad en Finanzas y Tecnología (FINTECH)",
     tagline: "Programa en modalidad online",
     cardImage: "/images/programs/fintech.avif",
-    detailImage: "/images/programs/fintech-detalle.avif",
+    detailImage: "/images/programs/programa-detalle.avif",
     paragraphs: [
       "Este programa de Maestrías está basado en las competencias gerenciales requeridas por las organizaciones del futuro. Por estas razones, el currículum de cada una de nuestras maestrías ha sido diseñado como un clúster interactivo de cuatro grandes áreas de conocimiento: dirección estratégica, competencias gerenciales, finanzas, legislación y marketing.",
       "Los participantes deberán realizar ejercicios de aplicación real en las empresas para las cuales trabajan, como complemento permanente de las actividades académicas presenciales. Al mismo tiempo se estimulará la participación de los estudiantes de maestría en diversos eventos de actualización gerencial a través de los medios de comunicación y aprendizaje disponibles.",
@@ -106,7 +106,7 @@ export const programs: MasterProgram[] = [
     title: "Maestría en Gestión Estratégica del Talento Humano",
     tagline: "Programa en modalidad online",
     cardImage: "/images/programs/talento-humano.avif",
-    detailImage: "/images/programs/talento-humano-detalle.avif",
+    detailImage: "/images/programs/programa-detalle.avif",
     paragraphs: [
       "La Maestría en Gestión Estratégica del Talento Humano forma líderes capaces de transformar a las personas en el motor principal de las organizaciones.",
       "Nuestro programa combina teoría y práctica para que los estudiantes aprendan a diseñar e implementar estrategias innovadoras que fortalezcan la cultura organizacional, impulsen el desarrollo de equipos y aumenten la competitividad empresarial.",
@@ -129,7 +129,7 @@ export const programs: MasterProgram[] = [
     title: "Maestría en Auditoría de Desempeño",
     tagline: "Programa en modalidad online",
     cardImage: "/images/programs/auditoria-desempeno.avif",
-    detailImage: "/images/programs/auditoria-desempeno-detalle.avif",
+    detailImage: "/images/programs/programa-detalle.avif",
     paragraphs: [
       "La auditoría de desempeño es de relevancia porque permite determinar el alcance de objetivos y metas con indicadores estratégicos y de gestión, para conocer los resultados de la aplicación de los recursos públicos y el impacto social que se genera a través de diversos programas, proyectos, obras, procesos, actividades, entre otros; por lo que promueve la gobernanza económica, eficaz y eficiente, contribuyendo a la rendición de cuentas y a la transparencia.",
     ],

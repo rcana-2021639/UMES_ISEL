@@ -41,7 +41,7 @@ export function ProgramsSection({ programs }: ProgramsSectionProps) {
               className="mt-6 text-balance font-display text-[clamp(2.2rem,5.4vw,4.2rem)] font-semibold leading-[0.98] tracking-ultratight text-isel-navy"
             />
             <RevealOnScroll delay={0.14}>
-              <p className="mt-7 max-w-xl text-[15px] leading-relaxed text-isel-ink/60 sm:text-lg">
+              <p className="prose-justify mt-7 max-w-xl text-[15px] leading-relaxed text-isel-ink/60 sm:text-lg">
                 Programas de posgrado 100% virtuales para profesionales que quieren especializarse sin pausar su
                 carrera. Cada uno con su pensum, su plan de estudios y su propia ruta de inscripción.
               </p>
