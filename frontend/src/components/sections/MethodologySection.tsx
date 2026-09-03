@@ -94,7 +94,7 @@ export function MethodologySection() {
           />
 
           <RevealOnScroll delay={0.12}>
-            <p className="mt-7 max-w-md text-[15px] leading-relaxed text-white/55">
+            <p className="prose-justify mt-7 max-w-md text-[15px] leading-relaxed text-white/55">
               Los programas se imparten completamente en modalidad virtual, combinando sesiones sincrónicas y
               actividades asincrónicas para asegurar una formación flexible.
             </p>
@@ -259,7 +259,7 @@ function Step({ item, index, isActive, onEnter }: StepProps) {
               fuera del parallax a propósito: lo que se está leyendo no se mueve. */}
           <ScrollHighlightText
             text={item.text}
-            className="mt-7 max-w-[56ch] text-[16.5px] leading-[1.8] text-white sm:text-[17.5px]"
+            className="prose-justify mt-7 max-w-[56ch] text-[16.5px] leading-[1.8] text-white sm:text-[17.5px]"
             dim={0.24}
           />
         </motion.div>

@@ -55,7 +55,7 @@ export function ProgramDetailPage() {
     target: coverRef,
     offset: ["start end", "end start"],
   });
-  const coverY = useTransform(coverProgress, [0, 1], ["-8%", reduce ? "-8%" : "8%"]);
+  const coverY = useTransform(coverProgress, [0, 1], ["-6%", reduce ? "-6%" : "6%"]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -231,16 +231,51 @@ export function ProgramDetailPage() {
 
         <section className="mx-auto grid max-w-6xl grid-cols-1 gap-12 px-6 pb-16 pt-16 lg:grid-cols-[1.25fr_0.75fr] lg:gap-16 lg:pb-24">
           <div>
-            <div ref={coverRef} className="overflow-hidden rounded-[1.8rem] border border-isel-line shadow-card">
+            {/* Portada del programa.
+                
+                Es el mismo cartel institucional para las seis maestrías —hay
+                uno solo—, así que lo que particulariza la portada no es la
+                foto sino el marco: el acento del programa entra por el pie en
+                degradado y las dos etiquetas de abajo dicen de cuál se trata.
+
+                El marco va en 3/2, que es la proporción exacta del archivo:
+                así no se recorta ni el titular ni los dos logotipos, que era
+                lo que rompía la composición. El parallax se mueve dentro de
+                una capa declarada más grande que el marco (`-inset-[8%]`) en
+                vez de sobre un `scale-110` de clase: la librería de animación
+                escribe su propio `transform` en línea y se llevaba por delante
+                esa escala, dejando a la vista una franja de papel al
+                desplazar. */}
+            <div
+              ref={coverRef}
+              className="group/cover relative overflow-hidden rounded-[1.8rem] border border-isel-line shadow-card transition-shadow duration-700 ease-snap hover:shadow-card-hover"
+            >
               <MaskReveal>
-                <motion.div style={{ y: coverY }} className="aspect-[16/9] w-full scale-110">
-                  <ImageSlot
-                    src={program.detailImage ?? program.cardImage}
-                    alt={program.title}
-                    label={campo}
-                    glyph={num}
+                <div className="relative aspect-[3/2] w-full overflow-hidden">
+                  <motion.div style={{ y: coverY }} className="absolute -inset-[10%]">
+                    <ImageSlot
+                      src={program.detailImage ?? program.cardImage}
+                      alt={program.title}
+                      label={campo}
+                      glyph={num}
+                    />
+                  </motion.div>
+
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5"
+                    style={{ backgroundImage: `linear-gradient(to top, ${accent}, transparent)`, opacity: 0.72 }}
                   />
-                </motion.div>
+
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-wrap items-end justify-between gap-3 p-5 sm:p-6">
+                    <span className="rounded-full bg-white/95 px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-isel-navy backdrop-blur">
+                      {campo}
+                    </span>
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/85">
+                      {program.plan.duracion}
+                    </span>
+                  </div>
+                </div>
               </MaskReveal>
             </div>
 
@@ -250,7 +285,7 @@ export function ProgramDetailPage() {
 
             {/* Entradilla en grande + resto del texto encendiéndose al leer. */}
             <RevealOnScroll delay={0.12}>
-              <p className="mt-6 font-display text-[1.35rem] font-medium leading-[1.35] tracking-tightest text-isel-navy sm:text-[1.6rem]">
+              <p className="prose-justify mt-6 font-display text-[1.35rem] font-medium leading-[1.35] tracking-tightest text-isel-navy sm:text-[1.6rem]">
                 {program.paragraphs[0]}
               </p>
             </RevealOnScroll>
@@ -259,7 +294,7 @@ export function ProgramDetailPage() {
               <ScrollHighlightText
                 key={i}
                 text={paragraph}
-                className="mt-8 text-[16px] leading-[1.75] text-isel-ink sm:text-[17px]"
+                className="prose-justify mt-8 text-[16px] leading-[1.75] text-isel-ink sm:text-[17px]"
                 dim={0.24}
               />
             ))}
@@ -279,16 +314,37 @@ export function ProgramDetailPage() {
               </div>
 
               <div className="p-7">
+                {/* Los tres datos del plan entran en cascada y cada uno tiene su
+                    propio filete: el filete crece de arriba abajo al aparecer y
+                    engorda al pasar el cursor, así la ficha responde al dedo en
+                    vez de ser una lista quieta. */}
                 <dl className="flex flex-col gap-5">
                   {[
                     { k: "Duración", v: program.plan.duracion },
                     { k: "Modalidad", v: program.plan.modalidad },
                     { k: "Tutorías", v: program.plan.tutorias },
-                  ].map((f) => (
-                    <div key={f.k} className="border-l-2 border-[var(--accent)] pl-4">
-                      <dt className="text-[10px] font-bold uppercase tracking-[0.16em] text-isel-ink/40">{f.k}</dt>
+                  ].map((f, i) => (
+                    <motion.div
+                      key={f.k}
+                      initial={{ opacity: 0, x: -10 }}
+                      whileInView={{ opacity: 1, x: 0 }}
+                      viewport={{ once: true, amount: 0.6 }}
+                      transition={{ duration: 0.6, delay: 0.12 + i * 0.09, ease: SNAP }}
+                      className="group/dato relative pl-4"
+                    >
+                      <motion.span
+                        aria-hidden
+                        initial={{ scaleY: 0 }}
+                        whileInView={{ scaleY: 1 }}
+                        viewport={{ once: true, amount: 0.6 }}
+                        transition={{ duration: 0.7, delay: 0.18 + i * 0.09, ease: SNAP }}
+                        className="absolute inset-y-0 left-0 w-[2px] origin-top rounded-full bg-[var(--accent)] transition-[width] duration-500 ease-snap group-hover/dato:w-[4px]"
+                      />
+                      <dt className="text-[10px] font-bold uppercase tracking-[0.16em] text-isel-ink/40 transition-colors duration-500 ease-snap group-hover/dato:text-[var(--accent)]">
+                        {f.k}
+                      </dt>
                       <dd className="mt-1 text-sm text-isel-ink/75">{f.v}</dd>
-                    </div>
+                    </motion.div>
                   ))}
                 </dl>
 
@@ -296,13 +352,18 @@ export function ProgramDetailPage() {
                   <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--accent)]">Costos</p>
                   <ul className="mt-3 flex flex-col divide-y divide-isel-line">
                     {program.plan.costos.map((c) => (
-                      <li key={c.label} className="flex items-baseline justify-between gap-4 py-2.5 text-sm">
+                      <li
+                        key={c.label}
+                        className="group/costo -mx-2 flex items-baseline justify-between gap-4 rounded-lg px-2 py-2.5 text-sm transition-colors duration-400 ease-snap hover:bg-[var(--accent-soft)]"
+                      >
                         <span className="text-isel-ink/65">{c.label}</span>
-                        <strong className="font-display text-base font-semibold text-isel-navy">{c.value}</strong>
+                        <strong className="font-display text-base font-semibold text-isel-navy transition-colors duration-400 ease-snap group-hover/costo:text-[var(--accent)]">
+                          {c.value}
+                        </strong>
                       </li>
                     ))}
                   </ul>
-                  <p className="mt-4 text-[11px] leading-relaxed text-isel-ink/45">{program.plan.notaCostos}</p>
+                  <p className="prose-justify mt-4 text-[11px] leading-relaxed text-isel-ink/45">{program.plan.notaCostos}</p>
                 </div>
 
                 <div className="mt-7 flex flex-col items-start gap-3">
@@ -363,16 +424,28 @@ export function ProgramDetailPage() {
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true, amount: 0.4 }}
                     transition={{ duration: 0.8, delay: 0.25 + i * 0.14, ease: SNAP }}
-                    className="relative md:pr-8"
+                    className="group/paso relative md:pr-8"
                   >
-                    <span
-                      className="relative z-10 flex h-12 w-12 items-center justify-center rounded-full font-display text-sm font-bold text-isel-deep ring-8 ring-isel-navy"
-                      style={{ backgroundColor: accent }}
-                    >
-                      {paso.n}
+                    {/* El disco del paso crece un poco y suelta un halo al
+                        enfocarlo: la línea de tiempo deja de ser un dibujo y
+                        se vuelve algo que responde. */}
+                    <span className="relative z-10 block h-12 w-12">
+                      <span
+                        aria-hidden
+                        className="absolute inset-0 rounded-full opacity-0 transition-[opacity,transform] duration-700 ease-snap group-hover/paso:scale-[1.55] group-hover/paso:opacity-25"
+                        style={{ backgroundColor: accent }}
+                      />
+                      <span
+                        className="relative flex h-12 w-12 items-center justify-center rounded-full font-display text-sm font-bold text-isel-deep ring-8 ring-isel-navy transition-transform duration-500 ease-back group-hover/paso:scale-110"
+                        style={{ backgroundColor: accent }}
+                      >
+                        {paso.n}
+                      </span>
                     </span>
                     <h3 className="mt-7 font-display text-xl font-semibold text-white">{paso.titulo}</h3>
-                    <p className="mt-3 max-w-[34ch] text-[14.5px] leading-relaxed text-white/60">{paso.texto}</p>
+                    <p className="mt-3 max-w-[36ch] text-[14.5px] leading-relaxed text-white/60 transition-colors duration-500 ease-snap group-hover/paso:text-white/80">
+                      {paso.texto}
+                    </p>
                   </motion.li>
                 ))}
               </ol>

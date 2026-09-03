@@ -68,10 +68,10 @@ export function Navbar() {
         className={`fixed inset-x-0 top-0 z-50 transition-all duration-500 ease-snap ${solid ? "py-3" : "py-6"}`}
       >
         <div
-          className={`mx-auto flex items-center justify-between gap-6 px-5 transition-all duration-500 ease-snap sm:px-6 ${
+          className={`mx-auto flex w-full items-center justify-between gap-4 px-5 transition-all duration-500 ease-snap sm:px-6 xl:gap-5 ${
             solid
-              ? "max-w-6xl rounded-full border border-white/10 bg-isel-deep/90 py-2.5 shadow-lift backdrop-blur-xl"
-              : "max-w-7xl border border-transparent py-2"
+              ? "max-w-[86rem] rounded-full border border-white/10 bg-isel-deep/90 py-2.5 shadow-lift backdrop-blur-xl"
+              : "max-w-[90rem] border border-transparent py-2"
           }`}
         >
           <Link to="/" className="group flex shrink-0 items-center gap-3">
@@ -80,20 +80,20 @@ export function Navbar() {
             </div>
             <span className="flex flex-col leading-none">
               <span className="font-display text-[15px] font-bold tracking-[0.22em] text-white">ISEL</span>
-              <span className="mt-1 hidden text-[10px] uppercase tracking-[0.14em] text-white/45 sm:block">
+              <span className="mt-1 hidden text-[10px] uppercase tracking-[0.14em] text-white/45 sm:block lg:hidden 2xl:block">
                 Universidad Mesoamericana
               </span>
             </span>
           </Link>
 
-          <nav className="hidden items-center gap-1 lg:flex">
+          <nav className="hidden min-w-0 items-center gap-0.5 xl:flex">
             {NAV_LINKS.map((link) => {
               const isActive = isHome && active === link.id;
               return (
                 <a
                   key={link.id}
                   href={href(link.id)}
-                  className={`relative rounded-full px-4 py-2 text-[13px] font-semibold transition-colors duration-300 ease-snap ${
+                  className={`relative whitespace-nowrap rounded-full px-2.5 py-2 text-[13px] font-semibold transition-colors duration-300 ease-snap ${
                     isActive ? "text-isel-deep" : "text-white/70 hover:text-white"
                   }`}
                 >
@@ -110,51 +110,43 @@ export function Navbar() {
             })}
           </nav>
 
-          <div className="hidden shrink-0 items-center gap-2 lg:flex">
-            {/* Canvas vive fuera de este sitio, así que no es un enlace de texto más
-                entre los tres trámites: va en cápsula con borde y con la flecha que
-                anuncia que se abre en otra pestaña. Al ir en el grupo de acciones y
-                no en <nav>, la píldora deslizante (layoutId) no lo ve y la animación
-                de la barra queda exactamente igual que antes. */}
-            <a
+          {/* Accesos rápidos. Los tres trámites y el aula virtual eran enlaces de
+              texto al lado de un botón verde: se leían como parte del menú y
+              nadie los distinguía. Ahora los cuatro son el mismo botón —misma
+              píldora, mismo relevo de flecha, mismo aro al pasar— y lo único
+              que los separa es el peldaño de color: verde elevado para los
+              tres accesos, verde vivo para la inscripción, que sigue siendo la
+              acción que la página persigue.
+
+              El grupo es `shrink-0` y cada botón `whitespace-nowrap`: pase lo
+              que pase con el ancho, quien cede es el menú de secciones, nunca
+              este bloque. Eso es lo que hacía que el CTA se saliera de la
+              cápsula al condensarse la barra. */}
+          <div className="hidden shrink-0 items-center gap-1.5 lg:flex xl:gap-2">
+            <ActionButton
               href={CANVAS_URL}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="group/canvas inline-flex items-center gap-1.5 rounded-full border border-white/20 px-3.5 py-2 text-[13px] font-semibold text-white/75 transition-[color,border-color,background-color] duration-300 ease-snap hover:border-white/40 hover:bg-white/[0.07] hover:text-white"
+              tone="navSoft"
+              size="nav"
+              arrow="upRight"
             >
               Canvas
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden
-                className="h-3 w-3 opacity-60 transition-transform duration-300 ease-snap group-hover/canvas:-translate-y-px group-hover/canvas:translate-x-px"
-              >
-                <path d="M8 16L16 8M9 8h7v7" />
-              </svg>
-            </a>
-            <Link
-              to="/portal/login"
-              className="rounded-full px-3.5 py-2.5 text-[13px] font-semibold text-white/75 transition-colors duration-300 ease-snap hover:text-white"
-            >
+            </ActionButton>
+            <ActionButton to="/portal/login" tone="navSoft" size="nav">
               Asignación
-            </Link>
-            <Link
-              to="/solicitud-titulo"
-              className="rounded-full px-3.5 py-2.5 text-[13px] font-semibold text-white/75 transition-colors duration-300 ease-snap hover:text-white"
-            >
+            </ActionButton>
+            <ActionButton to="/solicitud-titulo" tone="navSoft" size="nav">
               Solicitud de título
-            </Link>
+            </ActionButton>
             <ActionButton
               to="/inscripcion"
               tone="accent"
-              size="sm"
-              className="[--accent:#12855C] [--accent-soft:rgba(18,133,92,0.25)]"
+              size="nav"
+              className="[--accent:#12855C] [--accent-soft:rgba(18,133,92,0.28)]"
             >
-              Inscripción
+              {/* El rótulo completo solo donde cabe entero; por debajo, la mitad
+                  que de verdad identifica el trámite. */}
+              <span className="hidden 2xl:inline">Inscripciones nuevo ingreso</span>
+              <span className="2xl:hidden">Nuevo ingreso</span>
             </ActionButton>
           </div>
 
@@ -223,7 +215,7 @@ export function Navbar() {
                 onClick={() => setMobileOpen(false)}
                 className="rounded-full bg-isel-emerald px-6 py-4 text-center text-sm font-bold uppercase tracking-[0.12em] text-white"
               >
-                Inscripción
+                Inscripciones nuevo ingreso
               </Link>
               <Link
                 to="/portal/login"

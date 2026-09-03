@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 
-type Tone = "solid" | "accent" | "light" | "outlineDark" | "outlineLight";
-type Size = "sm" | "md";
+type Tone = "solid" | "accent" | "light" | "outlineDark" | "outlineLight" | "navSoft";
+type Size = "nav" | "sm" | "md";
 
 interface ActionButtonProps {
   children: ReactNode;
@@ -14,7 +14,7 @@ interface ActionButtonProps {
   external?: boolean;
   full?: boolean;
   /** Dirección del glifo: hacia dónde lleva la acción. */
-  arrow?: "right" | "down" | "none";
+  arrow?: "right" | "down" | "upRight" | "none";
   onClick?: () => void;
 }
 
@@ -42,11 +42,22 @@ const shell: Record<Tone, string> = {
     "border border-white/25 text-white hover:border-transparent hover:bg-white hover:text-isel-deep hover:shadow-[0_0_0_5px_rgba(255,255,255,0.14)]",
   outlineLight:
     "border border-isel-navy/20 text-isel-navy hover:border-transparent hover:bg-isel-navy hover:text-white hover:shadow-[0_0_0_5px_rgba(20,73,60,0.14)]",
+  /* Accesos rápidos del navbar. Mismo cuerpo que el botón principal —píldora
+     llena, relevo de flecha, aro al pasar— pero un peldaño por debajo en la
+     escalera de color: verde elevado en reposo, blanco al enfocarlo. Así los
+     cuatro se leen como botones (era el problema: tres eran texto suelto) sin
+     que la inscripción pierda el mando. */
+  navSoft:
+    "bg-isel-navy2 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.12)] hover:bg-white hover:text-isel-deep hover:shadow-[0_0_0_5px_rgba(255,255,255,0.13)]",
 };
 
+/* El tamaño trae consigo su tratamiento tipográfico: `nav` es el único que no
+   va en versalita —cuatro accesos en MAYÚSCULAS con tracking no caben en la
+   barra, y encima competirían con el titular por el mismo registro. */
 const sizing: Record<Size, string> = {
-  sm: "gap-2.5 px-5 py-2.5 text-[11px]",
-  md: "gap-3.5 px-7 py-3.5 text-[13px]",
+  nav: "gap-2 px-4 py-2.5 text-[12.5px] font-semibold tracking-[-0.005em]",
+  sm: "gap-2.5 px-5 py-2.5 text-[11px] font-bold uppercase tracking-[0.1em]",
+  md: "gap-3.5 px-7 py-3.5 text-[13px] font-bold uppercase tracking-[0.1em]",
 };
 
 export function ActionButton({
@@ -61,14 +72,14 @@ export function ActionButton({
   arrow = "right",
   onClick,
 }: ActionButtonProps) {
-  const glyph = arrow === "down" ? "↓" : "→";
+  const glyph = arrow === "down" ? "↓" : arrow === "upRight" ? "↗" : "→";
   // El relevo viaja en el eje del glifo: horizontal para "ir a", vertical para "bajar".
   const out = arrow === "down" ? "group-hover/ab:translate-y-[150%]" : "group-hover/ab:translate-x-[150%]";
   const inFrom = arrow === "down" ? "-translate-y-[150%]" : "-translate-x-[150%]";
   const inTo = arrow === "down" ? "group-hover/ab:translate-y-0" : "group-hover/ab:translate-x-0";
 
   const classes = [
-    "group/ab relative inline-flex select-none items-center justify-center rounded-full font-bold uppercase tracking-[0.1em]",
+    "group/ab relative inline-flex select-none items-center justify-center whitespace-nowrap rounded-full",
     "transition-[background-color,color,border-color,box-shadow,transform] duration-500 ease-entry",
     "hover:-translate-y-0.5 active:translate-y-0",
     sizing[size],

@@ -10,6 +10,7 @@ import { Modal } from "@/components/ui/Modal";
 import { CoursePickerModal } from "@/components/portal/CoursePickerModal";
 import { Icon } from "@/components/portal/Icon";
 import { PortalPanel } from "@/components/portal/PortalShell";
+import { StepGuide } from "@/components/portal/StepGuide";
 import { Alert, Chip, EmptyState, Field, Loading, PortalButton, Segmented, fieldClass } from "@/components/portal/kit";
 
 /**
@@ -409,6 +410,16 @@ export function CourseAssignmentForm({
         title="Tus datos"
         description="Vienen de los registros de la Universidad. Si algo no coincide, avísale a coordinación antes de enviar la ficha."
       >
+        <StepGuide
+          title="Qué tienes que revisar aquí"
+          steps={[
+            "Lee tu nombre y tu carné y comprueba que estén bien escritos.",
+            "Aquí no se escribe nada: estos datos salen de los registros de la Universidad.",
+            "Si algo está mal, avísale a coordinación antes de seguir; corregirlo después cuesta más.",
+          ]}
+          outcome="Si todo coincide, sigue bajando al paso 02."
+        />
+
         <dl className="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-3 lg:grid-cols-6">
           <DataItem label="Carné" value={student.carnet} mono />
           <DataItem label="Fecha" value={fechaHoy} mono />
@@ -427,6 +438,16 @@ export function CourseAssignmentForm({
         title="Cursos por asignarse"
         description="Toca tu maestría para elegir el trimestre y la sección. Los cursos de ese trimestre se asignan todos juntos."
       >
+        <StepGuide
+          steps={[
+            "Toca el renglón de tu maestría en la lista de abajo.",
+            "Se abre una ventana: elige el trimestre que vas a cursar y la sección.",
+            "No hace falta marcar los cursos uno por uno — al elegir el trimestre se agregan todos los de ese trimestre.",
+            "Pulsa aceptar y verás los cursos ya listados aquí.",
+          ]}
+          outcome="¿Te equivocaste? Vuelve a tocar la maestría y elige otro trimestre; se reemplaza lo anterior."
+        />
+
         <div className="divide-y divide-isel-line overflow-hidden rounded-xl border border-isel-line">
           {pickableCarreras.map((c, i) => {
             const isSelected = c === carrera;
@@ -615,6 +636,16 @@ export function CourseAssignmentForm({
         title="Cursos adicionales o cambio de sección"
         description="Opcional. Agrega un curso extra de cualquier maestría, o marca “Repetir trimestre” si necesitas retomar un curso de un trimestre anterior."
       >
+        <StepGuide
+          title="Solo si lo necesitas"
+          steps={[
+            "Si con los cursos del paso anterior ya estás completo, salta este paso: puedes dejarlo vacío.",
+            "¿Te falta un curso de un trimestre anterior? Marca “Repetir trimestre” y elígelo.",
+            "¿Quieres un curso extra de otra maestría? Déjalo sin marcar y búscalo en la lista.",
+          ]}
+          outcome="Dejarlo en blanco es una respuesta válida y no impide guardar la ficha."
+        />
+
         <div className="space-y-4">
           {additional.map((row, i) => (
             <AdditionalRow
@@ -649,6 +680,16 @@ export function CourseAssignmentForm({
         title="Observaciones y firma"
         description="Lo último: confirma si arrastras pendientes, elige cómo vas a pagar y firma la ficha."
       >
+        <StepGuide
+          steps={[
+            "Responde si arrastras trimestres completos sin cursar. Si no sabes, responde “No”.",
+            "Elige cómo vas a pagar entre las opciones que aparecen.",
+            "Firma en el recuadro blanco: con el dedo si estás en el teléfono, con el ratón si estás en la computadora. Si te sale torcida, bórrala y firma otra vez.",
+            "Pulsa el botón de guardar. Es el último de la página.",
+          ]}
+          outcome="Al guardar te aparece un resumen de lo que quedó asignado. Ahí sabrás que tu ficha ya está enviada."
+        />
+
         <div className="space-y-3">
           <ChoiceRow
             label="Trimestres o semestres completos anteriores pendientes de cursar"

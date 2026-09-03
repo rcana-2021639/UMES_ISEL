@@ -10,6 +10,7 @@ import { SignaturePad, type SignaturePadHandle } from "@/components/portal/Signa
 import { Modal } from "@/components/ui/Modal";
 import { Icon } from "@/components/portal/Icon";
 import { PortalPanel } from "@/components/portal/PortalShell";
+import { StepGuide } from "@/components/portal/StepGuide";
 import { Alert, Chip, EmptyState, Field, Loading, PortalButton, fieldClass } from "@/components/portal/kit";
 import {
   AdditionalRow,
@@ -298,6 +299,16 @@ export function AsignacionNuevoIngresoForm({ applicantId, initial, nombreSugerid
       title="Ficha de asignación de cursos"
       description="Como todavía no tienes carné, escribe tus datos a mano. El resto funciona igual que para un alumno ya inscrito."
     >
+      <StepGuide
+        steps={[
+          "Revisa tus datos: ya vienen copiados del paso anterior. Corrígelos aquí si algo cambió.",
+          "Toca tu maestría y luego el trimestre con el que empiezas. Los cursos de ese trimestre se agregan todos juntos, no hay que elegirlos uno por uno.",
+          "Si necesitas un curso extra o repetir uno, agrégalo en el apartado de abajo. Si no, déjalo vacío.",
+          "Marca cómo vas a pagar, firma y pulsa guardar.",
+        ]}
+        outcome="Esta es la ficha con la que te matriculan los cursos. Puedes volver a abrirla y cambiarla mientras no cierres tu inscripción."
+      />
+
       <div className="space-y-8">
         <div>
           <p className="mb-3 text-[10.5px] font-bold uppercase tracking-[0.14em] text-isel-ink/45">Tus datos</p>
