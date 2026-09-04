@@ -23,7 +23,7 @@ import { Chip } from "@/components/portal/kit";
  */
 
 const STEPS: RailStep[] = [
-  { id: "paso-datos", label: "Tus datos" },
+  { id: "paso-datos", label: "Sus datos" },
   { id: "paso-cursos", label: "Cursos por asignarse" },
   { id: "paso-adicionales", label: "Cursos adicionales" },
   { id: "paso-firma", label: "Observaciones y firma" },

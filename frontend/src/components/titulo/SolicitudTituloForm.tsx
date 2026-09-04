@@ -115,8 +115,8 @@ export const SolicitudTituloForm = forwardRef<SolicitudTituloFormHandle, Solicit
   // "guardar" nunca sea un salto al vacío.
   const faltantes = useMemo(() => {
     const falta: string[] = [];
-    if (!form.nombres?.trim()) falta.push("tus nombres");
-    if (!form.apellidos?.trim()) falta.push("tus apellidos");
+    if (!form.nombres?.trim()) falta.push("sus nombres");
+    if (!form.apellidos?.trim()) falta.push("sus apellidos");
     if (!form.campus) falta.push("la sede");
     if (!form.sexo) falta.push("el sexo");
     if (!form.fechaNacimiento) falta.push("la fecha de nacimiento");
@@ -143,11 +143,11 @@ export const SolicitudTituloForm = forwardRef<SolicitudTituloFormHandle, Solicit
   const handleSave = useCallback(async (): Promise<SolicitudTitulo | null> => {
     if (readOnly) return solicitud;
     if (!form.nombres?.trim() || !form.apellidos?.trim()) {
-      setError("Tus nombres y apellidos son obligatorios: son los que se imprimen en el título.");
+      setError("Los nombres y apellidos son obligatorios, ya que son los datos que se imprimen en el título.");
       return null;
     }
     if (nombresSobra || apellidosSobra) {
-      setError("El nombre no cabe en las casillas de la ficha. Ajústalo antes de guardar.");
+      setError("El nombre excede las casillas disponibles en la ficha. Ajústelo antes de guardar.");
       return null;
     }
     setSaving(true);
@@ -166,7 +166,7 @@ export const SolicitudTituloForm = forwardRef<SolicitudTituloFormHandle, Solicit
       setSinGuardar(false);
       return guardada;
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "No se pudo guardar tu solicitud.");
+      setError(e instanceof ApiError ? e.message : "No fue posible guardar su solicitud.");
       return null;
     } finally {
       setSaving(false);
@@ -183,15 +183,15 @@ export const SolicitudTituloForm = forwardRef<SolicitudTituloFormHandle, Solicit
         step="01"
         accent="#B8791F"
         title="Sede y ceremonia"
-        description="Dónde estudiaste y si vas a participar en el acto de graduación."
+        description="Sede en la que cursó sus estudios y participación en el acto de graduación."
       >
         <StepGuide
           steps={[
-            "Toca la sede donde estudiaste. Solo se puede marcar una.",
-            "Después responde si vas a asistir al acto de graduación.",
-            "Si todavía no lo sabes, responde lo que creas hoy: esto se puede cambiar mientras no entregues la solicitud.",
+            "Seleccione la sede en la que cursó sus estudios. Únicamente puede elegir una.",
+            "A continuación, indique si asistirá al acto de graduación.",
+            "Si aún no lo ha definido, registre la opción que considere más probable. Podrá modificarla mientras no entregue la solicitud.",
           ]}
-          outcome="Cuando marques las dos cosas, sigue bajando. No hay que guardar paso por paso: al final se guarda todo junto."
+          outcome="Una vez registradas ambas respuestas, continúe con los pasos siguientes. No es necesario guardar cada sección: la información se guarda en conjunto al finalizar."
         />
 
         <div>
@@ -248,8 +248,8 @@ export const SolicitudTituloForm = forwardRef<SolicitudTituloFormHandle, Solicit
         id="paso-nombre"
         step="02"
         accent="#12855C"
-        title="Tu nombre, como irá impreso"
-        description="Escríbelo igual que en tu documento de identificación: primera letra mayúscula, el resto en minúsculas, con tildes y diéresis."
+        title="Su nombre, tal como será impreso"
+        description="Regístrelo tal como aparece en su documento de identificación: la primera letra en mayúscula y las restantes en minúscula, con tildes y diéresis."
         actions={
           <Chip tone={nombresSobra || apellidosSobra ? "alert" : "neutral"} icon="alert">
             {CASILLAS_NOMBRES} casillas por renglón
@@ -257,14 +257,14 @@ export const SolicitudTituloForm = forwardRef<SolicitudTituloFormHandle, Solicit
         }
       >
         <StepGuide
-          title="Este es el paso más importante"
+          title="Paso de especial importancia"
           steps={[
-            "Copia tus nombres y apellidos EXACTAMENTE como están en tu DPI o pasaporte, con sus tildes.",
-            "Escribe la primera letra en mayúscula y el resto en minúsculas: María Fernanda, no MARIA FERNANDA.",
-            "Mira las casillas grises de abajo mientras escribes: eso es literalmente lo que se va a imprimir en tu título.",
-            "Si el aviso de arriba se pone rojo, tu nombre no cabe en el renglón. Avísale a Secretaría antes de seguir.",
+            "Copie sus nombres y apellidos exactamente como aparecen en su DPI o pasaporte, incluyendo las tildes.",
+            "Escriba la primera letra en mayúscula y las restantes en minúscula. Por ejemplo: María Fernanda.",
+            "Observe las casillas que aparecen debajo mientras escribe: reproducen exactamente lo que se imprimirá en su título.",
+            "Si el aviso superior cambia de color, su nombre excede el espacio disponible del renglón. Comuníquelo a Secretaría antes de continuar.",
           ]}
-          outcome="Un título mal impreso se vuelve a tramitar desde cero. Vale la pena revisar este paso dos veces."
+          outcome="Una impresión con datos incorrectos obliga a iniciar el trámite nuevamente. Se recomienda revisar esta sección con detenimiento."
         />
 
         <Alert kind="info">
@@ -304,7 +304,7 @@ export const SolicitudTituloForm = forwardRef<SolicitudTituloFormHandle, Solicit
           </div>
 
           <div className="rounded-xl border border-isel-line bg-isel-paper/60 p-4">
-            <RejillaPreview value={solicitud.carnet} casillas={CASILLAS_CARNET} label="Tu número de carné (ya registrado)" />
+            <RejillaPreview value={solicitud.carnet} casillas={CASILLAS_CARNET} label="Su número de carné (ya registrado)" />
           </div>
         </div>
       </PortalPanel>
@@ -315,13 +315,13 @@ export const SolicitudTituloForm = forwardRef<SolicitudTituloFormHandle, Solicit
         step="03"
         accent="#6D5AA8"
         title="Datos personales"
-        description="Los que la universidad necesita para localizarte cuando el título esté listo."
+        description="Datos que la Universidad requiere para comunicarse con usted cuando el título esté disponible."
       >
         <StepGuide
           steps={[
-            "Llena tu fecha de nacimiento y los demás datos que te pida.",
-            "Pon un teléfono y un correo a los que de verdad contestes: por ahí te avisan cuando el título esté listo.",
-            "Los campos con asterisco (*) son los obligatorios; el resto puedes dejarlo vacío.",
+            "Complete su fecha de nacimiento y los demás datos solicitados.",
+            "Registre un número telefónico y un correo electrónico vigentes, ya que por esos medios se le notificará cuando el título esté disponible.",
+            "Los campos señalados con asterisco (*) son obligatorios; los demás puede dejarlos sin completar.",
           ]}
         />
 
@@ -423,16 +423,16 @@ export const SolicitudTituloForm = forwardRef<SolicitudTituloFormHandle, Solicit
         id="paso-trabajo"
         step="04"
         accent="#2C6E8F"
-        title="Dónde trabajas"
-        description="Opcional — déjalo en blanco si por ahora no aplica."
+        title="Información laboral"
+        description="Sección opcional. Puede dejarla sin completar si no aplica en este momento."
       >
         <StepGuide
-          title="Puedes saltarte este paso"
+          title="Sección opcional"
           steps={[
-            "Si trabajas, escribe el nombre del lugar y tu puesto.",
-            "Si no trabajas, o prefieres no ponerlo, déjalo todo en blanco y sigue de largo.",
+            "Si labora actualmente, indique el nombre de la institución o empresa y el puesto que desempeña.",
+            "Si no labora, o prefiere no proporcionar esta información, deje los campos vacíos y continúe.",
           ]}
-          outcome="Este paso no bloquea nada: la solicitud se guarda igual con estos campos vacíos."
+          outcome="Esta sección no condiciona el trámite: la solicitud se guarda aunque estos campos permanezcan vacíos."
         />
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -478,14 +478,14 @@ export const SolicitudTituloForm = forwardRef<SolicitudTituloFormHandle, Solicit
         id="paso-titulo"
         step="05"
         accent="#14493C"
-        title="El título que vas a obtener"
-        description="Viene de tu registro académico. Corrígelo solo si no coincide con lo que te dijo Secretaría."
+        title="Título a obtener"
+        description="Proviene de su registro académico. Modifíquelo únicamente si no coincide con lo indicado por Secretaría."
       >
         <StepGuide
           steps={[
-            "Lee el nombre del título que aparece abajo. Normalmente ya viene correcto de tu expediente.",
-            "Cámbialo solo si no coincide con lo que te dijo Secretaría.",
-            "Si dudas, déjalo tal como está: es lo que consta en tu registro académico.",
+            "Revise el nombre del título que aparece a continuación. Por lo general proviene correctamente de su expediente.",
+            "Modifíquelo únicamente si no coincide con lo indicado por Secretaría.",
+            "En caso de duda, consérvelo tal como aparece: es lo que consta en su registro académico.",
           ]}
         />
 
@@ -514,8 +514,8 @@ export const SolicitudTituloForm = forwardRef<SolicitudTituloFormHandle, Solicit
         id="paso-foto"
         step="06"
         accent="#A97B18"
-        title="Tu fotografía"
-        description="La que va pegada en el recuadro de la ficha. Puedes tomártela aquí mismo o subir una que ya tengas."
+        title="Fotografía"
+        description="Fotografía que se coloca en el recuadro de la ficha. Puede tomarla desde esta página o adjuntar una existente."
         actions={
           <Chip tone={form.fotoBase64 ? "emerald" : "neutral"} icon={form.fotoBase64 ? "check" : "user"}>
             {form.fotoBase64 ? "Lista" : "Pendiente"}
@@ -524,12 +524,12 @@ export const SolicitudTituloForm = forwardRef<SolicitudTituloFormHandle, Solicit
       >
         <StepGuide
           steps={[
-            "Ponte de frente, con fondo claro y buena luz. Sin lentes oscuros ni gorra.",
-            "Si estás en el teléfono, pulsa para tomarte la foto ahí mismo; si ya tienes una, súbela desde tu galería.",
-            "Encuadra la cara dentro del recuadro: es el mismo espacio que ocupa en la ficha impresa.",
-            "¿No te gustó? Vuelve a tomarla las veces que quieras; solo se queda la última.",
+            "Colóquese de frente, con fondo claro e iluminación adecuada, sin lentes oscuros ni accesorios que cubran el rostro.",
+            "Desde un teléfono puede tomar la fotografía en ese momento; si ya cuenta con una, adjúntela desde su dispositivo.",
+            "Encuadre el rostro dentro del recuadro: corresponde al espacio que ocupa en la ficha impresa.",
+            "Puede repetir la captura las veces que considere necesario; se conserva únicamente la última.",
           ]}
-          outcome="Esta es la foto que va pegada en tu solicitud, así que procura que se te vea bien la cara."
+          outcome="Esta fotografía se incorpora a su solicitud, por lo que se recomienda que el rostro se aprecie con claridad."
         />
 
         <FotoCapture value={form.fotoBase64} onChange={(v) => set("fotoBase64", v)} readOnly={readOnly} />
@@ -540,8 +540,8 @@ export const SolicitudTituloForm = forwardRef<SolicitudTituloFormHandle, Solicit
         id="paso-firma"
         step="07"
         accent="#B23A2B"
-        title="Tu firma"
-        description="Firma con el ratón, el dedo o el lápiz. Se coloca sobre el renglón de 'Firma del Interesado'."
+        title="Firma"
+        description="Puede firmar con el ratón, el dedo o un lápiz digital. La firma se coloca sobre el renglón de “Firma del Interesado”."
       >
         {readOnly ? (
           form.firmaBase64 ? (
@@ -552,14 +552,14 @@ export const SolicitudTituloForm = forwardRef<SolicitudTituloFormHandle, Solicit
         ) : (
           <>
             <StepGuide
-              title="El último paso"
+              title="Último paso"
               steps={[
-                "Firma dentro del recuadro blanco: con el dedo si estás en el teléfono, con el ratón si estás en la computadora.",
-                "Hazla despacio y de un solo trazo; no tiene que quedar idéntica a la de tu DPI.",
-                "¿Quedó torcida? Pulsa “Limpiar firma” y vuelve a intentarlo. No se gasta nada.",
-                "Cuando te guste, baja a la barra verde y pulsa guardar.",
+                "Registre su firma dentro del recuadro: con el dedo desde un teléfono o con el ratón desde una computadora.",
+                "Realícela con calma y de un solo trazo; no es necesario que sea idéntica a la de su DPI.",
+                "Si el resultado no es satisfactorio, presione “Limpiar firma” y regístrela nuevamente.",
+                "Cuando la firma sea correcta, diríjase a la barra inferior y presione el botón para guardar.",
               ]}
-              outcome="Después de guardar puedes descargar tu solicitud en PDF, imprimirla y llevarla a Secretaría."
+              outcome="Después de guardar, podrá descargar su solicitud en formato PDF, imprimirla y presentarla en Secretaría."
             />
 
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
@@ -612,13 +612,13 @@ export const SolicitudTituloForm = forwardRef<SolicitudTituloFormHandle, Solicit
               {error ? (
                 <span className="font-semibold text-isel-alert">{error}</span>
               ) : saved ? (
-                <span className="font-semibold text-isel-emerald2">Tu solicitud quedó guardada.</span>
+                <span className="font-semibold text-isel-emerald2">Su solicitud fue guardada correctamente.</span>
               ) : sinGuardar ? (
                 <span className="truncate font-semibold text-isel-navy">
-                  Tienes cambios sin guardar — pulsa "Guardar solicitud".
+                  Tiene cambios sin guardar. Presione “Guardar solicitud”.
                 </span>
               ) : faltantes.length === 0 ? (
-                <span className="font-semibold text-isel-emerald2">Tu ficha está completa.</span>
+                <span className="font-semibold text-isel-emerald2">Su ficha está completa.</span>
               ) : (
                 <span className="truncate">
                   Falta {faltantes.slice(0, 2).join(" y ")}

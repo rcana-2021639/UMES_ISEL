@@ -22,10 +22,10 @@ import type { Applicant } from "@/types/inscripcion";
  */
 
 const PASOS = [
-  { icon: "user" as const, label: "Preinscripción", text: "Tus datos personales, de contacto y de emergencia." },
-  { icon: "layers" as const, label: "Asignación de cursos", text: "Tu maestría, tu trimestre y los cursos que llevarás." },
-  { icon: "pen" as const, label: "Carta de compromiso", text: "La firmas y confirmas la papelería que vas a entregar." },
-  { icon: "upload" as const, label: "Documentos", text: "Subes tus PDF — puedes dejarlo para más adelante." },
+  { icon: "user" as const, label: "Preinscripción", text: "Sus datos personales, de contacto y de emergencia." },
+  { icon: "layers" as const, label: "Asignación de cursos", text: "Su maestría, su trimestre y los cursos que cursará." },
+  { icon: "pen" as const, label: "Carta de compromiso", text: "Se firma y se confirma la documentación que usted entregará." },
+  { icon: "upload" as const, label: "Documentos", text: "Adjunta sus archivos en PDF. Puede hacerlo posteriormente." },
 ];
 
 export function AccesoInscripcionGate({ onEnter }: { onEnter: (applicant: Applicant) => void }) {
@@ -50,7 +50,7 @@ export function AccesoInscripcionGate({ onEnter }: { onEnter: (applicant: Applic
       const applicant = await accesoInscripcion(modo === "dpi" ? { dpi: value.trim() } : { pasaporte: value.trim() });
       onEnter(applicant);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "No se pudo iniciar la inscripción. Intenta de nuevo.");
+      setError(e instanceof ApiError ? e.message : "No fue posible iniciar la inscripción. Intente nuevamente.");
     } finally {
       setLoading(false);
     }
@@ -93,14 +93,14 @@ export function AccesoInscripcionGate({ onEnter }: { onEnter: (applicant: Applic
               className={`mt-6 max-w-[14ch] text-balance font-display text-[clamp(2rem,4.2vw,3rem)] font-semibold leading-[0.98] tracking-ultratight text-white ${beat} ${state}`}
               style={delay(240)}
             >
-              Empecemos tu expediente
+              Inicio de su expediente
             </h1>
             <p
               className={`mt-6 max-w-[42ch] text-[14px] leading-relaxed text-white/60 ${beat} ${state}`}
               style={delay(320)}
             >
-              Son cuatro partes y las guardas por separado. Puedes cerrar la página y volver más tarde — con tu
-              mismo DPI retomas justo donde te quedaste.
+              El proceso consta de cuatro secciones que se guardan por separado. Puede cerrar la página y regresar más adelante: con su
+              mismo DPI continuará donde lo dejó.
             </p>
 
             <RutaPasos on={on} reduce={!!reduce} />
@@ -108,7 +108,7 @@ export function AccesoInscripcionGate({ onEnter }: { onEnter: (applicant: Applic
 
           <p className={`flex items-center gap-2.5 text-[12.5px] text-white/35 ${beat} ${state}`} style={delay(1300)}>
             <Icon name="lock" size={14} />
-            No necesitas contraseña: tu DPI (o pasaporte) es tu llave para regresar.
+            No se requiere contraseña: su DPI o pasaporte le permite regresar al proceso.
           </p>
         </div>
       </section>
@@ -121,9 +121,9 @@ export function AccesoInscripcionGate({ onEnter }: { onEnter: (applicant: Applic
           </div>
 
           <div className={`${beat} ${state}`} style={delay(300)}>
-            <p className="text-[10.5px] font-bold uppercase tracking-[0.2em] text-isel-gold2">Identifícate</p>
+            <p className="text-[10.5px] font-bold uppercase tracking-[0.2em] text-isel-gold2">Identificación</p>
             <h2 className="mt-3 font-display text-[1.7rem] font-semibold leading-[1.05] tracking-ultratight text-isel-navy">
-              ¿Con qué documento te identificas?
+              ¿Con qué documento se identifica?
             </h2>
           </div>
 

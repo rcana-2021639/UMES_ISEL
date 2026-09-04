@@ -407,17 +407,17 @@ export function CourseAssignmentForm({
         id="paso-datos"
         step="01"
         accent="#12855C"
-        title="Tus datos"
-        description="Vienen de los registros de la Universidad. Si algo no coincide, avísale a coordinación antes de enviar la ficha."
+        title="Sus datos"
+        description="Provienen de los registros de la Universidad. Si algún dato no coincide, comuníquelo a Coordinación antes de enviar la ficha."
       >
         <StepGuide
-          title="Qué tienes que revisar aquí"
+          title="Qué debe verificar en esta sección"
           steps={[
-            "Lee tu nombre y tu carné y comprueba que estén bien escritos.",
-            "Aquí no se escribe nada: estos datos salen de los registros de la Universidad.",
-            "Si algo está mal, avísale a coordinación antes de seguir; corregirlo después cuesta más.",
+            "Revise su nombre y su número de carné y verifique que estén correctamente escritos.",
+            "Esta sección no requiere que usted escriba: los datos provienen de los registros de la Universidad.",
+            "Si algún dato es incorrecto, comuníquelo a Coordinación antes de continuar; su corrección posterior requiere más tiempo.",
           ]}
-          outcome="Si todo coincide, sigue bajando al paso 02."
+          outcome="Si la información es correcta, continúe con el paso 02."
         />
 
         <dl className="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-3 lg:grid-cols-6">
@@ -436,16 +436,16 @@ export function CourseAssignmentForm({
         step="02"
         accent="#B8791F"
         title="Cursos por asignarse"
-        description="Toca tu maestría para elegir el trimestre y la sección. Los cursos de ese trimestre se asignan todos juntos."
+        description="Seleccione su maestría para elegir el trimestre y la sección. Los cursos de ese trimestre se asignan de forma conjunta."
       >
         <StepGuide
           steps={[
-            "Toca el renglón de tu maestría en la lista de abajo.",
-            "Se abre una ventana: elige el trimestre que vas a cursar y la sección.",
-            "No hace falta marcar los cursos uno por uno — al elegir el trimestre se agregan todos los de ese trimestre.",
-            "Pulsa aceptar y verás los cursos ya listados aquí.",
+            "Seleccione el renglón correspondiente a su maestría en el listado siguiente.",
+            "Se mostrará una ventana en la que debe elegir el trimestre que cursará y la sección.",
+            "No es necesario marcar los cursos de forma individual: al elegir el trimestre se agregan todos los que le corresponden.",
+            "Presione aceptar y los cursos quedarán listados en esta sección.",
           ]}
-          outcome="¿Te equivocaste? Vuelve a tocar la maestría y elige otro trimestre; se reemplaza lo anterior."
+          outcome="Si necesita corregir la selección, elija nuevamente la maestría y otro trimestre; la información anterior se reemplaza."
         />
 
         <div className="divide-y divide-isel-line overflow-hidden rounded-xl border border-isel-line">
@@ -634,16 +634,16 @@ export function CourseAssignmentForm({
         step="03"
         accent="#6D5AA8"
         title="Cursos adicionales o cambio de sección"
-        description="Opcional. Agrega un curso extra de cualquier maestría, o marca “Repetir trimestre” si necesitas retomar un curso de un trimestre anterior."
+        description="Sección opcional. Puede agregar un curso adicional de cualquier maestría o marcar “Repetir trimestre” si requiere cursar nuevamente un curso de un trimestre anterior."
       >
         <StepGuide
-          title="Solo si lo necesitas"
+          title="Sección opcional"
           steps={[
-            "Si con los cursos del paso anterior ya estás completo, salta este paso: puedes dejarlo vacío.",
-            "¿Te falta un curso de un trimestre anterior? Marca “Repetir trimestre” y elígelo.",
-            "¿Quieres un curso extra de otra maestría? Déjalo sin marcar y búscalo en la lista.",
+            "Si los cursos del paso anterior cubren su asignación, puede omitir esta sección y dejarla vacía.",
+            "Si tiene pendiente un curso de un trimestre anterior, marque “Repetir trimestre” y selecciónelo.",
+            "Si desea un curso adicional de otra maestría, deje la casilla sin marcar y ubíquelo en el listado.",
           ]}
-          outcome="Dejarlo en blanco es una respuesta válida y no impide guardar la ficha."
+          outcome="Dejar esta sección vacía es una respuesta válida y no impide guardar la ficha."
         />
 
         <div className="space-y-4">
@@ -678,16 +678,16 @@ export function CourseAssignmentForm({
         step="04"
         accent="#2C6E8F"
         title="Observaciones y firma"
-        description="Lo último: confirma si arrastras pendientes, elige cómo vas a pagar y firma la ficha."
+        description="Para finalizar, confirme si tiene periodos pendientes, indique la forma de pago y registre su firma en la ficha."
       >
         <StepGuide
           steps={[
-            "Responde si arrastras trimestres completos sin cursar. Si no sabes, responde “No”.",
-            "Elige cómo vas a pagar entre las opciones que aparecen.",
-            "Firma en el recuadro blanco: con el dedo si estás en el teléfono, con el ratón si estás en la computadora. Si te sale torcida, bórrala y firma otra vez.",
-            "Pulsa el botón de guardar. Es el último de la página.",
+            "Indique si tiene trimestres completos pendientes de cursar. Si no cuenta con esa información, seleccione “No”.",
+            "Seleccione la forma de pago entre las opciones disponibles.",
+            "Registre su firma dentro del recuadro: con el dedo desde un teléfono o con el ratón desde una computadora. Si el resultado no es satisfactorio, bórrela y regístrela nuevamente.",
+            "Presione el botón para guardar, ubicado al final de la página.",
           ]}
-          outcome="Al guardar te aparece un resumen de lo que quedó asignado. Ahí sabrás que tu ficha ya está enviada."
+          outcome="Al guardar se mostrará un resumen de la asignación registrada, con lo cual se confirma el envío de su ficha."
         />
 
         <div className="space-y-3">

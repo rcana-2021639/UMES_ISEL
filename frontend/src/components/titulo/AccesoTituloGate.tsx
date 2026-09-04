@@ -25,9 +25,9 @@ import type { SolicitudTitulo } from "@/types/solicitudTitulo";
 const SLOTS = 9;
 
 const PASOS = [
-  { icon: "user" as const, text: "Revisas tus datos: el carné, tu nombre y tu carrera ya vienen puestos." },
+  { icon: "user" as const, text: "Revise sus datos: el carné, el nombre y la carrera ya aparecen registrados." },
   { icon: "sparkle" as const, text: "Te tomas o subes la fotografía, recortada a la medida de la ficha." },
-  { icon: "pen" as const, text: "Firmas y descargas tu solicitud lista para imprimir." },
+  { icon: "pen" as const, text: "Registra su firma y descarga la solicitud lista para imprimir." },
 ];
 
 export function AccesoTituloGate({ onEnter }: { onEnter: (s: SolicitudTitulo) => void }) {
@@ -54,7 +54,7 @@ export function AccesoTituloGate({ onEnter }: { onEnter: (s: SolicitudTitulo) =>
     try {
       onEnter(await accesoSolicitudTitulo(value.trim(), correo.trim()));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "No se pudo abrir tu solicitud. Intenta de nuevo.");
+      setError(err instanceof ApiError ? err.message : "No fue posible abrir su solicitud. Intente nuevamente.");
     } finally {
       setLoading(false);
     }
@@ -112,7 +112,7 @@ export function AccesoTituloGate({ onEnter }: { onEnter: (s: SolicitudTitulo) =>
 
           <p className={`flex items-center gap-2.5 text-[12.5px] text-white/35 ${beat} ${state}`} style={delay(700)}>
             <Icon name="lock" size={14} />
-            Tu carné es lo único que necesitas: este trámite no usa contraseña.
+            Únicamente se requiere su número de carné: este trámite no utiliza contraseña.
           </p>
         </div>
       </section>
@@ -127,10 +127,10 @@ export function AccesoTituloGate({ onEnter }: { onEnter: (s: SolicitudTitulo) =>
           <div className={`${beat} ${state}`} style={delay(300)}>
             <p className="text-[10.5px] font-bold uppercase tracking-[0.2em] text-isel-gold2">Alumnos por graduarse</p>
             <h2 className="mt-3 font-display text-[1.9rem] font-semibold leading-[1.05] tracking-ultratight text-isel-navy">
-              Escribe tu carné
+              Ingrese su carné
             </h2>
             <p className="mt-3 text-[14px] leading-relaxed text-isel-ink/55">
-              Con ellos traemos tu nombre y tu carrera tal como están registrados, para que la ficha salga sin errores.
+              Con ese dato se obtienen su nombre y su carrera tal como están registrados, para que la ficha no contenga errores.
             </p>
           </div>
 
@@ -389,10 +389,10 @@ function TituloSello({ value, error, reduce }: { value: string; error: boolean; 
           {error
             ? "Carné no encontrado"
             : completo
-              ? "Carné completo · ya puedes entrar"
+              ? "Carné completo · puede continuar"
               : digits > 0
                 ? `${digits} de ${SLOTS} dígitos`
-                : "Esperando tu carné"}
+                : "Ingrese su número de carné"}
         </span>
       </p>
     </div>

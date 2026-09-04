@@ -14,9 +14,10 @@ import { Icon } from "./Icon";
  * Reglas de este bloque, para que ayude en vez de estorbar:
  *
  * - Tres o cuatro renglones, nunca un muro de texto. Un renglón = una acción.
- * - Se habla de tú y en presente ("Escribe tu nombre…"), sin jerga y sin
- *   "deberá proceder a". La voz es la de alguien sentado al lado, no la de un
- *   reglamento.
+ * - Se trata de usted y en imperativo directo ("Escriba sus nombres…"). El
+ *   registro es institucional y neutro: nada de tuteo ni de expresiones
+ *   coloquiales, y nada de términos que puedan interpretarse como una
+ *   advertencia o un reproche. Una acción por renglón, sin rodeos.
  * - Siempre se dice qué pasa al final del paso, que es la duda de verdad:
  *   ¿esto se guardó?, ¿puedo irme?, ¿lo perdí?
  * - Se puede cerrar. Quien ya lo entendió lo pliega y no lo vuelve a ver en
