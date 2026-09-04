@@ -16,6 +16,12 @@ export interface Student {
   papeleriaEnOrden: boolean;
   /** Cuántos de los documentos de la carta de compromiso ya se subieron. */
   documentosSubidos: number;
+  /**
+   * Id del expediente de inscripción del que salió este alumno, o null si lo dio
+   * de alta a mano un administrador. Con él se vuelven a abrir su preinscripción,
+   * su carta de compromiso y los documentos que subió al inscribirse.
+   */
+  expedienteInscripcionId?: number | null;
 }
 
 /** Every field the admin's "Agregar / editar alumno" form must collect. */

@@ -12,6 +12,9 @@ import { Modal } from "@/components/ui/Modal";
 import { StudentFormModal } from "@/components/portal/StudentFormModal";
 import { CourseAssignmentForm } from "@/components/portal/CourseAssignmentForm";
 import { InscripcionesAdminPanels } from "@/components/inscripcion/InscripcionesAdminPanels";
+import { AspiranteFichasModal } from "@/components/inscripcion/AspiranteFichasModal";
+import { getExpedienteDeAlumno } from "@/lib/inscripcionesApi";
+import type { Applicant } from "@/types/inscripcion";
 import { SolicitudesTituloAdminPanels } from "@/components/titulo/SolicitudesTituloAdminPanels";
 import { PensumAdminPanels } from "@/components/pensum/PensumAdminPanels";
 import { InicioAdminPanels } from "@/components/admin/InicioAdminPanels";
@@ -233,6 +236,41 @@ export function AdminPortalPage() {
     setFichaStudent(null);
     setFichaEditing(false);
     setIrADocumentos(false);
+  }
+
+  /**
+   * El expediente de inscripción del alumno: sus tres fichas (preinscripción,
+   * asignación y carta de compromiso) y los documentos que subió.
+   *
+   * Al agregarlo a la base de datos, el aspirante sale del listado de
+   * Inscripciones —ya no es un aspirante— y hasta ahora eso dejaba su
+   * preinscripción, su carta de compromiso y sus PDF sin ninguna pantalla desde
+   * la que abrirlos: seguían guardados, pero fuera de alcance. Se cargan a
+   * demanda, solo cuando alguien pulsa el botón.
+   */
+  const [expediente, setExpediente] = useState<Applicant | null>(null);
+  const [expedienteDe, setExpedienteDe] = useState<Student | null>(null);
+  const [expedienteFicha, setExpedienteFicha] = useState<"preinscripcion" | "documentos">("preinscripcion");
+  const [expedienteError, setExpedienteError] = useState<string | null>(null);
+  const [cargandoExpediente, setCargandoExpediente] = useState<number | null>(null);
+
+  async function openExpediente(s: Student, ficha: "preinscripcion" | "documentos" = "preinscripcion") {
+    setCargandoExpediente(s.id);
+    setExpedienteError(null);
+    try {
+      const applicant = await getExpedienteDeAlumno(s.id);
+      setExpediente(applicant);
+      setExpedienteDe(s);
+      setExpedienteFicha(ficha);
+    } catch (e) {
+      setExpedienteError(
+        e instanceof ApiError && e.status === 404
+          ? `${s.nombreCompleto} no tiene expediente de inscripción en línea: su registro se creó a mano.`
+          : "No fue posible abrir el expediente de inscripción.",
+      );
+    } finally {
+      setCargandoExpediente(null);
+    }
   }
 
   useEffect(() => {
@@ -721,6 +759,19 @@ export function AdminPortalPage() {
                             <PortalButton tone="ghost" size="sm" icon="file" onClick={() => openFicha(s, true)}>
                               Documentos
                             </PortalButton>
+                            {/* Solo para quien entró por la inscripción en línea: al alumno dado
+                                de alta a mano no hay expediente que abrirle. */}
+                            {s.expedienteInscripcionId != null && (
+                              <PortalButton
+                                tone="ghost"
+                                size="sm"
+                                icon="layers"
+                                loading={cargandoExpediente === s.id}
+                                onClick={() => openExpediente(s)}
+                              >
+                                Inscripción
+                              </PortalButton>
+                            )}
                             <IconButton
                               icon="pencil"
                               label={`Editar a ${s.nombreCompleto}`}
@@ -758,6 +809,30 @@ export function AdminPortalPage() {
 
       {fichaStudent && (
         <Modal open onClose={closeFicha} title={`Ficha — ${fichaStudent.nombreCompleto}`} widthClassName="max-w-4xl">
+          {/* Puente al expediente de inscripción. Esta ventana enseña la ficha de
+              asignación y la papelería que el alumno suba desde su portal; las
+              otras dos fichas —preinscripción y carta de compromiso— y los PDF
+              que entregó al inscribirse viven en su expediente, y hasta aquí no
+              había forma de llegar a ellos. */}
+          {fichaStudent.expedienteInscripcionId != null && (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-isel-emerald/25 bg-isel-emerald/[0.06] px-4 py-3">
+              <p className="flex items-center gap-2.5 text-[13px] leading-snug text-isel-ink/70">
+                <Icon name="layers" size={16} className="shrink-0 text-isel-emerald" />
+                Este alumno entró por la inscripción en línea. Su preinscripción, su carta de
+                compromiso y los documentos que subió siguen guardados en su expediente.
+              </p>
+              <PortalButton
+                tone="ghost"
+                size="sm"
+                icon="eye"
+                loading={cargandoExpediente === fichaStudent.id}
+                onClick={() => openExpediente(fichaStudent)}
+              >
+                Ver expediente
+              </PortalButton>
+            </div>
+          )}
+
           {/* Barra de modo. Mientras diga "consulta", nada de dentro se puede
               tocar y no hay botón de guardar; pasar a edición es un clic
               deliberado, y se nota porque la barra cambia de color. */}
@@ -807,6 +882,27 @@ export function AdminPortalPage() {
               }}
             />
           </div>
+        </Modal>
+      )}
+
+      {/* Las otras dos fichas y la papelería de la inscripción, tal como se ven en
+          la pestaña de Inscripciones: mismo modal, mismas cuatro secciones. */}
+      {expediente && expedienteDe && (
+        <AspiranteFichasModal
+          applicant={expediente}
+          open
+          startFicha={expedienteFicha}
+          onClose={() => {
+            setExpediente(null);
+            setExpedienteDe(null);
+          }}
+          onUpdated={(updated) => setExpediente(updated)}
+        />
+      )}
+
+      {expedienteError && (
+        <Modal open onClose={() => setExpedienteError(null)} title="Expediente de inscripción" widthClassName="max-w-md">
+          <Alert kind="info">{expedienteError}</Alert>
         </Modal>
       )}
 

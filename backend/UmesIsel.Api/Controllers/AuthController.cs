@@ -250,7 +250,7 @@ public class AuthController : ControllerBase
     private static StudentDto ToStudentDto(Student s, int documentosSubidos) => new(
         s.Id, s.Carnet, s.PrimerApellido, s.SegundoApellido, s.PrimerNombre, s.SegundoNombre,
         s.NombreCompleto, s.Carrera, s.Seccion, s.Trimestre, s.CorreoInstitucional, s.CorreoPersonal,
-        s.Celular, s.PapeleriaEnOrden, documentosSubidos);
+        s.Celular, s.PapeleriaEnOrden, documentosSubidos, null);
 
     /// <summary>Deja solo lo imprimible antes de escribirlo en la bitácora, para que nadie inyecte saltos de línea en el registro.</summary>
     private static string Sanitizar(string value) =>
