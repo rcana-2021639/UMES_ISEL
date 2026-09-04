@@ -35,13 +35,20 @@ public class StudentsController : ControllerBase
         _audit = audit;
     }
 
-    private static StudentDto ToDto(Student s, int documentosSubidos = 0) => new(
+    private static StudentDto ToDto(Student s, int documentosSubidos = 0, int? expedienteId = null) => new(
         s.Id, s.Carnet, s.PrimerApellido, s.SegundoApellido, s.PrimerNombre, s.SegundoNombre,
         s.NombreCompleto, s.Carrera, s.Seccion, s.Trimestre, s.CorreoInstitucional, s.CorreoPersonal, s.Celular,
-        s.PapeleriaEnOrden, documentosSubidos);
+        s.PapeleriaEnOrden, documentosSubidos, expedienteId);
 
     private async Task<int> CountDocumentos(int studentId) =>
         await _db.StudentDocuments.CountAsync(d => d.StudentId == studentId);
+
+    /// <summary>El expediente de inscripción del que salió este alumno, si vino de uno.</summary>
+    private async Task<int?> ExpedienteDe(int studentId) =>
+        await _db.Applicants.AsNoTracking()
+            .Where(a => a.MigradoStudentId == studentId)
+            .Select(a => (int?)a.Id)
+            .FirstOrDefaultAsync();
 
     private static string BuildNombreCompleto(string primerApellido, string? segundoApellido, string primerNombre, string? segundoNombre)
     {
@@ -74,7 +81,15 @@ public class StudentsController : ControllerBase
             .Select(g => new { StudentId = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.StudentId, x => x.Count);
 
-        return Ok(students.Select(s => ToDto(s, counts.GetValueOrDefault(s.Id))).ToList());
+        // Una sola consulta para toda la página: qué alumnos vienen de una inscripción en línea.
+        var expedientes = await _db.Applicants.AsNoTracking()
+            .Where(a => a.MigradoStudentId != null && ids.Contains(a.MigradoStudentId!.Value))
+            .Select(a => new { StudentId = a.MigradoStudentId!.Value, a.Id })
+            .ToDictionaryAsync(x => x.StudentId, x => (int?)x.Id);
+
+        return Ok(students
+            .Select(s => ToDto(s, counts.GetValueOrDefault(s.Id), expedientes.GetValueOrDefault(s.Id)))
+            .ToList());
     }
 
     /// <summary>GET /api/students/carreras — distinct carrera values, for the admin's filter dropdown.</summary>
@@ -95,7 +110,7 @@ public class StudentsController : ControllerBase
     public async Task<ActionResult<StudentDto>> GetById(int id)
     {
         var student = await _db.Students.AsNoTracking().FirstOrDefaultAsync(s => s.Id == id);
-        return student is null ? NotFound() : Ok(ToDto(student, await CountDocumentos(id)));
+        return student is null ? NotFound() : Ok(ToDto(student, await CountDocumentos(id), await ExpedienteDe(id)));
     }
 
     /// <summary>
@@ -110,7 +125,7 @@ public class StudentsController : ControllerBase
         var student = await _db.Students.AsNoTracking().FirstOrDefaultAsync(s => s.Carnet == carnet);
         if (student is null) return NotFound();
         if (!_currentUser.IsAdminOr(SessionRole.Student, student.Id)) return this.NoEsTuyo();
-        return Ok(ToDto(student, await CountDocumentos(student.Id)));
+        return Ok(ToDto(student, await CountDocumentos(student.Id), await ExpedienteDe(student.Id)));
     }
 
     /// <summary>PUT /api/students/{id}/papeleria-en-orden — "¿Tiene su papelería al día?"; en Sí, el panel deja de pedir subir documentos.</summary>
@@ -124,7 +139,7 @@ public class StudentsController : ControllerBase
         student.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
-        return Ok(ToDto(student, await CountDocumentos(id)));
+        return Ok(ToDto(student, await CountDocumentos(id), await ExpedienteDe(id)));
     }
 
     /// <summary>POST /api/students — admin "Agregar alumno", no need to touch la base de datos a mano.</summary>
@@ -194,7 +209,7 @@ public class StudentsController : ControllerBase
         student.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
-        return Ok(ToDto(student, await CountDocumentos(student.Id)));
+        return Ok(ToDto(student, await CountDocumentos(student.Id), await ExpedienteDe(student.Id)));
     }
 
     /// <summary>

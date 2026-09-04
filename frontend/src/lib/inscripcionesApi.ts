@@ -41,6 +41,18 @@ export function getApplicant(id: number): Promise<Applicant> {
   return http.get<Applicant>(`/api/inscripciones/${id}`);
 }
 
+/**
+ * El expediente de inscripción de un alumno que YA está en el padrón.
+ *
+ * Al agregarlo a la base de datos, el aspirante desaparece del listado de
+ * inscripciones —dejó de ser aspirante— pero sus tres fichas y sus documentos
+ * siguen guardados. Esta consulta es la que permite volver a abrirlos desde la
+ * fila del alumno.
+ */
+export function getExpedienteDeAlumno(studentId: number): Promise<Applicant> {
+  return http.get<Applicant>(`/api/inscripciones/por-alumno/${studentId}`);
+}
+
 export function getApplicants(from?: Date, to?: Date, estado: EstadoInscripcion = "todas"): Promise<ApplicantListItem[]> {
   const params = new URLSearchParams();
   if (from) params.set("from", toDateParam(from));

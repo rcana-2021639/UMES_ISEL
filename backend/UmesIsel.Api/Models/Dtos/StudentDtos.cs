@@ -16,7 +16,13 @@ public record StudentDto(
     string? CorreoPersonal,
     string? Celular,
     bool PapeleriaEnOrden,
-    int DocumentosSubidos
+    int DocumentosSubidos,
+    /// <summary>
+    /// Id del expediente de inscripción del que salió este alumno, o null si lo dio de alta a mano
+    /// un administrador. Es lo que permite volver a abrir su preinscripción, su carta de compromiso
+    /// y los documentos que subió, que al migrar dejan de aparecer en el listado de inscripciones.
+    /// </summary>
+    int? ExpedienteInscripcionId
 );
 
 /// <summary>PUT /api/students/{id}/papeleria-en-orden — respuesta a "¿Tiene su papelería al día?".</summary>
