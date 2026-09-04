@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useReducedMotion } from "framer-motion";
+import { useAutoFocus } from "@/hooks/useAutoFocus";
 import { ImageSlot } from "@/components/ui/ImageSlot";
 import { Icon } from "@/components/portal/Icon";
 import { BackButton } from "@/pages/portal/LoginPage";
@@ -35,6 +36,7 @@ export function AccesoInscripcionGate({ onEnter }: { onEnter: (applicant: Applic
   const [error, setError] = useState<string | null>(null);
   const [entered, setEntered] = useState(false);
   const reduce = useReducedMotion();
+  const autoFocus = useAutoFocus();
 
   useEffect(() => {
     const id = window.setTimeout(() => setEntered(true), 40);
@@ -148,7 +150,7 @@ export function AccesoInscripcionGate({ onEnter }: { onEnter: (applicant: Applic
                 {modo === "dpi" ? "Número de DPI" : "Número de pasaporte"}
               </span>
               <input
-                autoFocus
+                autoFocus={autoFocus}
                 inputMode={modo === "dpi" ? "numeric" : "text"}
                 value={value}
                 onChange={(e) => setValue(e.target.value)}

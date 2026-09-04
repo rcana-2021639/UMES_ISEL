@@ -217,3 +217,35 @@
     animation: none !important;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Piso de rendimiento en teléfonos y tabletas.
+
+   El sitio se apoya en tres efectos caros de pintar: los halos de color
+   (circunferencias de 30rem con `blur` de 130px que además se desplazan en
+   bucle), el grano con `mix-blend-mode: overlay` a pantalla completa, y el
+   desenfoque de fondo de la barra y los diálogos. En una computadora no se
+   notan; en un teléfono de gama media cada scroll obliga a recomponer esas
+   capas y la página se siente pesada justo donde más importa: al llenar una
+   ficha.
+
+   Aquí se rebajan los tres — sin quitar el color, que es identidad: el halo se
+   queda quieto y con la mitad de desenfoque, el grano desaparece y el
+   desenfoque de fondo cede a superficies sólidas. En escritorio nada cambia.
+--------------------------------------------------------------------------- */
+@media (pointer: coarse), (max-width: 767px) {
+  .animate-drift,
+  .animate-drift2 {
+    animation: none !important;
+    filter: blur(56px) !important;
+  }
+
+  .grain::after {
+    display: none;
+  }
+
+  [class*="backdrop-blur"] {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+}

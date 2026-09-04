@@ -70,8 +70,8 @@ export function RejillaPreview({
       {sobra > 0 && (
         <p className="mt-2 flex items-start gap-2 text-[12px] leading-relaxed text-isel-alert">
           <Icon name="alert" size={13} className="mt-0.5 shrink-0" />
-          No cabe en la ficha: quita {sobra} {sobra === 1 ? "carácter" : "caracteres"} o usa solo los nombres con los
-          que aparecerás en el título.
+          No cabe en la ficha: reduzca {sobra} {sobra === 1 ? "carácter" : "caracteres"} o registre únicamente los
+          nombres con los que aparecerá en el título.
         </p>
       )}
     </div>
