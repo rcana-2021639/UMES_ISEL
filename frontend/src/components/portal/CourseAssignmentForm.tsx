@@ -506,7 +506,7 @@ export function CourseAssignmentForm({
 
         <div className="mt-5">
           {checkingExisting ? (
-            <Loading label="Buscando tu ficha" />
+            <Loading label="Buscando su ficha" />
           ) : carrera === null ? (
             <EmptyState
               icon="layers"

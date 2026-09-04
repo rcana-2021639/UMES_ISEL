@@ -29,9 +29,9 @@ import { Alert, PortalButton, Segmented, fieldClass } from "@/components/portal/
  */
 
 const PASOS = [
-  { icon: "layers" as const, text: "Eliges tu maestría y el trimestre que vas a cursar." },
-  { icon: "check" as const, text: "Revisas los cursos que se te asignan y agregas los adicionales." },
-  { icon: "pen" as const, text: "Firmas tu ficha y la envías." },
+  { icon: "layers" as const, text: "Seleccione su maestría y el trimestre que cursará." },
+  { icon: "check" as const, text: "Revise los cursos asignados y agregue los adicionales que requiera." },
+  { icon: "pen" as const, text: "Registre su firma y envíe la ficha." },
 ];
 
 /** Nº de dígitos del carné que el emblema cuenta. Los de la UMES son de 9. */
@@ -138,7 +138,7 @@ export function LoginPage() {
               className={`mt-6 max-w-[12ch] text-balance font-display text-[clamp(2.2rem,4.6vw,3.4rem)] font-semibold leading-[0.98] tracking-ultratight text-white ${beat} ${state}`}
               style={delay(240)}
             >
-              Tu ficha empieza aquí
+              Aquí inicia su ficha
             </h1>
 
             {modo === "alumno" && (

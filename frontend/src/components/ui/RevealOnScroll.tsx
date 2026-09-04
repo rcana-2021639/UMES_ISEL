@@ -77,7 +77,11 @@ export function useReveal<T extends HTMLElement>(amount = 0.15) {
       const r = el.getBoundingClientRect();
       const vh = window.innerHeight || document.documentElement.clientHeight;
       const visible = Math.min(r.bottom, vh) - Math.max(r.top, 0);
-      const needed = Math.min(r.height * amount, vh * 0.33);
+      // El tope absoluto (120px) es lo que faltaba en pantallas cortas: un
+      // panel de varios miles de píxeles que empieza a media pantalla dejaba
+      // menos alto visible del exigido, así que en un teléfono la ficha se
+      // quedaba invisible hasta que alguien se atrevía a seguir bajando.
+      const needed = Math.min(r.height * amount, vh * 0.33, 120);
       if (visible >= needed) setShown(true);
     }
 
