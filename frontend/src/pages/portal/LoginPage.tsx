@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useReducedMotion } from "framer-motion";
+import { useAutoFocus } from "@/hooks/useAutoFocus";
 import { loginAdmin, loginEstudiante } from "@/lib/auth";
 import { ApiError } from "@/lib/http";
 import { ImageSlot } from "@/components/ui/ImageSlot";
@@ -58,6 +59,7 @@ export function LoginPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const reduce = useReducedMotion();
+  const autoFocus = useAutoFocus();
 
   useEffect(() => {
     document.title = "Asignación | Portal ISEL";
@@ -202,7 +204,7 @@ export function LoginPage() {
 
                   <div className="relative">
                     <input
-                      autoFocus
+                      autoFocus={autoFocus}
                       inputMode="numeric"
                       autoComplete="username"
                       value={value}
@@ -258,7 +260,7 @@ export function LoginPage() {
                     Usuario
                   </span>
                   <input
-                    autoFocus
+                    autoFocus={autoFocus}
                     autoComplete="username"
                     value={usuario}
                     onChange={(e) => {

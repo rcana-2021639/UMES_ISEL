@@ -269,9 +269,13 @@ export function Navbar() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.35, ease: SNAP }}
-            className="fixed inset-0 z-[55] flex flex-col justify-center overflow-y-auto overscroll-contain bg-isel-deep px-6 py-24 sm:px-8 lg:hidden"
+            className="fixed inset-0 z-[55] flex flex-col overflow-y-auto overscroll-contain bg-isel-deep px-6 py-24 sm:px-8 lg:hidden"
           >
             <div className="grain pointer-events-none absolute inset-0" aria-hidden />
+            {/* `m-auto` en vez de `justify-center`: centra mientras sobra alto y, en
+                pantallas cortas, deja que el bloque crezca y se pueda desplazar sin
+                que se recorte por arriba. */}
+            <div className="relative m-auto w-full">
 
             <motion.div
               initial={{ opacity: 0, y: 24 }}
@@ -345,6 +349,7 @@ export function Navbar() {
                 );
               })}
             </nav>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

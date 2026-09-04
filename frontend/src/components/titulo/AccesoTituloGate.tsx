@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useReducedMotion } from "framer-motion";
+import { useAutoFocus } from "@/hooks/useAutoFocus";
 import { ImageSlot } from "@/components/ui/ImageSlot";
 import { Icon } from "@/components/portal/Icon";
 import { BackButton } from "@/pages/portal/LoginPage";
@@ -40,6 +41,7 @@ export function AccesoTituloGate({ onEnter }: { onEnter: (s: SolicitudTitulo) =>
   const [focused, setFocused] = useState(false);
   const [entered, setEntered] = useState(false);
   const reduce = useReducedMotion();
+  const autoFocus = useAutoFocus();
 
   useEffect(() => {
     const id = window.setTimeout(() => setEntered(true), 40);
@@ -141,7 +143,7 @@ export function AccesoTituloGate({ onEnter }: { onEnter: (s: SolicitudTitulo) =>
               </span>
               <div className="relative">
                 <input
-                  autoFocus
+                  autoFocus={autoFocus}
                   inputMode="numeric"
                   value={value}
                   onChange={(e) => {
