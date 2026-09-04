@@ -2,38 +2,81 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion, useScroll, useSpring } from "framer-motion";
 import { Link, useLocation } from "react-router-dom";
 import { ImageSlot } from "@/components/ui/ImageSlot";
-import { useActiveSection } from "@/hooks/useActiveSection";
 import { SNAP } from "@/components/ui/RevealOnScroll";
 import { ActionButton } from "@/components/ui/ActionButton";
 
-const NAV_LINKS = [
-  { label: "Inicio", id: "inicio" },
-  { label: "Programas", id: "programas" },
-  { label: "Metodología", id: "metodologia" },
-  { label: "Objetivos", id: "objetivos" },
-  { label: "Dirección", id: "direccion" },
-];
-
-const IDS = NAV_LINKS.map((l) => l.id);
-
 /** El aula virtual de ISEL. Es otro sitio, no una sección de este. */
 const CANVAS_URL = "https://isel.instructure.com/login/canvas";
+/** Registro académico de la UMES: notas, constancias, estado de cuenta. */
+const ACADEMICO_URL =
+  "https://academico.umes.edu.gt/alumnos/Account/Login.aspx?ReturnUrl=%2falumnos";
+
+type Acceso = {
+  id: string;
+  label: string;
+  /** Qué encuentra ahí quien entra. Se lee en el menú móvil y como title. */
+  hint: string;
+  to?: string;
+  href?: string;
+};
+
+/* Primer peldaño: dónde entra quien YA es estudiante. Son dos sitios ajenos,
+   por eso van juntos y llevan la flecha diagonal. */
+const ACCESOS: Acceso[] = [
+  {
+    id: "plataforma",
+    label: "Plataforma Educativa",
+    hint: "Cursos, materiales y entregas",
+    href: CANVAS_URL,
+  },
+  {
+    id: "academico",
+    label: "Sistema Académico",
+    hint: "Notas, constancias y estado de cuenta",
+    href: ACADEMICO_URL,
+  },
+];
+
+/* Segundo peldaño: los trámites que se resuelven dentro de esta misma página. */
+const TRAMITES: Acceso[] = [
+  {
+    id: "asignacion",
+    label: "Asignación",
+    hint: "Asignación de cursos del ciclo",
+    to: "/portal/login",
+  },
+  {
+    id: "titulo",
+    label: "Solicitud de título",
+    hint: "Impresión y trámite de título",
+    to: "/solicitud-titulo",
+  },
+];
 
 /**
- * Navegación solo-ISEL. Todo lo que apuntaba al resto del sitio UMES
- * (Facultades, UMES virtual, Egresados, buscador...) no vive aquí; en su lugar
- * la barra ancla las secciones de esta página y marca cuál se está leyendo
- * con una píldora que se desliza entre enlaces (layoutId).
+ * Navegación solo-ISEL.
  *
- * Sobre el hero es transparente; al pasar los 40px se condensa en una cápsula
- * con desenfoque. Arriba del todo corre la barra de progreso de lectura.
+ * La barra dejó de ser un menú: los anclajes a secciones (Inicio, Programas,
+ * Metodología, Objetivos, Dirección) se fueron —la página se recorre con el
+ * scroll y ese menú solo saturaba— y lo que queda son las cinco puertas que
+ * alguien busca de verdad al llegar.
+ *
+ * Están ordenadas en tres peldaños para que se entiendan sin leerlas todas:
+ * dos accesos a sistemas externos (flecha diagonal, píldora hueca), un
+ * separador de un pelo, dos trámites internos (píldora llena, verde elevado)
+ * y, al final y en verde vivo, la única acción que la página persigue: la
+ * inscripción de nuevo ingreso. El peso visual crece de izquierda a derecha.
+ *
+ * El gesto de firma es el foco que se desliza: una píldora compartida
+ * (layoutId) viaja de un acceso a otro al pasar el cursor, igual que antes
+ * hacía el indicador de sección.
  */
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [hovered, setHovered] = useState<string | null>(null);
   const { pathname } = useLocation();
   const isHome = pathname === "/";
-  const active = useActiveSection(IDS);
 
   const { scrollYProgress } = useScroll();
   const progress = useSpring(scrollYProgress, { stiffness: 140, damping: 26, restDelta: 0.001 });
@@ -55,7 +98,81 @@ export function Navbar() {
   }, [mobileOpen]);
 
   const solid = scrolled || !isHome;
-  const href = (id: string) => (isHome ? `#${id}` : `/#${id}`);
+
+  /** Acceso de escritorio: píldora con foco deslizante y flecha de relevo.
+      Es una función de render, no un componente anidado: así el foco
+      compartido no se remonta en cada scroll. */
+  function navAccess(item: Acceso, variant: "externo" | "interno") {
+    const isHot = hovered === item.id;
+    const externo = variant === "externo";
+
+    const content = (
+      <>
+        {isHot && (
+          <motion.span
+            layoutId="nav-focus"
+            transition={{ duration: 0.45, ease: SNAP }}
+            className={`absolute inset-0 -z-10 rounded-full ${
+              externo ? "bg-white/[0.12] ring-1 ring-inset ring-white/25" : "bg-white"
+            }`}
+          />
+        )}
+        <span className="relative">{item.label}</span>
+        <span
+          aria-hidden
+          className="relative block h-3.5 w-3.5 shrink-0 overflow-hidden text-[13px] leading-none"
+        >
+          <span
+            className={`absolute inset-0 flex items-center justify-center transition-transform duration-500 ease-snap ${
+              externo ? "group-hover/na:-translate-y-[150%]" : "group-hover/na:translate-x-[150%]"
+            }`}
+          >
+            {externo ? "↗" : "→"}
+          </span>
+          <span
+            className={`absolute inset-0 flex items-center justify-center transition-transform duration-500 ease-snap ${
+              externo
+                ? "translate-y-[150%] group-hover/na:translate-y-0"
+                : "-translate-x-[150%] group-hover/na:translate-x-0"
+            }`}
+          >
+            {externo ? "↗" : "→"}
+          </span>
+        </span>
+      </>
+    );
+
+    const classes = [
+      "group/na relative inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2",
+      "text-[12.5px] font-semibold tracking-[-0.005em] transition-colors duration-300 ease-entry",
+      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-isel-gold",
+      externo
+        ? isHot
+          ? "text-white"
+          : "text-white/70"
+        : isHot
+          ? "text-isel-deep"
+          : "bg-isel-navy2 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14)]",
+    ].join(" ");
+
+    const handlers = {
+      onMouseEnter: () => setHovered(item.id),
+      onMouseLeave: () => setHovered(null),
+      onFocus: () => setHovered(item.id),
+      onBlur: () => setHovered(null),
+      title: item.hint,
+    };
+
+    return item.to ? (
+      <Link key={item.id} to={item.to} className={classes} {...handlers}>
+        {content}
+      </Link>
+    ) : (
+      <a key={item.id} href={item.href} target="_blank" rel="noopener noreferrer" className={classes} {...handlers}>
+        {content}
+      </a>
+    );
+  }
 
   return (
     <>
@@ -68,10 +185,10 @@ export function Navbar() {
         className={`fixed inset-x-0 top-0 z-50 transition-all duration-500 ease-snap ${solid ? "py-3" : "py-6"}`}
       >
         <div
-          className={`mx-auto flex w-full items-center justify-between gap-4 px-5 transition-all duration-500 ease-snap sm:px-6 xl:gap-5 ${
+          className={`mx-auto flex w-full items-center justify-between gap-4 px-5 transition-all duration-500 ease-snap sm:px-6 ${
             solid
-              ? "max-w-[86rem] rounded-full border border-white/10 bg-isel-deep/90 py-2.5 shadow-lift backdrop-blur-xl"
-              : "max-w-[90rem] border border-transparent py-2"
+              ? "max-w-[80rem] rounded-full border border-white/10 bg-isel-deep/90 py-2.5 shadow-lift backdrop-blur-xl"
+              : "max-w-[86rem] border border-transparent py-2"
           }`}
         >
           <Link to="/" className="group flex shrink-0 items-center gap-3">
@@ -80,72 +197,40 @@ export function Navbar() {
             </div>
             <span className="flex flex-col leading-none">
               <span className="font-display text-[15px] font-bold tracking-[0.22em] text-white">ISEL</span>
-              <span className="mt-1 hidden text-[10px] uppercase tracking-[0.14em] text-white/45 sm:block lg:hidden 2xl:block">
+              <span className="mt-1 hidden text-[10px] uppercase tracking-[0.14em] text-white/45 sm:block">
                 Universidad Mesoamericana
               </span>
             </span>
           </Link>
 
-          <nav className="hidden min-w-0 items-center gap-0.5 xl:flex">
-            {NAV_LINKS.map((link) => {
-              const isActive = isHome && active === link.id;
-              return (
-                <a
-                  key={link.id}
-                  href={href(link.id)}
-                  className={`relative whitespace-nowrap rounded-full px-2.5 py-2 text-[13px] font-semibold transition-colors duration-300 ease-snap ${
-                    isActive ? "text-isel-deep" : "text-white/70 hover:text-white"
-                  }`}
-                >
-                  {isActive && (
-                    <motion.span
-                      layoutId="nav-pill"
-                      transition={{ duration: 0.5, ease: SNAP }}
-                      className="absolute inset-0 -z-10 rounded-full bg-isel-gold"
-                    />
-                  )}
-                  {link.label}
-                </a>
-              );
-            })}
-          </nav>
+          {/* Ritmo: 2px entre hermanos del mismo peldaño, un pelo de separación
+              y 16px entre peldaños, y otro salto antes del CTA. Ese aire
+              desigual es lo que hace que los tres bloques se lean como tres
+              cosas distintas de un vistazo, sin necesidad de rótulos. */}
+          <div className="hidden shrink-0 items-center gap-1.5 lg:flex">
+            <div className="flex items-center gap-0.5">
+              {ACCESOS.map((item) => (
+                navAccess(item, "externo")
+              ))}
+            </div>
 
-          {/* Accesos rápidos. Los tres trámites y el aula virtual eran enlaces de
-              texto al lado de un botón verde: se leían como parte del menú y
-              nadie los distinguía. Ahora los cuatro son el mismo botón —misma
-              píldora, mismo relevo de flecha, mismo aro al pasar— y lo único
-              que los separa es el peldaño de color: verde elevado para los
-              tres accesos, verde vivo para la inscripción, que sigue siendo la
-              acción que la página persigue.
+            <span aria-hidden className="mx-2 h-5 w-px bg-white/15" />
 
-              El grupo es `shrink-0` y cada botón `whitespace-nowrap`: pase lo
-              que pase con el ancho, quien cede es el menú de secciones, nunca
-              este bloque. Eso es lo que hacía que el CTA se saliera de la
-              cápsula al condensarse la barra. */}
-          <div className="hidden shrink-0 items-center gap-1.5 lg:flex xl:gap-2">
-            <ActionButton
-              href={CANVAS_URL}
-              tone="navSoft"
-              size="nav"
-              arrow="upRight"
-            >
-              Canvas
-            </ActionButton>
-            <ActionButton to="/portal/login" tone="navSoft" size="nav">
-              Asignación
-            </ActionButton>
-            <ActionButton to="/solicitud-titulo" tone="navSoft" size="nav">
-              Solicitud de título
-            </ActionButton>
+            <div className="flex items-center gap-1">
+              {TRAMITES.map((item) => (
+                navAccess(item, "interno")
+              ))}
+            </div>
+
             <ActionButton
               to="/inscripcion"
               tone="accent"
               size="nav"
-              className="[--accent:#12855C] [--accent-soft:rgba(18,133,92,0.28)]"
+              className="ml-2 [--accent:#12855C] [--accent-soft:rgba(18,133,92,0.28)]"
             >
               {/* El rótulo completo solo donde cabe entero; por debajo, la mitad
                   que de verdad identifica el trámite. */}
-              <span className="hidden 2xl:inline">Inscripciones nuevo ingreso</span>
+              <span className="hidden 2xl:inline">Inscripción nuevo ingreso</span>
               <span className="2xl:hidden">Nuevo ingreso</span>
             </ActionButton>
           </div>
@@ -175,7 +260,8 @@ export function Navbar() {
         </div>
       </header>
 
-      {/* Menú móvil: pantalla completa y enlaces en cascada, no un acordeón apretado. */}
+      {/* Menú móvil: los mismos peldaños en vertical, cada puerta con la línea
+          que dice qué hay detrás. Entra en cascada. */}
       <AnimatePresence>
         {mobileOpen && (
           <motion.div
@@ -183,76 +269,82 @@ export function Navbar() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.35, ease: SNAP }}
-            className="fixed inset-0 z-[55] flex flex-col justify-center overflow-y-auto bg-isel-deep px-8 py-24 lg:hidden"
+            className="fixed inset-0 z-[55] flex flex-col justify-center overflow-y-auto overscroll-contain bg-isel-deep px-6 py-24 sm:px-8 lg:hidden"
           >
             <div className="grain pointer-events-none absolute inset-0" aria-hidden />
-            <nav className="relative flex flex-col">
-              {NAV_LINKS.map((link, i) => (
-                <motion.a
-                  key={link.id}
-                  href={href(link.id)}
-                  onClick={() => setMobileOpen(false)}
-                  initial={{ opacity: 0, y: 28 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.08 + i * 0.06, duration: 0.6, ease: SNAP }}
-                  className="border-b border-white/10 py-4 font-display text-3xl font-semibold text-white"
-                >
-                  <span className="mr-4 align-middle text-xs font-bold tracking-widest text-isel-gold">
-                    0{i + 1}
-                  </span>
-                  {link.label}
-                </motion.a>
-              ))}
-            </nav>
+
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.42, duration: 0.6, ease: SNAP }}
-              className="relative mt-10 flex flex-col gap-3"
+              transition={{ delay: 0.06, duration: 0.6, ease: SNAP }}
+              className="relative"
             >
               <Link
                 to="/inscripcion"
                 onClick={() => setMobileOpen(false)}
-                className="rounded-full bg-isel-emerald px-6 py-4 text-center text-sm font-bold uppercase tracking-[0.12em] text-white"
+                className="flex items-center justify-between gap-4 rounded-3xl bg-isel-emerald px-6 py-5 text-white"
               >
-                Inscripciones nuevo ingreso
+                <span className="flex flex-col gap-1 text-left">
+                  <span className="font-display text-xl font-bold leading-tight">
+                    Inscripción nuevo ingreso
+                  </span>
+                  <span className="text-[12px] leading-snug text-white/80">
+                    Complete su ficha y reserve su lugar
+                  </span>
+                </span>
+                <span aria-hidden className="text-lg">
+                  →
+                </span>
               </Link>
-              <Link
-                to="/portal/login"
-                onClick={() => setMobileOpen(false)}
-                className="rounded-full border border-white/25 px-6 py-4 text-center text-sm font-bold uppercase tracking-[0.12em] text-white/85"
-              >
-                Asignación
-              </Link>
-              <Link
-                to="/solicitud-titulo"
-                onClick={() => setMobileOpen(false)}
-                className="rounded-full border border-white/25 px-6 py-4 text-center text-sm font-bold uppercase tracking-[0.12em] text-white/85"
-              >
-                Solicitud de título
-              </Link>
-              <a
-                href={CANVAS_URL}
-                target="_blank"
-                rel="noreferrer noopener"
-                onClick={() => setMobileOpen(false)}
-                className="inline-flex items-center justify-center gap-2 rounded-full border border-white/25 px-6 py-4 text-center text-sm font-bold uppercase tracking-[0.12em] text-white/85"
-              >
-                Canvas
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden
-                  className="h-3.5 w-3.5 opacity-60"
-                >
-                  <path d="M8 16L16 8M9 8h7v7" />
-                </svg>
-              </a>
             </motion.div>
+
+            <p className="relative mt-9 text-[10px] font-bold uppercase tracking-[0.18em] text-isel-gold">
+              Ya soy estudiante
+            </p>
+            <nav className="relative mt-3 flex flex-col gap-2">
+              {[...ACCESOS, ...TRAMITES].map((item, i) => {
+                const externo = Boolean(item.href);
+                const inner = (
+                  <>
+                    <span className="flex flex-col gap-1 text-left">
+                      <span className="font-display text-lg font-semibold leading-tight text-white">
+                        {item.label}
+                      </span>
+                      <span className="text-[12px] leading-snug text-white/55">{item.hint}</span>
+                    </span>
+                    <span aria-hidden className="text-base text-white/45">
+                      {externo ? "↗" : "→"}
+                    </span>
+                  </>
+                );
+                const cls =
+                  "flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4";
+                return (
+                  <motion.div
+                    key={item.id}
+                    initial={{ opacity: 0, y: 22 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.14 + i * 0.07, duration: 0.55, ease: SNAP }}
+                  >
+                    {item.to ? (
+                      <Link to={item.to} onClick={() => setMobileOpen(false)} className={cls}>
+                        {inner}
+                      </Link>
+                    ) : (
+                      <a
+                        href={item.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => setMobileOpen(false)}
+                        className={cls}
+                      >
+                        {inner}
+                      </a>
+                    )}
+                  </motion.div>
+                );
+              })}
+            </nav>
           </motion.div>
         )}
       </AnimatePresence>
