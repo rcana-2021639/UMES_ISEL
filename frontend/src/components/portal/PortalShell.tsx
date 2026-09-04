@@ -190,15 +190,37 @@ export function PortalPanel({
   const { ref, shown } = useReveal<HTMLElement>(0.08);
   const on = reduce || shown;
 
+  /**
+   * Una ficha del portal mide varios miles de píxeles de alto. Mientras el
+   * panel conserva la transición de `opacity`/`transform` de su entrada, el
+   * navegador lo mantiene en una capa propia; y una capa más alta que el
+   * máximo que la GPU puede rasterizar se pinta a trozos: en un teléfono eso
+   * se veía como campos que sencillamente no aparecían al bajar por la ficha.
+   *
+   * Por eso la entrada se "asienta": pasada la animación se retira la
+   * transición y el desplazamiento, el panel vuelve al flujo normal de pintado
+   * y el problema desaparece. No cambia nada de lo que se ve.
+   */
+  const [settled, setSettled] = useState(false);
+  useEffect(() => {
+    if (!on || settled) return;
+    const t = window.setTimeout(() => setSettled(true), reduce ? 0 : 900);
+    return () => window.clearTimeout(t);
+  }, [on, settled, reduce]);
+
   return (
     <section
       id={id}
       ref={ref}
       style={{ ["--accent" as string]: accent }}
       className={`group/panel relative scroll-mt-28 overflow-hidden rounded-2xl border border-isel-line bg-white shadow-card
-        transition-[opacity,transform,box-shadow] duration-[800ms] ease-snap
+        transition-[box-shadow] duration-[800ms] ease-snap
         hover:shadow-card-hover
-        ${on ? "translate-y-0 opacity-100" : "translate-y-5 opacity-0"} ${className}`}
+        ${
+          settled
+            ? "opacity-100"
+            : `transition-[opacity,transform,box-shadow] ${on ? "translate-y-0 opacity-100" : "translate-y-5 opacity-0"}`
+        } ${className}`}
     >
       {/* Filo del color del paso: se traza de izquierda a derecha al aparecer. */}
       <span
@@ -308,7 +330,7 @@ export function StepRail({ steps }: { steps: RailStep[] }) {
     <div className="hidden lg:block">
       <div className="sticky top-24">
         <div className="flex items-baseline justify-between">
-          <p className="text-[10.5px] font-bold uppercase tracking-[0.2em] text-isel-ink/35">Tu ficha</p>
+          <p className="text-[10.5px] font-bold uppercase tracking-[0.2em] text-isel-ink/35">Su ficha</p>
           <p className="tabular font-display text-[13px] font-bold text-isel-emerald2">{pct}%</p>
         </div>
 
