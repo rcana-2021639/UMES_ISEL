@@ -132,6 +132,21 @@ export function AdminPortalPage() {
     }
   }
 
+  /**
+   * Al entrar en "Asignaciones" se cargan las fichas: las de hoy la primera vez
+   * y, después, otra vez las del rango que estuviera puesto.
+   *
+   * Antes la pestaña empezaba vacía con un "elige un rango", y al volver a ella
+   * mostraba lo que se hubiera cargado antes. Quien acababa de agregar un
+   * aspirante al padrón entraba aquí, veía la lista en blanco o sin él, y
+   * concluía que el alumno no se había guardado.
+   */
+  useEffect(() => {
+    if (adminTab !== "asignaciones") return;
+    void loadAssignments(rangeMode ?? "day");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adminTab]);
+
   function handleTipoPagoFilterChange(tipoPago: TipoPago | "todas") {
     setTipoPagoFilter(tipoPago);
     if (rangeMode) loadAssignments(rangeMode, tipoPago);
