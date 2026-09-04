@@ -297,16 +297,16 @@ export function AsignacionNuevoIngresoForm({ applicantId, initial, nombreSugerid
       step="02"
       accent="#B8791F"
       title="Ficha de asignación de cursos"
-      description="Como todavía no tienes carné, escribe tus datos a mano. El resto funciona igual que para un alumno ya inscrito."
+      description="Al no contar aún con carné, sus datos deben registrarse manualmente. El resto del proceso es igual al de un estudiante ya inscrito."
     >
       <StepGuide
         steps={[
-          "Revisa tus datos: ya vienen copiados del paso anterior. Corrígelos aquí si algo cambió.",
-          "Toca tu maestría y luego el trimestre con el que empiezas. Los cursos de ese trimestre se agregan todos juntos, no hay que elegirlos uno por uno.",
-          "Si necesitas un curso extra o repetir uno, agrégalo en el apartado de abajo. Si no, déjalo vacío.",
-          "Marca cómo vas a pagar, firma y pulsa guardar.",
+          "Verifique sus datos. Provienen del paso anterior; corríjalos en esta sección si alguno ha cambiado.",
+          "Seleccione su maestría y, a continuación, el trimestre con el que inicia. Los cursos correspondientes a ese trimestre se agregan de forma automática.",
+          "Si requiere un curso adicional o repetir alguno, regístrelo en el apartado siguiente. De lo contrario, puede dejarlo vacío.",
+          "Indique la forma de pago, registre su firma y presione el botón para guardar.",
         ]}
-        outcome="Esta es la ficha con la que te matriculan los cursos. Puedes volver a abrirla y cambiarla mientras no cierres tu inscripción."
+        outcome="Esta ficha es la que respalda la asignación de sus cursos. Puede abrirla y modificarla mientras su inscripción permanezca abierta."
       />
 
       <div className="space-y-8">
@@ -374,7 +374,7 @@ export function AsignacionNuevoIngresoForm({ applicantId, initial, nombreSugerid
 
           <div className="mt-5">
             {carrera === null ? (
-              <EmptyState icon="layers" title="Todavía no has elegido maestría" hint="Toca una de la lista de arriba para ver su pénsum y elegir tu trimestre." />
+              <EmptyState icon="layers" title="Aún no ha seleccionado una maestría" hint="Seleccione una del listado anterior para consultar su pénsum y elegir el trimestre." />
             ) : trimestres && trimestres.length === 0 ? (
               <Alert kind="info">Aún no hay pénsum cargado para <strong>{carrera}</strong>.</Alert>
             ) : (

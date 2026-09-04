@@ -70,7 +70,7 @@ export function InscripcionPage() {
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-isel-paper">
-        <Loading label="Cargando tu inscripción" />
+        <Loading label="Cargando su inscripción" />
       </main>
     );
   }
@@ -181,8 +181,8 @@ function CierrePanel({ applicant, onFinish }: { applicant: Applicant; onFinish: 
   async function handleClick() {
     if (faltan.length > 0) {
       const ok = await confirm({
-        title: "Todavía te faltan fichas",
-        message: `No has guardado: ${faltan.join(", ")}. Lo que ya guardaste queda a salvo y puedes volver con tu mismo DPI para terminarlo. ¿Salir de todos modos?`,
+        title: "Aún tiene fichas pendientes",
+        message: `No ha guardado: ${faltan.join(", ")}. La información ya guardada se conserva y puede regresar con su mismo DPI para completarla. ¿Desea salir de todos modos?`,
         confirmLabel: "Sí, salir",
       });
       if (!ok) return;
@@ -196,7 +196,7 @@ function CierrePanel({ applicant, onFinish }: { applicant: Applicant; onFinish: 
         step="05"
         accent="#14493C"
         title="Terminar mi inscripción"
-        description="Todo lo que guardaste ya quedó registrado. Revisa el resumen y sal cuando quieras — puedes volver con tu mismo DPI."
+        description="La información guardada ya quedó registrada. Revise el resumen y podrá salir cuando lo considere; puede regresar con su mismo DPI."
       >
         <ul className="divide-y divide-isel-line overflow-hidden rounded-xl border border-isel-line">
           {partes.map((p) => (
@@ -224,7 +224,7 @@ function CierrePanel({ applicant, onFinish }: { applicant: Applicant; onFinish: 
         {faltan.length > 0 && (
           <div className="mt-5">
             <Alert kind="info">
-              Puedes salir así: lo guardado no se pierde y con tu mismo DPI retomas justo donde te quedaste.
+              Puedes salir así: lo guardado no se pierde y con tu mismo DPI continuará donde lo dejó.
             </Alert>
           </div>
         )}

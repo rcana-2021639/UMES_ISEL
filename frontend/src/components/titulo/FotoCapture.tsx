@@ -110,10 +110,10 @@ export function FotoCapture({
         const nombre = e instanceof DOMException ? e.name : "";
         setError(
           nombre === "NotAllowedError"
-            ? "No diste permiso para usar la cámara. Puedes permitirlo en el candado de la barra de direcciones, o subir una foto desde tu dispositivo."
+            ? "No se otorgó permiso para utilizar la cámara. Puede habilitarlo desde la barra de direcciones del navegador o adjuntar una fotografía desde su dispositivo."
             : nombre === "NotFoundError"
-              ? "No encontramos ninguna cámara en este dispositivo. Sube una foto desde tus archivos."
-              : "No pudimos abrir la cámara. Sube una foto desde tus archivos.",
+              ? "No se detectó ninguna cámara en este dispositivo. Adjunte una fotografía desde sus archivos."
+              : "No fue posible abrir la cámara. Adjunte una fotografía desde sus archivos.",
         );
       }
     })();
@@ -166,7 +166,7 @@ export function FotoCapture({
     e.target.value = "";
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      setError("Ese archivo no es una imagen. Sube un JPG o un PNG.");
+      setError("El archivo seleccionado no es una imagen. Adjunte un archivo JPG o PNG.");
       return;
     }
     if (file.size > MAX_ARCHIVO_BYTES) {
@@ -291,7 +291,7 @@ export function FotoCapture({
         </div>
 
         <div className="min-w-[13rem] flex-1">
-          <p className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-isel-ink/45">Encuadra tu rostro</p>
+          <p className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-isel-ink/45">Encuadre su rostro</p>
           <p className="mt-2 max-w-[40ch] text-[13px] leading-relaxed text-isel-ink/55">
             Deja la cabeza dentro del óvalo y los hombros dentro del marco. Lo que veas aquí es exactamente lo que se
             imprimirá.

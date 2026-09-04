@@ -84,16 +84,16 @@ export function CartaCompromisoForm({ applicantId, initial, defaults, onSaved, r
       step="03"
       accent="#6D5AA8"
       title="Carta de compromiso"
-      description="Confirma que sabes qué documentos debes entregar. Súbelos en el siguiente paso, uno a la vez."
+      description="Confirmación de la documentación que usted debe entregar. Los archivos se adjuntan en el paso siguiente."
     >
       <StepGuide
         steps={[
-          "Confirma que la maestría escrita arriba es la correcta.",
-          "Dinos si eres estudiante extranjero: de eso depende qué papeles te van a pedir.",
-          "Lee la lista de documentos que aparece debajo. Aquí solo estás diciendo que ya sabes cuáles son; todavía no hay que subir nada.",
-          "Firma en el recuadro y pulsa guardar.",
+          "Confirme que la maestría indicada corresponde a la de su interés.",
+          "Indique si usted es estudiante extranjero. De ello depende la documentación que se le requerirá.",
+          "Revise el listado de documentos que aparece a continuación. En este paso únicamente confirma que conoce dicho listado; todavía no debe adjuntar archivos.",
+          "Registre su firma en el recuadro y presione el botón para guardar.",
         ]}
-        outcome="Los documentos se suben en el paso siguiente, uno por uno y cuando los tengas listos."
+        outcome="La documentación se adjunta en el paso siguiente, de forma individual y cuando usted la tenga disponible."
       />
 
       <form onSubmit={handleSubmit} className="space-y-5">
@@ -102,7 +102,7 @@ export function CartaCompromisoForm({ applicantId, initial, defaults, onSaved, r
         </Field>
 
         <ChoiceRow
-          label="¿Eres estudiante extranjero?"
+          label="¿Es usted estudiante extranjero?"
           options={[{ value: "no", label: "No" }, { value: "si", label: "Sí" }]}
           value={form.esExtranjero ? "si" : "no"}
           onChange={(v) => set("esExtranjero", v === "si")}
@@ -111,8 +111,8 @@ export function CartaCompromisoForm({ applicantId, initial, defaults, onSaved, r
 
         {form.esExtranjero && (
           <Alert kind="info">
-            Como estudiante extranjero, en el siguiente paso también podrás subir el pasaporte, tus
-            fotografías, el título de nivel medio apostillado y el título de pre-grado.
+            Como estudiante extranjero, en el paso siguiente también podrá adjuntar el pasaporte, sus
+            fotografías, el título de nivel medio apostillado y el título de pregrado.
           </Alert>
         )}
 

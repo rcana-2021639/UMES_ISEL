@@ -121,16 +121,16 @@ export function PreinscripcionForm({ applicantId, initial, onSaved, readOnly = f
       step="01"
       accent="#12855C"
       title="Ficha de preinscripción"
-      description="Los datos personales con los que quedas registrado como aspirante de nuevo ingreso."
+      description="Datos personales con los que usted queda registrado como aspirante de nuevo ingreso."
     >
       <StepGuide
         steps={[
-          "Escribe tu nombre y tus apellidos tal como aparecen en tu DPI o pasaporte. Sin abreviar.",
-          "Sigue hacia abajo llenando lo que te pregunte: los campos con asterisco (*) son los únicos obligatorios.",
-          "Elige la maestría que vas a estudiar en la lista.",
-          "Al final firma en el recuadro con el dedo o con el ratón, y pulsa el botón verde de guardar.",
+          "Escriba sus nombres y apellidos completos, tal como aparecen en su DPI o pasaporte, sin abreviaturas.",
+          "Complete los campos siguientes. Los campos señalados con asterisco (*) son obligatorios.",
+          "Seleccione en la lista la maestría de su interés.",
+          "Registre su firma en el recuadro y presione el botón para guardar la información.",
         ]}
-        outcome="Con eso quedas registrado como aspirante. Si te tienes que ir, no pasa nada: vuelves con tu mismo DPI y sigues donde lo dejaste."
+        outcome="Al guardar, su registro como aspirante queda confirmado. Si interrumpe el proceso, puede ingresar nuevamente con el mismo DPI y continuar donde lo dejó."
       />
 
       <form onSubmit={handleSubmit} className="space-y-5">
@@ -138,7 +138,7 @@ export function PreinscripcionForm({ applicantId, initial, onSaved, readOnly = f
           <Field label="Nombre completo *">
             <input className={fieldClass} disabled={readOnly} value={form.nombreCompleto} onChange={(e) => set("nombreCompleto", e.target.value)} />
           </Field>
-          <Field label="Carrera / maestría *" hint={carreras === null ? "Cargando las maestrías…" : undefined}>
+          <Field label="Carrera / maestría *" hint={carreras === null ? "Cargando el listado de maestrías…" : undefined}>
             {carreras !== null && carreras.length > 0 ? (
               <select
                 className={fieldClass}
@@ -146,7 +146,7 @@ export function PreinscripcionForm({ applicantId, initial, onSaved, readOnly = f
                 value={form.carrera}
                 onChange={(e) => set("carrera", e.target.value)}
               >
-                <option value="">Elige tu maestría…</option>
+                <option value="">Seleccione su maestría…</option>
                 {/* Un valor guardado con otra grafía (o de una maestría retirada del
                     catálogo) seguiría siendo válido: se añade para no perderlo. */}
                 {form.carrera && !carreras.includes(form.carrera) && <option value={form.carrera}>{form.carrera}</option>}
@@ -166,7 +166,7 @@ export function PreinscripcionForm({ applicantId, initial, onSaved, readOnly = f
           <Field label="DPI">
             <input className={fieldClass} disabled={readOnly} value={form.dpi ?? ""} onChange={(e) => set("dpi", e.target.value)} />
           </Field>
-          <Field label="No. de pasaporte" hint="Solo si eres extranjero.">
+          <Field label="No. de pasaporte" hint="Aplica únicamente para personas extranjeras.">
             <input className={fieldClass} disabled={readOnly} value={form.noPasaporte ?? ""} onChange={(e) => set("noPasaporte", e.target.value)} />
           </Field>
           <Field label="Jornada">

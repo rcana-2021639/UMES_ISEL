@@ -65,7 +65,7 @@ export function StudentDocumentsPanel({
       step="05"
       accent="#2C6E8F"
       title="¿Tiene su papelería al día?"
-      description="Si ya entregó todo en físico, marca “Sí” y no hay nada más que hacer. Si le falta algo, marca “No” y sube solo lo que falte."
+      description="Si ya entregó la totalidad de la documentación en físico, seleccione “Sí”. Si le falta algún documento, seleccione “No” y adjunte únicamente el pendiente."
       actions={
         papeleriaEnOrden ? (
           <Chip tone="emerald" icon="check">Al día</Chip>

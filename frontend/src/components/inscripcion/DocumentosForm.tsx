@@ -35,7 +35,7 @@ export function DocumentosForm({ applicantId, esExtranjero, documentos, onChange
       step="04"
       accent="#2C6E8F"
       title="Documentos de la carta de compromiso"
-      description="Opcional — puedes seguir sin ellos y subirlos más adelante. Solo se aceptan archivos en PDF."
+      description="Paso opcional. Puede continuar sin adjuntarlos y hacerlo posteriormente. Únicamente se aceptan archivos en formato PDF."
       actions={
         <Chip tone={subidos === tipos.length ? "emerald" : subidos > 0 ? "gold" : "neutral"} icon={subidos === tipos.length ? "check" : "file"}>
           {subidos} de {tipos.length}
@@ -44,12 +44,12 @@ export function DocumentosForm({ applicantId, esExtranjero, documentos, onChange
     >
       <StepGuide
         steps={[
-          "Escanea o fotografía cada documento y guárdalo como PDF. Si solo tienes una foto, hay apps gratuitas de escáner en el teléfono que la convierten.",
-          "Busca en la lista el documento que vas a subir y pulsa su botón de subir.",
-          "Elige el archivo. Se sube solo: cuando termina, el renglón se pone en verde.",
-          "Repite con el resto. Si te equivocaste de archivo, bórralo en ese mismo renglón y súbelo otra vez.",
+          "Digitalice cada documento y guárdelo en formato PDF. Si únicamente cuenta con una fotografía, puede convertirla con una aplicación de escaneo.",
+          "Ubique en el listado el documento que desea adjuntar y presione el botón correspondiente.",
+          "Seleccione el archivo. La carga es automática y, al finalizar, el renglón se marca como completado.",
+          "Repita el procedimiento con los demás documentos. Si adjuntó un archivo incorrecto, elimínelo en ese mismo renglón y cárguelo nuevamente.",
         ]}
-        outcome="Este paso es opcional para cerrar tu inscripción: si hoy no tienes los papeles, sal tranquilo y vuelve a subirlos cuando los consigas."
+        outcome="Esta sección es opcional para cerrar su inscripción. Si en este momento no cuenta con la documentación, puede adjuntarla posteriormente."
       />
 
       <ul className="divide-y divide-isel-line overflow-hidden rounded-xl border border-isel-line">

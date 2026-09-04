@@ -18,7 +18,7 @@ const STORAGE_KEY = "isel.titulo.solicitudId";
 
 const STEPS: RailStep[] = [
   { id: "paso-sede", label: "Sede y ceremonia" },
-  { id: "paso-nombre", label: "Tu nombre" },
+  { id: "paso-nombre", label: "Su nombre" },
   { id: "paso-datos", label: "Datos personales" },
   { id: "paso-trabajo", label: "Trabajo" },
   { id: "paso-titulo", label: "El título" },
@@ -72,7 +72,7 @@ export function SolicitudTituloPage() {
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-isel-paper">
-        <Loading label="Abriendo tu solicitud" />
+        <Loading label="Abriendo su solicitud" />
       </main>
     );
   }
@@ -87,7 +87,7 @@ export function SolicitudTituloPage() {
 
       <PortalBand
         eyebrow="Solicitud de impresión de título"
-        title={solicitud.nombreCompletoAlumno || "Tu solicitud"}
+        title={solicitud.nombreCompletoAlumno || "Su solicitud"}
         meta={
           <>
             <Chip tone="onDark" icon="card">
@@ -171,7 +171,7 @@ function CierreSolicitud({
     {
       label: "Nombres y apellidos",
       ok: conocido
-        ? !faltantes.includes("tus nombres") && !faltantes.includes("tus apellidos")
+        ? !faltantes.includes("sus nombres") && !faltantes.includes("sus apellidos")
         : !!solicitud.nombres && !!solicitud.apellidos,
     },
     {
@@ -195,7 +195,7 @@ function CierreSolicitud({
   async function handlePrint() {
     if (faltan.length > 0) {
       const ok = await confirm({
-        title: "Tu ficha está incompleta",
+        title: "Su ficha está incompleta",
         message: `Todavía falta: ${faltan.join(", ")}. Se imprimirá con esos espacios en blanco. ¿Descargarla así?`,
         confirmLabel: "Sí, descargar",
       });
@@ -213,7 +213,7 @@ function CierreSolicitud({
       }
       await openSolicitudTituloPdf(guardada.id);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "No se pudo generar el PDF de tu solicitud.");
+      setError(e instanceof ApiError ? e.message : "No fue posible generar el PDF de su solicitud.");
     } finally {
       setPrinting(false);
     }
@@ -226,7 +226,7 @@ function CierreSolicitud({
     try {
       const guardada = await onGuardar();
       if (!guardada) {
-        setError("Revisa el aviso de la barra de abajo: no pudimos guardar tu solicitud.");
+        setError("Revise el aviso de la barra inferior: no fue posible guardar su solicitud.");
         return;
       }
       onFinish();
@@ -240,8 +240,8 @@ function CierreSolicitud({
       <PortalPanel
         step="08"
         accent="#0C332A"
-        title="Descarga tu solicitud"
-        description="Imprímela, fírmala si te lo piden en físico y entrégala en Secretaría junto con lo que te indiquen."
+        title="Descarga de su solicitud"
+        description="Imprima la solicitud, fírmela si se le requiere en físico y preséntela en Secretaría junto con la documentación indicada."
       >
         <ul className="divide-y divide-isel-line overflow-hidden rounded-xl border border-isel-line">
           {partes.map((p) => (
