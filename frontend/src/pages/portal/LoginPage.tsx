@@ -151,7 +151,7 @@ export function LoginPage() {
           <p className={`flex items-center gap-2.5 text-[12.5px] text-white/35 ${beat} ${state}`} style={delay(620)}>
             <Icon name="lock" size={14} />
             {modo === "alumno"
-              ? "Tu carné y tu correo institucional: los dos, para que nadie entre por ti."
+              ? "Su carné y su correo institucional: ambos datos, para resguardar el acceso a su ficha."
               : "Acceso administrativo. Cada cuenta tiene su propia contraseña."}
           </p>
         </div>
@@ -185,12 +185,12 @@ export function LoginPage() {
               {modo === "alumno" ? "Ingreso de estudiantes" : "Ingreso administrativo"}
             </p>
             <h2 className="mt-3 font-display text-[1.9rem] font-semibold leading-[1.05] tracking-ultratight text-isel-navy">
-              {modo === "alumno" ? "Escribe tu carné" : "Entra con tu cuenta"}
+              {modo === "alumno" ? "Ingrese su carné" : "Acceso administrativo"}
             </h2>
             <p className="mt-3 text-[14px] leading-relaxed text-isel-ink/55">
               {modo === "alumno"
-                ? "Tu carné y tu correo institucional (@umes.edu.gt), tal como los tiene la Universidad."
-                : "La cuenta que te dieron para administrar el portal. Si es la primera vez, se te pedirá cambiar la contraseña."}
+                ? "Su carné y su correo institucional (@umes.edu.gt), tal como constan en los registros de la Universidad."
+                : "Utilice la cuenta asignada para administrar el portal. En el primer ingreso se le solicitará cambiar la contraseña."}
             </p>
           </div>
 
@@ -249,7 +249,7 @@ export function LoginPage() {
                     className={fieldClass}
                   />
                   <span className="mt-2 block text-[12px] leading-snug text-isel-ink/40">
-                    El de @umes.edu.gt. Si no te lo sabes completo, basta con lo que va antes de la arroba.
+                    El de @umes.edu.gt. Si no recuerda la dirección completa, basta con lo que va antes de la arroba.
                   </span>
                 </label>
               </>
@@ -480,7 +480,7 @@ function CarnetOrb({ value, error, reduce }: { value: string; error: boolean; re
               <span className="text-[1.6rem] text-white/30">/{SLOTS}</span>
             </p>
             <p className="mt-3 text-[10.5px] font-bold uppercase tracking-[0.18em] text-white/40">
-              {error ? "Carné no encontrado" : filled ? "Dígitos escritos" : "Esperando tu carné"}
+              {error ? "Carné no encontrado" : filled ? "Dígitos escritos" : "Ingrese su número de carné"}
             </p>
           </>
         )}

@@ -452,7 +452,14 @@ public class InscripcionesController : ControllerBase
         var ca = new CourseAssignment
         {
             StudentId = student.Id,
-            Fecha = asn.Fecha,
+            // La fecha de la ficha es el día en que la ficha entra al padrón, no el
+            // día en que el aspirante la llenó. Es la misma regla que sigue el portal
+            // (cada guardado regenera la ficha con la fecha de ese día) y es lo que
+            // espera quien administra: las asignaciones se revisan e imprimen por
+            // "Hoy". Con la fecha del aspirante, un alumno inscrito la semana pasada y
+            // agregado hoy no aparecía en ningún rango que el administrador mirara
+            // después de agregarlo — la ficha estaba creada, pero fuera de la vista.
+            Fecha = DateOnly.FromDateTime(DateTime.Now),
             Trimestre = trimestre,
             Carrera = asn.Carrera,
             Seccion = seccion,
