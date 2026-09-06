@@ -1,7 +1,7 @@
-import { useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion, useTransform } from "framer-motion";
 import type { MasterProgram } from "@/types/program";
 import { programs as localPrograms } from "@/data/programs";
-import { RevealOnScroll, SplitHeading } from "@/components/ui/RevealOnScroll";
+import { RevealOnScroll, SplitHeading, useScrubProgress } from "@/components/ui/RevealOnScroll";
 import { ImageSlot } from "@/components/ui/ImageSlot";
 import { ActionButton } from "@/components/ui/ActionButton";
 
@@ -23,17 +23,30 @@ export function AdmissionCta({ programs }: AdmissionCtaProps) {
   const list = (programs?.length ? programs : localPrograms).map((p) => p.title);
   const strip = [...list, ...list];
 
+  /* Recorrido de la banda por la pantalla. Es el último bloque de la página:
+     si algo tiene que responder al scroll de vuelta, es este, porque es donde
+     se da media vuelta. */
+  const { ref, progress } = useScrubProgress<HTMLElement>();
+  /* La cinta lleva su propia marcha constante (CSS) y encima un empujón que
+     depende del scroll: acelera al bajar y frena al subir. Son dos transforms
+     anidados, así que se componen sin pelearse por la misma propiedad. */
+  const cintaX = useTransform(progress, [0, 1], [70, -70]);
+  const fotoY = useTransform(progress, [0, 1], [40, -40]);
+  const fichaY = useTransform(progress, [0, 1], [-18, 26]);
+  const haloY = useTransform(progress, [0, 1], [-60, 60]);
+
   return (
-    <section id="admision" className="grain relative overflow-hidden bg-isel-deep">
+    <section id="admision" ref={ref} className="grain relative overflow-hidden bg-isel-deep">
       <div className="grid-lines pointer-events-none absolute inset-0 opacity-40" aria-hidden />
-      <div
+      <motion.div
         aria-hidden
+        style={reduce ? undefined : { y: haloY }}
         className="pointer-events-none absolute -left-40 top-1/3 h-[40rem] w-[40rem] animate-drift rounded-full bg-isel-emerald/20 blur-[140px]"
       />
 
       {/* Cinta de programas: da movimiento continuo sin robarle foco al CTA. */}
       <div className="relative border-y border-white/10 py-6">
-        <div className="mask-fade-x overflow-hidden">
+        <motion.div style={reduce ? undefined : { x: cintaX }} className="mask-fade-x overflow-hidden">
           <div className={`flex w-max items-center gap-10 ${reduce ? "" : "animate-marquee"}`}>
             {strip.map((title, i) => (
               <span key={`${title}-${i}`} className="flex items-center gap-10 whitespace-nowrap">
@@ -44,7 +57,7 @@ export function AdmissionCta({ programs }: AdmissionCtaProps) {
               </span>
             ))}
           </div>
-        </div>
+        </motion.div>
       </div>
 
       <div className="relative mx-auto max-w-7xl px-6 py-24 lg:py-32">
@@ -103,7 +116,14 @@ export function AdmissionCta({ programs }: AdmissionCtaProps) {
           </div>
 
           <RevealOnScroll delay={0.1} scale className="relative">
-            <div className="aspect-[4/5] w-full overflow-hidden rounded-[2rem] border border-white/10 shadow-lift">
+            {/* La foto y la ficha viajan en sentidos opuestos: la ficha se
+                despega del panel al bajar y vuelve a posarse al subir. Es la
+                misma idea que el retrato de Dirección, para que el cierre y la
+                dirección rimen en vez de inventarse cada uno su efecto. */}
+            <motion.div
+              style={reduce ? undefined : { y: fotoY }}
+              className="aspect-[4/5] w-full overflow-hidden rounded-[2rem] border border-white/10 shadow-lift"
+            >
               <ImageSlot
                 src="/images/admission/inscripcion.avif"
                 alt="Inscripción en línea ISEL"
@@ -111,13 +131,16 @@ export function AdmissionCta({ programs }: AdmissionCtaProps) {
                 tone="dark"
                 glyph="→"
               />
-            </div>
-            <div className="absolute -bottom-6 left-6 right-6 rounded-2xl border border-white/10 bg-isel-navy/95 px-6 py-5 shadow-lift backdrop-blur-md">
+            </motion.div>
+            <motion.div
+              style={reduce ? undefined : { y: fichaY }}
+              className="absolute -bottom-6 left-6 right-6 rounded-2xl border border-white/10 bg-isel-navy/95 px-6 py-5 shadow-lift backdrop-blur-md"
+            >
               <p className="text-[10px] uppercase tracking-[0.18em] text-white/45">Admisión</p>
               <p className="mt-1 font-display text-lg font-semibold text-white">
                 Un asesor te acompaña de principio a fin
               </p>
-            </div>
+            </motion.div>
           </RevealOnScroll>
         </div>
 

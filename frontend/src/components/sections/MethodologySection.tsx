@@ -1,5 +1,13 @@
 import { useRef, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
+import {
+  AnimatePresence,
+  motion,
+  useReducedMotion,
+  useScroll,
+  useSpring,
+  useTransform,
+  type MotionValue,
+} from "framer-motion";
 import { RevealOnScroll, ScrollHighlightText, SplitHeading, SNAP } from "@/components/ui/RevealOnScroll";
 
 const ITEMS = [
@@ -60,6 +68,27 @@ export function MethodologySection() {
   const reduce = useReducedMotion();
   const current = ITEMS[active];
 
+  /**
+   * Avance real por los tres componentes, medido sobre la columna que se lee.
+   *
+   * El raíl de progreso saltaba de tercio en tercio: se llenaba de golpe al
+   * cambiar el paso activo y luego se quedaba muerto durante todo el rato que
+   * uno tarda en leer el bloque. Ahora el relleno es continuo —avanza mientras
+   * se lee y retrocede al subir— así que el raíl deja de ser un rótulo de
+   * estado y pasa a ser lo que dice ser: cuánto llevas.
+   */
+  const pasosRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: pasosRef,
+    offset: ["start 0.72", "end 0.72"],
+  });
+  const avance = useSpring(scrollYProgress, { stiffness: 180, damping: 36, mass: 0.5 });
+
+  /* Parallax del fondo: la retícula viaja un poco más despacio que el
+     contenido. Es lo que separa el fondo del texto sin añadir una sola capa
+     de color más. */
+  const reticulaY = useTransform(avance, [0, 1], [-26, 26]);
+
   return (
     <section
       id="metodologia"
@@ -69,7 +98,10 @@ export function MethodologySection() {
       {/* El recorte vive aquí dentro y no en la sección: un overflow-hidden en
           el ancestro anularía el position:sticky de la columna izquierda. */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
-        <div className="grid-lines absolute inset-0 opacity-50" />
+        <motion.div
+          style={reduce ? undefined : { y: reticulaY }}
+          className="grid-lines absolute -inset-y-10 inset-x-0 opacity-50"
+        />
         <motion.div
           animate={{ backgroundColor: current.accent }}
           transition={{ duration: 1.1, ease: SNAP }}
@@ -138,31 +170,61 @@ export function MethodologySection() {
               </div>
             </div>
 
-            {/* Raíl de progreso: tres tramos que se llenan conforme avanzas. */}
+            {/* Raíl de progreso: tres tramos que se llenan CONTINUAMENTE
+                conforme se lee, no de golpe al cambiar de paso. */}
             <div className="mt-10 flex items-center gap-3">
               {ITEMS.map((item, i) => (
-                <span key={item.key} className="h-[3px] flex-1 overflow-hidden rounded-full bg-white/12">
-                  <motion.span
-                    animate={{ scaleX: i <= active ? 1 : 0, backgroundColor: item.accent }}
-                    transition={{ duration: 0.7, ease: SNAP }}
-                    className="block h-full origin-left"
-                  />
-                </span>
+                <RailSegment key={item.key} avance={avance} index={i} total={ITEMS.length} color={item.accent} />
               ))}
-              <span className="ml-2 shrink-0 font-display text-xs font-bold tracking-[0.16em] text-white/40">
+              <span className="ml-2 shrink-0 font-display text-xs font-bold tabular tracking-[0.16em] text-white/40">
                 0{active + 1}/0{ITEMS.length}
               </span>
             </div>
           </div>
         </div>
 
-        <div className="flex flex-col">
+        <div ref={pasosRef} className="flex flex-col">
           {ITEMS.map((item, i) => (
             <Step key={item.key} item={item} index={i} isActive={active === i} onEnter={() => setActive(i)} />
           ))}
         </div>
       </div>
     </section>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Un tramo del raíl de progreso.
+ *
+ * Reparte el avance global entre los tramos: el tramo `i` va de `i/total` a
+ * `(i+1)/total`, así que se llena solo mientras se está leyendo su bloque y se
+ * vacía al volver sobre él. Los tres juntos forman una barra continua.
+ */
+function RailSegment({
+  avance,
+  index,
+  total,
+  color,
+}: {
+  avance: MotionValue<number>;
+  index: number;
+  total: number;
+  color: string;
+}) {
+  const reduce = useReducedMotion();
+  const relleno = useTransform(avance, [index / total, (index + 1) / total], [0, 1], {
+    clamp: true,
+  });
+
+  return (
+    <span className="h-[3px] flex-1 overflow-hidden rounded-full bg-white/12">
+      <motion.span
+        style={{ scaleX: reduce ? 1 : relleno, backgroundColor: color }}
+        className="block h-full origin-left"
+      />
+    </span>
   );
 }
 
@@ -192,6 +254,12 @@ function Step({ item, index, isActive, onEnter }: StepProps) {
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
   const headY = useTransform(scrollYProgress, [0, 1], [26, -26]);
 
+  /* El filete de color ya no se enciende de golpe al activarse el bloque: se
+     LLENA de arriba abajo al ritmo de la lectura y se vacía al subir. Antes
+     marcaba «este es el activo»; ahora marca «vas por aquí», que es una
+     información distinta y bastante más útil en un texto largo. */
+  const relleno = useTransform(scrollYProgress, [0.2, 0.68], [0, 1], { clamp: true });
+
   return (
     <article
       ref={ref}
@@ -217,9 +285,11 @@ function Step({ item, index, isActive, onEnter }: StepProps) {
         <span aria-hidden className="absolute left-0 top-1 bottom-1 w-px bg-white/[0.09]" />
         <motion.span
           aria-hidden
-          animate={{ scaleY: reduce || isActive ? 1 : 0 }}
-          transition={{ duration: 0.9, ease: SNAP }}
-          style={{ originY: 0, backgroundColor: item.accent }}
+          style={{
+            originY: 0,
+            backgroundColor: item.accent,
+            scaleY: reduce ? 1 : relleno,
+          }}
           className="absolute left-0 top-1 bottom-1 w-px"
         />
 

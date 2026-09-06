@@ -1,6 +1,11 @@
 import { useRef, useState } from "react";
 import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
-import { RevealOnScroll, SplitHeading, SNAP } from "@/components/ui/RevealOnScroll";
+import {
+  RevealOnScroll,
+  SplitHeading,
+  useScrubProgress,
+  SNAP,
+} from "@/components/ui/RevealOnScroll";
 
 const OBJECTIVES = [
   {
@@ -37,24 +42,60 @@ const OBJECTIVES = [
  * el texto pasa a blanco, con el numeral quedando en contorno. Se lee como un
  * índice impreso que se marca con rotulador, no como una cuadrícula de tarjetas.
  *
- * Detrás, la palabra "OBJETIVOS" cruza la sección en sentido contrario al
- * scroll (scrub 1:1): sostiene el fondo sin competir con el texto.
- *
  * La sección va en arena cálida para cortar la banda oscura de Metodología —
  * el contraste de temperatura es parte del ritmo de la página.
+ *
+ * ── Lo que se añadió ────────────────────────────────────────────────────────
+ * El barrido de color al pasar el cursor NO se ha tocado: es el gesto de la
+ * sección y funciona. Lo que faltaba era que la sección dijera algo mientras
+ * se la recorre sin cursor —en un teléfono, o simplemente bajando— porque el
+ * barrido solo existe si hay ratón. Se le han sumado cuatro capas atadas al
+ * scroll, todas reversibles, ninguna compitiendo con el barrido:
+ *
+ *  1. La marca de agua del fondo ya no es una sola: son dos, cruzando a
+ *     velocidades y en sentidos distintos. Dos planos a distinta velocidad es
+ *     lo que produce profundidad; uno solo es un adorno que se desliza.
+ *  2. El numeral de cada franja flota a contramano de su propia fila mientras
+ *     esta cruza la pantalla. Las cifras se descolocan y se recolocan solas:
+ *     es lo que hace que el índice se vea vivo al bajar Y al subir.
+ *  3. El filete inferior de cada franja se TRAZA de izquierda a derecha con el
+ *     scroll, en vez de estar dibujado desde el principio. El índice se
+ *     escribe a medida que se llega a él.
+ *  4. Un raíl vertical a la izquierda se llena conforme se avanza por los
+ *     cuatro objetivos: la sección se llama «hacia dónde vamos» y ahora se ve
+ *     cuánto se lleva recorrido.
  */
 export function ObjectivesSection() {
   const ref = useRef<HTMLElement>(null);
   const reduce = useReducedMotion();
   const [hover, setHover] = useState<number | null>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
-  const watermarkX = useTransform(scrollYProgress, [0, 1], reduce ? ["0%", "0%"] : ["12%", "-26%"]);
+
+  /* Dos planos de marca de agua a velocidades opuestas. El de delante corre
+     más y en sentido contrario al scroll; el de detrás apenas se mueve. */
+  const marcaFrente = useTransform(scrollYProgress, [0, 1], reduce ? ["0%", "0%"] : ["12%", "-26%"]);
+  const marcaFondo = useTransform(scrollYProgress, [0, 1], reduce ? ["0%", "0%"] : ["-14%", "6%"]);
+
+  /* Raíl de avance por la lista. Se mide contra el recorrido de la sección, de
+     forma que llega al tope justo cuando el último objetivo termina de leerse. */
+  const railRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress: railRaw } = useScroll({
+    target: railRef,
+    offset: ["start 0.8", "end 0.6"],
+  });
 
   return (
     <section id="objetivos" ref={ref} className="relative overflow-hidden bg-isel-arena px-6 py-24 lg:py-32">
       <motion.span
         aria-hidden
-        style={{ x: watermarkX }}
+        style={{ x: marcaFondo }}
+        className="pointer-events-none absolute left-0 top-[38%] -translate-y-1/2 select-none whitespace-nowrap font-display text-[30vw] font-bold leading-none tracking-ultratight text-isel-navy/[0.028]"
+      >
+        ISEL ISEL
+      </motion.span>
+      <motion.span
+        aria-hidden
+        style={{ x: marcaFrente }}
         className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 select-none whitespace-nowrap font-display text-[26vw] font-bold leading-none tracking-ultratight text-isel-navy/[0.045]"
       >
         OBJETIVOS OBJETIVOS
@@ -79,67 +120,125 @@ export function ObjectivesSection() {
           </RevealOnScroll>
         </div>
 
-        <div className="mt-16 border-t border-isel-navy/15 lg:mt-20">
-          {OBJECTIVES.map((item, i) => {
-            const on = hover === i;
-            return (
-              <motion.div
+        {/* El raíl vive fuera de la lista para poder medirla entera. */}
+        <div ref={railRef} className="relative mt-16 lg:mt-20">
+          <span
+            aria-hidden
+            className="absolute -left-4 top-0 hidden h-full w-px bg-isel-navy/10 lg:block"
+          >
+            <motion.span
+              style={{ scaleY: reduce ? 1 : railRaw, originY: 0 }}
+              className="absolute inset-0 block bg-isel-navy/45"
+            />
+          </span>
+
+          <div className="border-t border-isel-navy/15">
+            {OBJECTIVES.map((item, i) => (
+              <Objective
                 key={item.title}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.35 }}
-                transition={{ duration: 0.8, delay: i * 0.07, ease: SNAP }}
-                onMouseEnter={() => setHover(i)}
-                onMouseLeave={() => setHover(null)}
-                style={{ ["--accent" as string]: item.accent }}
-                className="group relative block border-b border-isel-navy/15"
-              >
-                {/* Barrido de color a ancho completo. */}
-                <span
-                  aria-hidden
-                  className="absolute inset-0 origin-left scale-x-0 transition-transform duration-700 ease-snap group-hover:scale-x-100"
-                  style={{ backgroundColor: item.accent }}
-                />
-
-                <div className="relative grid grid-cols-1 items-start gap-5 px-1 py-9 transition-[padding] duration-500 ease-snap group-hover:px-6 md:grid-cols-[7rem_1fr_1.25fr] md:items-center md:gap-10 md:py-11">
-                  <span
-                    className={`font-display text-[3.2rem] font-bold leading-none tracking-ultratight transition-colors duration-500 ease-snap md:text-[4.2rem] ${
-                      on ? "numeral-outline text-white" : "text-isel-navy/15"
-                    }`}
-                  >
-                    0{i + 1}
-                  </span>
-
-                  <div>
-                    <p
-                      className={`text-[10px] font-bold uppercase tracking-[0.18em] transition-colors duration-500 ease-snap ${
-                        on ? "text-white/70" : "text-[var(--accent)]"
-                      }`}
-                    >
-                      {item.clave}
-                    </p>
-                    <h3
-                      className={`mt-2 font-display text-[1.6rem] font-semibold leading-[1.08] tracking-tightest transition-colors duration-500 ease-snap sm:text-[2rem] ${
-                        on ? "text-white" : "text-isel-navy"
-                      }`}
-                    >
-                      {item.title}
-                    </h3>
-                  </div>
-
-                  <p
-                    className={`prose-justify text-[15px] leading-relaxed transition-colors duration-500 ease-snap ${
-                      on ? "text-white/85" : "text-isel-ink/60"
-                    }`}
-                  >
-                    {item.text}
-                  </p>
-                </div>
-              </motion.div>
-            );
-          })}
+                item={item}
+                index={i}
+                on={hover === i}
+                onEnter={() => setHover(i)}
+                onLeave={() => setHover(null)}
+              />
+            ))}
+          </div>
         </div>
       </div>
     </section>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+interface ObjectiveProps {
+  item: (typeof OBJECTIVES)[number];
+  index: number;
+  on: boolean;
+  onEnter: () => void;
+  onLeave: () => void;
+}
+
+/**
+ * Una franja del índice.
+ *
+ * Va en componente propio porque cada una necesita medir SU recorrido por la
+ * pantalla: el flotar del numeral y el trazado del filete se calculan contra
+ * esta fila, no contra la página entera.
+ */
+function Objective({ item, index, on, onEnter, onLeave }: ObjectiveProps) {
+  const reduce = useReducedMotion();
+  const { ref, progress } = useScrubProgress<HTMLDivElement>();
+
+  // El numeral flota a contramano de su fila: se descoloca y se recoloca solo.
+  const numeralY = useTransform(progress, [0, 1], [18, -18]);
+  // El filete inferior se traza mientras la fila cruza la mitad de la pantalla.
+  const fileteX = useTransform(progress, [0.15, 0.55], [0, 1]);
+
+  return (
+    <div ref={ref}>
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.35 }}
+        transition={{ duration: 0.8, delay: index * 0.07, ease: SNAP }}
+        onMouseEnter={onEnter}
+        onMouseLeave={onLeave}
+        style={{ ["--accent" as string]: item.accent }}
+        className="group relative block"
+      >
+        {/* Barrido de color a ancho completo — el gesto de la sección, intacto. */}
+        <span
+          aria-hidden
+          className="absolute inset-0 origin-left scale-x-0 transition-transform duration-700 ease-snap group-hover:scale-x-100"
+          style={{ backgroundColor: item.accent }}
+        />
+
+        <div className="relative grid grid-cols-1 items-start gap-5 px-1 py-9 transition-[padding] duration-500 ease-snap group-hover:px-6 md:grid-cols-[7rem_1fr_1.25fr] md:items-center md:gap-10 md:py-11">
+          <motion.span
+            style={reduce ? undefined : { y: numeralY }}
+            className={`font-display text-[3.2rem] font-bold leading-none tracking-ultratight transition-colors duration-500 ease-snap md:text-[4.2rem] ${
+              on ? "numeral-outline text-white" : "text-isel-navy/15"
+            }`}
+          >
+            0{index + 1}
+          </motion.span>
+
+          <div>
+            <p
+              className={`text-[10px] font-bold uppercase tracking-[0.18em] transition-colors duration-500 ease-snap ${
+                on ? "text-white/70" : "text-[var(--accent)]"
+              }`}
+            >
+              {item.clave}
+            </p>
+            <h3
+              className={`mt-2 font-display text-[1.6rem] font-semibold leading-[1.08] tracking-tightest transition-colors duration-500 ease-snap sm:text-[2rem] ${
+                on ? "text-white" : "text-isel-navy"
+              }`}
+            >
+              {item.title}
+            </h3>
+          </div>
+
+          <p
+            className={`prose-justify text-[15px] leading-relaxed transition-colors duration-500 ease-snap ${
+              on ? "text-white/85" : "text-isel-ink/60"
+            }`}
+          >
+            {item.text}
+          </p>
+        </div>
+
+        {/* El filete que cierra la franja se traza con el scroll en vez de
+            estar ya dibujado: el índice se escribe a medida que se llega. */}
+        <motion.span
+          aria-hidden
+          style={reduce ? undefined : { scaleX: fileteX }}
+          className="absolute inset-x-0 bottom-0 block h-px origin-left bg-isel-navy/25"
+        />
+      </motion.div>
+    </div>
   );
 }

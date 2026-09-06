@@ -17,6 +17,75 @@ export const SNAP = [0.16, 1, 0.3, 1] as const; // cola larga, para lo grande
 export const ENTRY = [0.32, 0.72, 0, 1] as const; // decidida, para lo mediano
 export const BACK = [0.34, 1.56, 0.64, 1] as const; // overshoot corto, para lo pequeño
 
+/* ==========================================================================
+   Movimiento LIGADO al scroll
+   ==========================================================================
+
+   La página no tiene menú ni anclajes de sección: se recorre entera con la
+   rueda, hacia abajo y hacia arriba. Eso pone un requisito que las entradas
+   `whileInView` de una sola vez no pueden cumplir — se disparan al bajar y ya
+   nunca vuelven a decir nada, así que el camino de vuelta queda muerto.
+
+   Lo que hay aquí abajo es la otra familia de movimiento: valores atados a la
+   posición del scroll. Son REVERSIBLES por construcción —subir deshace
+   exactamente lo que bajar hizo, sin lógica extra ni banderas— y por eso son la
+   herramienta correcta para una página que se lee en los dos sentidos.
+
+   Regla de reparto: las entradas de una vez (`RevealOnScroll`, `MaskReveal`)
+   siguen sirviendo para el CONTENIDO, que no debe parpadear al volver a pasar;
+   lo de aquí se reserva para las CAPAS —fondos, retratos, trazos, adornos—,
+   que sí pueden ir y venir sin molestar a nadie.
+   ========================================================================== */
+
+/**
+ * Progreso 0→1 del recorrido de un elemento por la pantalla.
+ *
+ * 0 cuando el bloque asoma por abajo, 1 cuando termina de salir por arriba.
+ * `useSpring` encima le quita el pegado literal al scroll: sin él el
+ * movimiento sigue la rueda dato a dato y se ve mecánico; con él llega con un
+ * punto de inercia, que es lo que lo hace parecer material y no una regla.
+ */
+export function useScrubProgress<T extends HTMLElement>(
+  offset: [string, string] = ["start end", "end start"],
+  damp = true,
+) {
+  const ref = useRef<T>(null);
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: offset as never,
+  });
+  const smooth = useSpring(scrollYProgress, { stiffness: 190, damping: 38, mass: 0.5 });
+  return { ref, progress: damp ? smooth : scrollYProgress };
+}
+
+interface ParallaxYProps {
+  children: ReactNode;
+  /** Píxeles de desplazamiento al entrar y al salir de pantalla. */
+  from?: number;
+  to?: number;
+  className?: string;
+  style?: CSSProperties;
+}
+
+/**
+ * Capa que viaja a distinta velocidad que el scroll.
+ *
+ * Solo mueve `transform`, así que corre en el compositor y no obliga a
+ * recalcular maquetación en ningún fotograma. Con `prefers-reduced-motion` se
+ * queda quieta y el contenido sigue exactamente donde debe.
+ */
+export function ParallaxY({ children, from = 40, to = -40, className, style }: ParallaxYProps) {
+  const reduce = useReducedMotion();
+  const { ref, progress } = useScrubProgress<HTMLDivElement>();
+  const y = useTransform(progress, [0, 1], [from, to]);
+
+  return (
+    <div ref={ref} className={className} style={style}>
+      <motion.div style={reduce ? undefined : { y }}>{children}</motion.div>
+    </div>
+  );
+}
+
 interface RevealOnScrollProps {
   children: ReactNode;
   className?: string;
