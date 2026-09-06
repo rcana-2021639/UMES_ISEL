@@ -353,13 +353,22 @@ function CierrePanel({
       : [...DOCUMENTO_TIPOS_NACIONAL];
   const subidos = applicant.documentos.filter((d) => requeridos.includes(d.tipo)).length;
 
+  /* `ancla` empareja cada renglón del resumen con su ficha, para poder tachar
+     de la lista de pendientes las que se guarden al pulsar el botón de cierre.
+     Va por identificador y no por rótulo: dos textos que hoy coinciden dejan de
+     coincidir en cuanto alguien reescribe uno de los dos. */
   const partes = [
-    { label: "Preinscripción", ok: !!applicant.preinscripcion },
-    { label: "Asignación de cursos", ok: !!applicant.asignacion },
-    { label: "Carta de compromiso", ok: !!applicant.compromiso },
-    { label: `Documentos (${subidos} de ${requeridos.length})`, ok: subidos >= requeridos.length, opcional: true },
+    { ancla: "paso-preinscripcion", label: "Preinscripción", ok: !!applicant.preinscripcion },
+    { ancla: "paso-asignacion", label: "Asignación de cursos", ok: !!applicant.asignacion },
+    { ancla: "paso-compromiso", label: "Carta de compromiso", ok: !!applicant.compromiso },
+    {
+      ancla: "paso-documentos",
+      label: `Documentos (${subidos} de ${requeridos.length})`,
+      ok: subidos >= requeridos.length,
+      opcional: true,
+    },
   ];
-  const faltan = partes.filter((p) => !p.ok && !p.opcional).map((p) => p.label);
+  const faltan = partes.filter((p) => !p.ok && !p.opcional);
 
   /** Las fichas que ahora mismo tienen algo escrito sin mandar al servidor. */
   function pendientes(): FichaHandle[] {
@@ -369,6 +378,13 @@ function CierrePanel({
   async function handleClick() {
     setProblema(null);
     setGuardando(true);
+
+    /* Lo que se acaba de guardar en ESTA pulsación.
+       `faltan` se calculó al pintar, con el expediente de antes; las fichas que
+       se guardan aquí actualizan el estado de la página en el siguiente
+       repintado, no dentro de esta función. Sin este apunte, el aviso de salida
+       nombraba como «sin llenar» justo la ficha que se acababa de guardar. */
+    const reciénGuardadas = new Set<string>();
     try {
       // 1. Guardar lo que quedó escrito y sin mandar, en el orden de la página.
       for (const ficha of pendientes()) {
@@ -378,6 +394,7 @@ function CierrePanel({
           document.getElementById(ficha.anclaId)?.scrollIntoView({ behavior: "smooth", block: "start" });
           return;
         }
+        reciénGuardadas.add(ficha.anclaId);
       }
     } finally {
       setGuardando(false);
@@ -386,10 +403,11 @@ function CierrePanel({
     // 2. Ya no queda nada por mandar. Si alguna ficha sigue sin empezarse, se
     //    puede salir igual —el expediente se retoma con el mismo DPI— pero hay
     //    que decirlo, porque salir así deja la inscripción incompleta.
-    if (faltan.length > 0) {
+    const sinLlenar = faltan.filter((p) => !reciénGuardadas.has(p.ancla)).map((p) => p.label);
+    if (sinLlenar.length > 0) {
       const ok = await confirm({
         title: "Aún tiene fichas sin llenar",
-        message: `No ha llenado: ${faltan.join(", ")}. Lo que sí guardó se conserva y puede regresar con su mismo DPI para completarlo. ¿Desea salir de todos modos?`,
+        message: `No ha llenado: ${sinLlenar.join(", ")}. Lo que sí guardó se conserva y puede regresar con su mismo DPI para completarlo. ¿Desea salir de todos modos?`,
         confirmLabel: "Sí, salir",
       });
       if (!ok) return;

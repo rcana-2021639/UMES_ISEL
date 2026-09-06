@@ -415,6 +415,57 @@ sudo systemctl start isel-api
 > **Haz esta prueba una vez, antes de salir a producción.** Un respaldo que
 > nunca se ha restaurado no es un respaldo, es una carpeta con archivos.
 
+### Reiniciar desde cero (SOLO en tu maquina, nunca en produccion)
+
+Para probar el flujo completo sin nada guardado: alumnos, fichas, aspirantes,
+PDF subidos y bitacora de seguridad, todo fuera.
+
+**Antes de empezar, apaga el backend** (Ctrl+C en la ventana donde corre
+`dotnet run`). Con la aplicacion viva, SQLite tiene el archivo abierto: el
+borrado falla, o deja sueltos los `-wal` / `-shm` y la base vuelve a nacer con
+datos a medias.
+
+PowerShell, desde la raiz del repositorio:
+
+```powershell
+# 1. La base y sus dos archivos de trabajo (WAL y shm)
+Remove-Item backend\UmesIsel.Api\isel.db* -Force -ErrorAction SilentlyContinue
+
+# 2. Los PDF que subieron los aspirantes y los alumnos
+Remove-Item backend\UmesIsel.Api\App_Data\uploads -Recurse -Force -ErrorAction SilentlyContinue
+
+# 3. Los respaldos automaticos (si no, te queda la base vieja al lado)
+Remove-Item backend\UmesIsel.Api\App_Data\backups -Recurse -Force -ErrorAction SilentlyContinue
+```
+
+Y arrancar de nuevo:
+
+```powershell
+dotnet run --project backend\UmesIsel.Api
+```
+
+Al arrancar, la aplicacion crea la base vacia, aplica las migraciones y siembra
+lo que hay en `backend/UmesIsel.Api/Data/Seed`: el padron de alumnos
+(`students.seed.json`) y el catalogo de cursos. Es decir, «desde cero» deja el
+padron sembrado, no una base literalmente vacia. Si tampoco lo quieres, saca
+`students.seed.json` de esa carpeta antes de arrancar.
+
+Dos cosas que **no** hace falta borrar:
+
+- `App_Data/keys/token-signing.key` — la clave que firma las sesiones. Borrarla
+  no rompe nada: se genera otra y caducan las sesiones abiertas.
+- La cuenta del administrador. Se vuelve a crear con
+  `AdminAccess__BootstrapUser` / `AdminAccess__BootstrapPassword`; si no hay
+  variable de entorno, la aplicacion **genera una contrasena y la escribe en el
+  log de arranque** — hay que leerla ahi la primera vez.
+
+En Git Bash, los mismos tres borrados:
+
+```bash
+rm -f  backend/UmesIsel.Api/isel.db*
+rm -rf backend/UmesIsel.Api/App_Data/uploads backend/UmesIsel.Api/App_Data/backups
+```
+
 ---
 
 ## 6. Copiar la base actual al servidor

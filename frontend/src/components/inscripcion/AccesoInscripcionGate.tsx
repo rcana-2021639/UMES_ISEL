@@ -17,7 +17,7 @@ import type { Applicant } from "@/types/inscripcion";
  * existía, reanuda exactamente donde lo dejó.
  *
  * La mitad oscura sigue diciendo lo mismo que antes —qué vas a hacer y en cuántas partes— pero ya no
- * como un párrafo corrido: los cuatro pasos cuelgan de un hilo que se traza solo al entrar, y cada
+ * como un párrafo corrido: los cinco pasos cuelgan de un hilo que se traza solo al entrar, y cada
  * nodo aparece detrás del anterior. El texto no cambia de sentido; cambia el orden en que llega, que
  * es lo que hace que se lea de un vistazo en vez de tener que buscarlo dentro de un bloque.
  */
@@ -27,6 +27,10 @@ const PASOS = [
   { icon: "layers" as const, label: "Asignación de cursos", text: "Su maestría, su trimestre y los cursos que cursará." },
   { icon: "pen" as const, label: "Carta de compromiso", text: "Se firma y se confirma la documentación que usted entregará." },
   { icon: "upload" as const, label: "Documentos", text: "Adjunta sus archivos en PDF. Puede hacerlo posteriormente." },
+  /* El cierre figura desde el principio. Mientras fue un paso que no salía en
+     ninguna lista, quien terminaba el cuarto formulario no tenía forma de saber
+     que aún faltaba pulsar algo para dar el trámite por cerrado. */
+  { icon: "check" as const, label: "Terminar", text: "Se guarda lo que quede pendiente y se cierra su expediente." },
 ];
 
 export function AccesoInscripcionGate({ onEnter }: { onEnter: (applicant: Applicant) => void }) {
@@ -101,7 +105,7 @@ export function AccesoInscripcionGate({ onEnter }: { onEnter: (applicant: Applic
               className={`mt-6 max-w-[42ch] text-[14px] leading-relaxed text-white/60 ${beat} ${state}`}
               style={delay(320)}
             >
-              El proceso consta de cuatro secciones que se guardan por separado. Puede cerrar la página y regresar más adelante: con su
+              El proceso consta de cinco pasos: cuatro fichas, que se guardan por separado, y el cierre. Puede cerrar la página y regresar más adelante: con su
               mismo DPI continuará donde lo dejó.
             </p>
 

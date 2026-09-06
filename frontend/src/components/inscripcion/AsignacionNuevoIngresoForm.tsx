@@ -130,7 +130,12 @@ export const AsignacionNuevoIngresoForm = forwardRef<FichaHandle, AsignacionNuev
        entrar sin miedo a pisar nada escrito. */
     const virgen = !initial;
     setCarrera(initial?.carrera ?? (virgen ? (carreraSugerida ?? null) : null));
-    setTrimestre(initial?.trimestre ?? null);
+    /* El trimestre solo se fija desde aquí cuando hay ficha guardada. Sin ella
+       lo elige el efecto que carga los trimestres de la maestría —se queda con
+       el primero disponible—, y ese efecto corre después de este: ponerlo a
+       null aquí borraba justo lo que aquel acababa de elegir, y la ficha se
+       quedaba con «0 cursos» y «no hay cursos definidos para el trimestre». */
+    if (initial) setTrimestre(initial.trimestre);
     setSeccion(initial?.seccion ?? "");
     setPendientesTrimestres(initial?.tienePendientesTrimestres ?? false);
     setPendientesMaterias(initial?.tienePendientesMaterias ?? false);
