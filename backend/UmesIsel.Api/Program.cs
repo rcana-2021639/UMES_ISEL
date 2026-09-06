@@ -6,6 +6,15 @@ using UmesIsel.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// El comando de mantenimiento (ver más abajo, «limpiar-pruebas») habla por
+// consola y lo que dice hay que LEERLO antes de confirmar un borrado. El
+// registro de EF escupe la consulta SQL de cada recuento y sepultaba el resumen
+// bajo treinta líneas de ruido.
+if (args.Contains("limpiar-pruebas"))
+{
+    builder.Logging.AddFilter("Microsoft.EntityFrameworkCore", LogLevel.Warning);
+}
+
 const string FrontendCorsPolicy = "FrontendCorsPolicy";
 
 builder.Services.AddControllers();
@@ -172,6 +181,37 @@ using (var scope = app.Services.CreateScope())
         "Actualización profesional de la licenciatura en Teología con especialidad en Pastoral", logger);
     // Sin al menos una cuenta de admin, el panel sería inalcanzable — ver SeedAdminUser.
     DbInitializer.SeedAdminUser(db, app.Configuration, logger);
+
+    /* Comando de mantenimiento: `dotnet run -- limpiar-pruebas`.
+     *
+     * Va AQUÍ y no en un script aparte por dos razones. La primera es que la
+     * base se abre con la misma configuración que usa la aplicación —la misma
+     * cadena de conexión anclada al ContentRoot— así que es imposible que
+     * limpie por error otro archivo isel.db; un script suelto sí puede
+     * equivocarse de carpeta y no enterarse. La segunda es que un solo comando
+     * sin instalar nada es lo que de verdad se acaba usando.
+     *
+     * La guarda de producción no es decorativa: este comando borra la bitácora
+     * de seguridad y las fichas de todo el mundo. En un servidor de verdad eso
+     * no se hace nunca, y por eso aquí se niega en vez de preguntar. Para
+     * ejecutarlo sin la pregunta interactiva (p. ej. desde otro script), se le
+     * añade `--si`.
+     */
+    if (args.Contains("limpiar-pruebas"))
+    {
+        if (!app.Environment.IsDevelopment())
+        {
+            Console.WriteLine();
+            Console.WriteLine("  «limpiar-pruebas» solo corre en Development.");
+            Console.WriteLine($"  Entorno actual: {app.Environment.EnvironmentName}. No se borró nada.");
+            Console.WriteLine();
+            return;
+        }
+
+        await LimpiezaDePruebas.EjecutarAsync(
+            db, app.Environment.ContentRootPath, args.Contains("--si"), logger);
+        return;
+    }
 }
 
 // Fire-and-forget: converts the blank template once so LibreOffice's shared profile is already

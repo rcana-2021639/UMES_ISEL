@@ -415,7 +415,37 @@ sudo systemctl start isel-api
 > **Haz esta prueba una vez, antes de salir a producción.** Un respaldo que
 > nunca se ha restaurado no es un respaldo, es una carpeta con archivos.
 
-### Reiniciar desde cero (SOLO en tu maquina, nunca en produccion)
+### Borrar solo los datos de prueba (lo habitual)
+
+Deja el padron del Excel, el pensum y las cuentas del panel EXACTAMENTE como
+estan, y barre lo que se genero probando: fichas de asignacion, aspirantes,
+solicitudes de titulo, papeleria y los PDF subidos.
+
+Desde `backend/UmesIsel.Api`:
+
+```powershell
+dotnet run -- limpiar-pruebas
+```
+
+Primero **enseña un recuento de lo que va a borrar** y de lo que conserva, y no
+toca nada hasta que se escriba `SI` en mayusculas. Para saltarse la pregunta
+(desde otro script), `dotnet run -- limpiar-pruebas --si`.
+
+Detalles que conviene saber:
+
+- **Solo corre en Development.** En cualquier otro entorno se niega y avisa. El
+  comando borra la bitacora de seguridad y las fichas de todo el mundo: en un
+  servidor de verdad eso no se hace nunca.
+- **Borra tambien los alumnos que nacieron de una inscripcion de prueba** — los
+  que entraron al padron con el boton «Agregar a BD» de un aspirante. Esos no
+  vienen del Excel; los creo la prueba.
+- **Quita la marca de «papeleria al dia»** de todo el padron: esa respuesta la
+  dio alguien probando, no viene del Excel.
+- Se puede ejecutar con el servidor encendido (SQLite en WAL lo permite), pero
+  conviene apagarlo antes: si alguien esta guardando una ficha en ese momento,
+  se la borras a medio camino.
+
+### Borrar la base ENTERA y empezar de cero (opcion nuclear)
 
 Para probar el flujo completo sin nada guardado: alumnos, fichas, aspirantes,
 PDF subidos y bitacora de seguridad, todo fuera.

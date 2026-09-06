@@ -25,6 +25,13 @@ Tras clonar, activar los hooks una vez:
     dotnet run --project backend/UmesIsel.Api     # http://localhost:5199
     pnpm --dir frontend run dev                   # http://localhost:5173
 
-## Borrar la base de datos y empezar de cero
+## Limpiar datos de prueba
 
-Ver la seccion "Reiniciar desde cero" en `DESPLIEGUE.md`.
+Desde `backend/UmesIsel.Api`:
+
+    dotnet run -- limpiar-pruebas
+
+Borra fichas, aspirantes, solicitudes y PDF subidos; NO toca el padron del
+Excel, el pensum ni las cuentas del panel. Pide confirmacion y solo corre en
+Development. Ver `DESPLIEGUE.md`, seccion 5, para el detalle y para la opcion
+nuclear (borrar `isel.db` entero).
