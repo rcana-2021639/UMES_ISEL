@@ -3,11 +3,28 @@ import { motion, useReducedMotion, useTransform } from "framer-motion";
 import { ImageSlot } from "@/components/ui/ImageSlot";
 import {
   RevealOnScroll,
+  ScrollHighlightText,
   SplitHeading,
   useReveal,
   useScrubProgress,
   usePointerParallax,
 } from "@/components/ui/RevealOnScroll";
+
+/**
+ * Las áreas que la semblanza nombra, extraídas del propio párrafo.
+ *
+ * Regla de esta sección: aquí NO se afirma nada que el texto no diga ya. Las
+ * cuatro «credenciales» que hubo en su día se retiraron precisamente por eso
+ * —no salían de ninguna fuente— y esa decisión sigue en pie. Estas cuatro
+ * líneas son las mismas palabras de la reseña, puestas donde se leen sin
+ * atravesar el párrafo entero.
+ */
+const EJES = [
+  "Coordinación académica y gestión de proyectos",
+  "Docencia en educación superior",
+  "Dirección de equipos y estrategia educativa",
+  "Innovación educativa y acompañamiento a jóvenes",
+];
 
 /**
  * Dirección académica.
@@ -82,6 +99,9 @@ export function AdvisorSection() {
   const marcaY = useTransform(progress, [0, 1], [90, -90]);
   const monogramaY = useTransform(progress, [0, 1], [22, -22]);
   const fileteX = useTransform(progress, [0.28, 0.6], [0, 1]);
+  /* Las cuatro escuadras del encuadre se trazan antes que el filete: primero
+     se enmarca el retrato, después se firma debajo. */
+  const encuadre = useTransform(progress, [0.14, 0.42], [0, 1], { clamp: true });
   /* La rúbrica ocupa el último tramo del recorrido: se traza cuando el pie de
      la semblanza está de verdad en pantalla, no antes. */
   const rubrica = useTransform(progress, [0.46, 0.76], [0, 1]);
@@ -108,20 +128,24 @@ export function AdvisorSection() {
     <section
       id="direccion"
       ref={sectionRef}
-      className="relative overflow-hidden bg-white px-6 py-28 lg:py-40"
+      className="relative bg-white px-6 py-28 lg:py-40"
     >
-      <div className="grid-lines-ink pointer-events-none absolute inset-0 opacity-40" aria-hidden />
+      {/* El recorte vive en esta capa, nunca en la sección: un
+          `overflow-hidden` en un ancestro anula el `position: sticky` del
+          retrato, que es lo que ahora sostiene la lectura de la semblanza. */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+        <div className="grid-lines-ink absolute inset-0 opacity-40" />
 
-      {/* Marca de agua: el cargo, enorme y en contorno, cruzando el fondo en
-          vertical a contramano del scroll. Sostiene la banda blanca —que es la
-          más silenciosa de la página— sin robarle una gota de tinta al texto. */}
-      <motion.span
-        aria-hidden
-        style={reduce ? undefined : { y: marcaY }}
-        className="numeral-outline pointer-events-none absolute -right-8 top-1/2 hidden -translate-y-1/2 select-none font-display text-[13vw] font-bold leading-none tracking-ultratight text-isel-navy/[0.07] lg:block"
-      >
-        ISEL
-      </motion.span>
+        {/* Marca de agua: el nombre de la casa, enorme y en contorno, cruzando
+            el fondo a contramano del scroll. Sostiene la banda blanca —que es
+            la más silenciosa de la página— sin robarle tinta al texto. */}
+        <motion.span
+          style={reduce ? undefined : { y: marcaY }}
+          className="numeral-outline absolute -right-8 top-1/2 hidden -translate-y-1/2 select-none font-display text-[13vw] font-bold leading-none tracking-ultratight text-isel-navy/[0.07] lg:block"
+        >
+          ISEL
+        </motion.span>
+      </div>
 
       <div className="relative mx-auto max-w-6xl">
         <RevealOnScroll y={12}>
@@ -133,7 +157,14 @@ export function AdvisorSection() {
               El envoltorio interior es el que manda: la celda del grid se
               estira a la altura de la columna de texto, así que el bloque de
               color medido contra ella se alargaba de más. */}
-          <div ref={portraitRef} className="w-full lg:self-center">
+          {/* El retrato se CLAVA mientras la semblanza pasa por delante.
+              Antes iba centrado en su celda: la foto subía a la vez que el
+              texto, así que quien leía la biografía dejaba de ver la cara a la
+              mitad y la sección se convertía en dos párrafos sueltos sobre
+              blanco — que es exactamente lo que se sentía apagado. Fijado, el
+              rostro acompaña toda la lectura y las dos columnas vuelven a ser
+              una sola escena. */}
+          <div ref={portraitRef} className="w-full lg:sticky lg:top-28 lg:self-start">
             <motion.div
               style={reduce ? undefined : { y: retratoY }}
               onMouseMove={puntero.onMouseMove}
@@ -181,6 +212,34 @@ export function AdvisorSection() {
                   )}
                 </div>
 
+                {/* Escuadras de encuadre, como las marcas de recorte de una
+                    plancha de imprenta. Se trazan al bajar y se recogen al
+                    subir, atadas al mismo recorrido que todo lo demás.
+
+                    Van FUERA del recuadro de la foto (`-inset-3`) a propósito:
+                    dentro taparían el rostro, y la gracia de una escuadra es
+                    justamente que señala sin invadir. `preserveAspectRatio
+                    none` deja que se estiren con el marco, que cambia de
+                    proporción según la foto que se suba. */}
+                <svg
+                  aria-hidden
+                  viewBox="0 0 100 100"
+                  preserveAspectRatio="none"
+                  className="pointer-events-none absolute -inset-3 h-[calc(100%+1.5rem)] w-[calc(100%+1.5rem)] text-isel-gold"
+                  fill="none"
+                >
+                  {["M0 14 V0 H14", "M86 0 H100 V14", "M100 86 V100 H86", "M14 100 H0 V86"].map((d) => (
+                    <motion.path
+                      key={d}
+                      d={d}
+                      stroke="currentColor"
+                      strokeWidth={1.4}
+                      vectorEffect="non-scaling-stroke"
+                      style={{ pathLength: reduce ? 1 : encuadre }}
+                    />
+                  ))}
+                </svg>
+
                 {/* Filete de oro: ya no entra de golpe con un retraso fijo, se
                     TRAZA conforme la sección sube y se recoge al bajar. */}
                 <motion.span
@@ -212,23 +271,56 @@ export function AdvisorSection() {
               className={`mt-10 block h-px w-full bg-isel-line ${beat} ${beatState}`}
             />
 
-            <p
-              style={delay(330)}
-              className={`dropcap prose-justify mt-10 max-w-[62ch] text-[16.5px] leading-[1.85] text-isel-ink/80 sm:text-[17.5px] ${beat} ${beatState}`}
-            >
-              Educador y administrador con sólida experiencia en coordinación académica, gestión de proyectos y
-              docencia en educación superior. Se ha destacado por liderar equipos, diseñar estrategias educativas y
-              promover entornos de excelencia mediante una comunicación efectiva y pensamiento analítico.
-            </p>
+            {/* La semblanza se ENCIENDE palabra a palabra con el scroll.
+                Es el texto más largo del sitio público y estaba en tinta plana:
+                dos bloques de gris que el ojo salta. Con el encendido, el
+                scroll marca el renglón —como un dedo siguiendo la línea— y el
+                párrafo pasa de ser un muro a algo que apetece leer. El mismo
+                recurso que ya usa Metodología, reservado igual que allí a los
+                textos que de verdad hay que leer.
 
-            <p
-              style={delay(480)}
-              className={`prose-justify mt-6 max-w-[62ch] text-[16.5px] leading-[1.85] text-isel-ink/80 sm:text-[17.5px] ${beat} ${beatState}`}
-            >
-              Comprometido con el acompañamiento a jóvenes y la innovación educativa, impulsa programas que generan
-              impacto significativo en la formación profesional y humana. Actualmente, desempeña funciones directivas
-              con una visión orientada al desarrollo institucional y la transformación educativa.
-            </p>
+                La capitular se queda: la pone el estilo `dropcap` sobre el
+                primer bloque, y el componente respeta el className. */}
+            <div style={delay(330)} className={`mt-10 ${beat} ${beatState}`}>
+              <ScrollHighlightText
+                text="Educador y administrador con sólida experiencia en coordinación académica, gestión de proyectos y docencia en educación superior. Se ha destacado por liderar equipos, diseñar estrategias educativas y promover entornos de excelencia mediante una comunicación efectiva y pensamiento analítico."
+                className="dropcap prose-justify max-w-[62ch] text-[16.5px] leading-[1.85] text-isel-ink sm:text-[17.5px]"
+                dim={0.28}
+              />
+            </div>
+
+            <div style={delay(480)} className={`mt-6 ${beat} ${beatState}`}>
+              <ScrollHighlightText
+                text="Comprometido con el acompañamiento a jóvenes y la innovación educativa, impulsa programas que generan impacto significativo en la formación profesional y humana. Actualmente, desempeña funciones directivas con una visión orientada al desarrollo institucional y la transformación educativa."
+                className="prose-justify max-w-[62ch] text-[16.5px] leading-[1.85] text-isel-ink sm:text-[17.5px]"
+                dim={0.28}
+              />
+            </div>
+
+            {/* Los ejes de su gestión.
+                No son credenciales inventadas —eso fue lo que se retiró de aquí
+                en su día por no salir de ninguna fuente— sino las áreas que la
+                propia semblanza nombra, sacadas del párrafo y puestas donde se
+                leen de un vistazo. La sección gana densidad visual sin afirmar
+                nada que el texto no diga ya.
+
+                Entran en cascada irregular y cada una traza su filete al
+                aparecer, con el retraso desigual del resto de la página. */}
+            <ul className="mt-12 grid grid-cols-1 gap-x-8 gap-y-px sm:grid-cols-2">
+              {EJES.map((eje, i) => (
+                <li key={eje}>
+                  <div
+                    style={delay(640 + i * 90)}
+                    className={`group flex items-baseline gap-3 border-t border-isel-line py-3.5 ${beat} ${beatState}`}
+                  >
+                    <span className="font-display text-[11px] font-bold tabular tracking-[0.16em] text-isel-gold2">
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <span className="text-[13.5px] leading-snug text-isel-ink/70">{eje}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
 
             {/* Cierre: monograma y rúbrica, como al pie de una carta. */}
             <div style={delay(620)} className={`mt-16 flex items-end gap-7 ${beat} ${beatState}`}>

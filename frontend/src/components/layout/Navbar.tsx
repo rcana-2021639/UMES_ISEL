@@ -111,6 +111,28 @@ export function Navbar() {
   const solid = scrolled || !isHome;
 
   /**
+   * El emblema como botón de inicio.
+   *
+   * `enPortada` distingue los dos trabajos que hace el mismo control: fuera de
+   * la portada navega, y dentro de ella —una vez que hay scroll que deshacer—
+   * sube al principio. Estando ya arriba del todo no intercepta nada: dejar que
+   * el enlace se comporte como enlace evita el clic que no hace nada, que es
+   * peor que no tener el botón.
+   */
+  const enPortada = isHome && scrolled;
+  const etiquetaInicio = enPortada ? "Volver al inicio de la página" : "Ir a la portada de ISEL";
+
+  function irAlInicio(e: React.MouseEvent<HTMLAnchorElement>) {
+    if (!enPortada) return;
+    // Solo el clic normal: con Ctrl/Cmd/Shift o rueda, el navegador tiene que
+    // poder abrirlo en otra pestaña como con cualquier enlace.
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+    e.preventDefault();
+    setMobileOpen(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  /**
    * Un acceso del riel.
    *
    * Es una función de render, no un componente anidado: así el foco compartido
@@ -213,16 +235,60 @@ export function Navbar() {
               : "max-w-[86rem] border border-transparent py-2"
           }`}
         >
-          <Link to="/" className="group flex shrink-0 items-center gap-3">
+          {/* La marca ES el botón de inicio.
+              La barra dejó de tener anclas a secciones, así que desde una vista
+              interna (una maestría, el portal, la inscripción) no quedaba
+              ninguna salida rápida: había que usar el botón «atrás» del
+              navegador o borrar la URL a mano. Ahora el emblema hace las dos
+              cosas que se esperan de él, según dónde se pulse:
+
+                · fuera de la portada → lleva a la portada;
+                · en la portada, ya con scroll → sube al principio, suave.
+
+              Sigue siendo un <Link> de verdad (no un <button>), así que el clic
+              con rueda, «abrir en pestaña nueva» y el menú contextual siguen
+              funcionando; el atajo solo intercepta el clic normal. Y se ve como
+              lo que es: relleno al pasar el cursor, aro de foco y una pista de
+              texto que dice a dónde va. */}
+          <Link
+            to="/"
+            onClick={irAlInicio}
+            title={etiquetaInicio}
+            aria-label={etiquetaInicio}
+            className="group flex shrink-0 items-center gap-3 rounded-[0.85rem] py-1 pl-1 pr-3 transition-colors duration-300 ease-entry hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-isel-gold"
+          >
             {/* Tesela de esquina corta, no disco: la marca se alinea con la
                 geometría nueva de la barra en lugar de repetir el círculo. */}
-            <div className="h-10 w-10 overflow-hidden rounded-[0.7rem] bg-white/10 ring-1 ring-white/15 transition-transform duration-500 ease-snap group-hover:scale-105">
+            <div className="relative h-10 w-10 overflow-hidden rounded-[0.7rem] bg-white/10 ring-1 ring-white/15 transition-transform duration-500 ease-snap group-hover:scale-105">
               <ImageSlot src="/images/hero/logo-isel.avif" alt="Logo ISEL" label="ISEL" tone="dark" glyph="I" />
+              {/* Velo con la flecha: aparece sobre el emblema al pasar el
+                  cursor y dice el gesto sin ocupar sitio cuando no hace falta.
+                  Sube o vuelve, según lo que el clic vaya a hacer. */}
+              <span
+                aria-hidden
+                className="absolute inset-0 flex items-center justify-center bg-isel-deep/75 text-[15px] text-white opacity-0 backdrop-blur-[2px] transition-opacity duration-300 ease-entry group-hover:opacity-100"
+              >
+                {enPortada ? "↑" : "←"}
+              </span>
             </div>
             <span className="flex flex-col leading-none">
               <span className="font-display text-[15px] font-bold tracking-[0.22em] text-white">ISEL</span>
-              <span className="mt-1 hidden text-[10px] uppercase tracking-[0.14em] text-white/45 sm:block">
-                Universidad Mesoamericana
+              {/* Debajo del rótulo, la segunda línea cambia al pasar el cursor:
+                  en reposo dice de quién es la marca; señalada, a dónde lleva. */}
+              <span className="relative mt-1 hidden overflow-hidden text-[10px] uppercase tracking-[0.14em] sm:block">
+                {/* Medidor invisible. Los dos rótulos van absolutos para poder
+                    cruzarse, y absoluto no ocupa ancho: sin esta copia en
+                    flujo, el bloque se encogía al ancho de «ISEL» y el rótulo
+                    salía cortado a media palabra. */}
+                <span aria-hidden className="invisible block whitespace-nowrap">
+                  Universidad Mesoamericana
+                </span>
+                <span className="absolute inset-0 whitespace-nowrap text-white/45 transition-transform duration-500 ease-snap group-hover:-translate-y-full">
+                  Universidad Mesoamericana
+                </span>
+                <span className="absolute inset-0 translate-y-full whitespace-nowrap font-semibold text-isel-gold transition-transform duration-500 ease-snap group-hover:translate-y-0">
+                  {enPortada ? "Volver arriba" : "Ir al inicio"}
+                </span>
               </span>
             </span>
           </Link>

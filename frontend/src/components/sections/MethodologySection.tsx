@@ -38,6 +38,44 @@ const ITEMS = [
 ];
 
 /**
+ * Un glifo por componente, dibujado a trazo.
+ *
+ * La sección era enteramente tipográfica y por eso se leía apagada: tres
+ * bloques de texto seguidos, sin nada que distinga uno de otro más que el
+ * color. Aquí NO vuelven las fotografías —las que había nunca existieron y
+ * dejaban un recuadro de «falta el archivo» encima del texto— sino un dibujo
+ * hecho de líneas, que no depende de ningún archivo y no puede faltar.
+ *
+ * Cada trazo se dibuja conforme se baja y se borra conforme se sube, atado al
+ * recorrido del bloque: es reversible por construcción y le da a cada
+ * componente una identidad que se reconoce antes de leer el título.
+ *
+ *  01 · Sincrónicas → ondas que salen de un punto: la emisión en vivo.
+ *  02 · Asincrónico → capas apiladas y desfasadas: el material que se toma
+ *       cuando cada quien puede.
+ *  03 · Tutoría     → dos puntos y el arco que los une: uno a uno.
+ */
+const GLIFOS: Record<string, string[]> = {
+  sincronicas: [
+    "M60 60 m-6 0 a6 6 0 1 0 12 0 a6 6 0 1 0 -12 0",
+    "M60 32 a28 28 0 0 1 0 56 a28 28 0 0 1 0 -56",
+    "M60 12 a48 48 0 0 1 0 96 a48 48 0 0 1 0 -96",
+    "M12 60 h96",
+  ],
+  asincronico: [
+    "M18 40 L60 20 L102 40 L60 60 Z",
+    "M18 60 L60 80 L102 60",
+    "M18 80 L60 100 L102 80",
+  ],
+  tutoria: [
+    "M28 44 m-9 0 a9 9 0 1 0 18 0 a9 9 0 1 0 -18 0",
+    "M92 44 m-9 0 a9 9 0 1 0 18 0 a9 9 0 1 0 -18 0",
+    "M28 62 c0 22 64 22 64 0",
+    "M60 84 v14",
+  ],
+};
+
+/**
  * Metodología — scrollytelling.
  *
  * La columna izquierda queda fija y va cambiando (numeral, título, resumen y
@@ -135,7 +173,26 @@ export function MethodologySection() {
           {/* Indicador del paso en curso — visible mientras se lee la derecha. */}
           <div className="mt-14 hidden lg:block">
             <div className="flex items-start gap-7">
-              <div className="relative h-[5.5rem] w-[6.5rem] shrink-0 overflow-hidden">
+              {/* Anillo de avance alrededor del numeral.
+                  El raíl de abajo dice cuánto llevas de los tres bloques, pero
+                  está lejos del numeral y hay que buscarlo. Este anillo pone la
+                  misma información donde ya se está mirando, y como cuelga del
+                  scroll se cierra al bajar y se abre al subir. */}
+              <div className="relative h-[7rem] w-[7rem] shrink-0">
+                <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full -rotate-90" fill="none">
+                  <circle cx="50" cy="50" r="46" stroke="rgba(255,255,255,0.10)" strokeWidth={2} />
+                  <motion.circle
+                    cx="50"
+                    cy="50"
+                    r="46"
+                    stroke={current.accent}
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    style={{ pathLength: reduce ? 1 : avance }}
+                  />
+                </svg>
+
+                <div className="absolute inset-[0.9rem] overflow-hidden">
                 <AnimatePresence mode="popLayout">
                   <motion.span
                     key={current.key}
@@ -143,11 +200,12 @@ export function MethodologySection() {
                     animate={{ y: "0%", opacity: 1, filter: "blur(0px)" }}
                     exit={reduce ? { opacity: 0 } : { y: "-70%", opacity: 0, filter: "blur(6px)" }}
                     transition={{ duration: 0.6, ease: SNAP }}
-                    className="absolute inset-0 font-display text-[5.5rem] font-bold leading-[0.85] tracking-ultratight text-[var(--accent)]"
+                    className="absolute inset-0 flex items-center justify-center font-display text-[3.1rem] font-bold leading-none tracking-ultratight text-[var(--accent)]"
                   >
                     0{active + 1}
                   </motion.span>
                 </AnimatePresence>
+                </div>
               </div>
 
               <div className="min-h-[5.5rem] pt-2">
@@ -260,12 +318,57 @@ function Step({ item, index, isActive, onEnter }: StepProps) {
      información distinta y bastante más útil en un texto largo. */
   const relleno = useTransform(scrollYProgress, [0.2, 0.68], [0, 1], { clamp: true });
 
+  /* El trazo del glifo va por delante de la lectura: termina de dibujarse a
+     media altura del bloque, cuando el ojo llega al párrafo. Si acabara con el
+     bloque, nadie lo vería completo. */
+  const trazo = useTransform(scrollYProgress, [0.12, 0.52], [0, 1], { clamp: true });
+  /* El numeral de fondo cruza el bloque a contramano. Es la capa más lejana de
+     las tres, y por eso la que más se desplaza. */
+  const numeralY = useTransform(scrollYProgress, [0, 1], [80, -80]);
+  const glifoY = useTransform(scrollYProgress, [0, 1], [34, -34]);
+
   return (
     <article
       ref={ref}
       className="relative py-14 first:pt-0 last:pb-0 lg:py-20"
       style={{ ["--accent" as string]: item.accent }}
     >
+      {/* Numeral de cartel, en contorno y al fondo de todo. Ancla el bloque
+          visualmente sin robarle una gota de contraste al texto. */}
+      <motion.span
+        aria-hidden
+        style={reduce ? undefined : { y: numeralY }}
+        className="numeral-outline pointer-events-none absolute -right-4 top-1/2 hidden -translate-y-1/2 select-none font-display text-[16rem] font-bold leading-none tracking-ultratight text-white/[0.045] xl:block"
+      >
+        0{index + 1}
+      </motion.span>
+
+      {/* El glifo, dibujándose. Va detrás del texto y con la mezcla en claro,
+          así que nunca compite con lo que hay que leer: se percibe como una
+          marca de agua que responde al scroll. */}
+      <motion.div
+        aria-hidden
+        style={reduce ? undefined : { y: glifoY }}
+        className="pointer-events-none absolute right-0 top-10 hidden lg:block xl:right-24"
+      >
+        <svg viewBox="0 0 120 120" className="h-40 w-40 xl:h-52 xl:w-52" fill="none">
+          {(GLIFOS[item.key] ?? []).map((d, i) => (
+            <motion.path
+              key={d}
+              d={d}
+              stroke={item.accent}
+              strokeWidth={1.4}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              opacity={0.55}
+              /* Cada trazo arranca un poco después que el anterior, así que el
+                 dibujo se construye por partes en vez de aparecer entero. */
+              style={{ pathLength: reduce ? 1 : trazo, transitionDelay: `${i * 40}ms` }}
+            />
+          ))}
+        </svg>
+      </motion.div>
+
       {/* Sentinela: cruza el centro de la pantalla y marca el paso activo. Va
           aparte de la animación de entrada para que cada una use su umbral. */}
       <motion.span

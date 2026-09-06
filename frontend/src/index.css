@@ -20,7 +20,19 @@
     @apply bg-isel-paper text-isel-ink antialiased;
     font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
     font-feature-settings: "ss01", "cv11";
+    /* `clip`, no `hidden`.
+       Los dos recortan igual lo que se sale por los lados, pero `hidden`
+       convierte al <body> en un contenedor con scroll propio, y eso ANULA el
+       `position: sticky` de todo lo que hay dentro: el visor de Maestrías, su
+       raíl de avance, la columna fija de Metodología y el retrato de Dirección
+       se quedaban pegados a la página y subían con ella, sin decir una palabra
+       de error. `clip` recorta sin crear scrollport, así que el sticky vuelve a
+       medirse contra la ventana, que es lo que espera.
+
+       El respaldo `hidden` es para navegadores sin `overflow: clip` (anteriores
+       a 2022): ahí se pierde el pin, pero nada se rompe. */
     overflow-x: hidden;
+    overflow-x: clip;
   }
 
   h1,
