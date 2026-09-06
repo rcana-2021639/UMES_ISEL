@@ -164,9 +164,13 @@ export function InscripcionPage() {
 function CierrePanel({ applicant, onFinish }: { applicant: Applicant; onFinish: () => void }) {
   const { confirm, dialog } = useConfirm();
 
+  /* Alternativos, no acumulativos — ver DocumentoTipos.Requeridos en el backend.
+     Con la concatenación, el avance de un aspirante extranjero se medía contra
+     ocho documentos (dos de ellos imposibles o repetidos) y su ficha no llegaba
+     al 100% ni subiéndolo todo. */
   const requeridos: DocumentoTipo[] =
     (applicant.compromiso?.esExtranjero ?? applicant.esExtranjero)
-      ? [...DOCUMENTO_TIPOS_NACIONAL, ...DOCUMENTO_TIPOS_EXTRANJERO]
+      ? [...DOCUMENTO_TIPOS_EXTRANJERO]
       : [...DOCUMENTO_TIPOS_NACIONAL];
   const subidos = applicant.documentos.filter((d) => requeridos.includes(d.tipo)).length;
 

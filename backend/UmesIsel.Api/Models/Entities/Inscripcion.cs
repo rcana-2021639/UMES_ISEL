@@ -296,7 +296,7 @@ public static class DocumentoTipos
     public const string TituloMedio = "TituloMedio";
     public const string TituloLicenciatura = "TituloLicenciatura";
 
-    // Solo aplican si es extranjero.
+    // El juego que SUSTITUYE al nacional cuando el aspirante es extranjero.
     public const string PasaporteCompleto = "PasaporteCompleto";
     public const string FotosExtranjero = "FotosExtranjero";
     public const string TituloMedioExtranjero = "TituloMedioExtranjero";
@@ -305,7 +305,27 @@ public static class DocumentoTipos
     public static readonly string[] Nacional = { DpiAutenticado, Fotos, TituloMedio, TituloLicenciatura };
     public static readonly string[] Extranjero = { PasaporteCompleto, FotosExtranjero, TituloMedioExtranjero, TituloPregrado };
 
-    public static string[] Requeridos(bool esExtranjero) => esExtranjero ? Nacional.Concat(Extranjero).ToArray() : Nacional;
+    /// <summary>
+    /// La papelería que se le exige a un aspirante.
+    /// </summary>
+    /// <remarks>
+    /// Los dos juegos son ALTERNATIVOS, no acumulativos: cada documento nacional
+    /// tiene su equivalente extranjero (DPI ↔ pasaporte, título de nivel medio ↔
+    /// el mismo apostillado y equiparado, licenciatura ↔ pre-grado) y las
+    /// fotografías son literalmente el mismo requisito con otra clave.
+    ///
+    /// Antes esto concatenaba ambos juegos, así que a un extranjero se le pedían
+    /// ocho documentos: las mismas dos fotografías dos veces, y una "fotocopia de
+    /// DPI autenticada" que por definición no puede tener —es justo la razón de
+    /// que la puerta de entrada acepte pasaporte—. Como el contador de la lista
+    /// del panel se calcula sobre este mismo arreglo, su expediente jamás llegaba
+    /// a 8 de 8 y no había manera de que se leyera como completo.
+    ///
+    /// Lo ya subido no se pierde: <c>TiposValidos</c> sigue aceptando las ocho
+    /// claves, así que un documento cargado antes de este arreglo se conserva y
+    /// se puede descargar; simplemente deja de exigirse.
+    /// </remarks>
+    public static string[] Requeridos(bool esExtranjero) => esExtranjero ? Extranjero : Nacional;
 }
 
 /// <summary>Un documento en PDF subido por un aspirante para su carta de compromiso.</summary>

@@ -26,7 +26,11 @@ interface DocumentosFormProps {
  * solo le falta el DPI, sube solo el DPI — nada obliga a resubir lo que ya estaba.
  */
 export function DocumentosForm({ applicantId, esExtranjero, documentos, onChanged, readOnly = false }: DocumentosFormProps) {
-  const tipos = esExtranjero ? [...DOCUMENTO_TIPOS_NACIONAL, ...DOCUMENTO_TIPOS_EXTRANJERO] : DOCUMENTO_TIPOS_NACIONAL;
+  /* Los dos juegos son ALTERNATIVOS, no acumulativos — igual que
+     DocumentoTipos.Requeridos en el backend, que es quien cuenta cuántos faltan.
+     Concatenarlos le pedía a un extranjero las mismas dos fotografías dos veces
+     y una fotocopia de DPI que no puede tener. */
+  const tipos = esExtranjero ? DOCUMENTO_TIPOS_EXTRANJERO : DOCUMENTO_TIPOS_NACIONAL;
   const subidos = documentos.length;
 
   return (
