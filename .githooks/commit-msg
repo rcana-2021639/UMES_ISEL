@@ -1,0 +1,20 @@
+#!/bin/sh
+# Ningun commit de este repositorio lleva firma de asistente de IA.
+#
+# El hook no rechaza: BORRA las lineas de atribucion del mensaje antes de que
+# el commit se cree. Rechazar obligaria a reescribir el mensaje a mano cada
+# vez; borrar lo resuelve solo y nunca deja pasar una firma por descuido.
+msg="$1"
+tmp="$msg.limpio"
+
+grep -v -i \
+  -e '^Co-Authored-By:.*Claude' \
+  -e '^Co-Authored-By:.*anthropic' \
+  -e 'Generated with \[Claude Code\]' \
+  -e '^:robot: Generated with' \
+  -e '^🤖 Generated with' \
+  "$msg" > "$tmp"
+
+# Sin lineas en blanco de sobra al final, que es lo que dejan los recortes.
+awk 'BEGIN{n=0} {if ($0=="") {n++} else {while (n-->0) print ""; n=0; print}}' "$tmp" > "$msg"
+rm -f "$tmp"
