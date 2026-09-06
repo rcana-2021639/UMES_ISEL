@@ -95,10 +95,40 @@ export function StudentDocumentsPanel({
       )}
 
       {papeleriaEnOrden ? (
-        <Alert kind="ok">
-          Este alumno tiene su expediente completo — no hace falta subir nada.
-          {documentos.length > 0 && " Los documentos que ya se habían subido se conservan."}
-        </Alert>
+        <>
+          <Alert kind="ok">
+            Este alumno tiene su expediente completo — no hace falta subir nada.
+            {documentos.length > 0 && " Los documentos que ya se habían subido se conservan."}
+          </Alert>
+
+          {/* Los archivos ya subidos siguen a la vista, con su «Quitar».
+              Antes, marcar «Sí, ya la entregó» los escondía por completo: para
+              borrar un PDF equivocado había que devolver al alumno a «No le
+              falta papelería», borrarlo y volver a marcarlo — tres cambios de
+              estado en su expediente para deshacer una subida. Aquí no se
+              ofrece subir nada (el expediente está dado por completo), solo ver
+              y quitar lo que ya está. */}
+          {documentos.length > 0 && (
+            <ul className="mt-4 divide-y divide-isel-line overflow-hidden rounded-xl border border-isel-line">
+              {TODOS_LOS_TIPOS.filter((tipo) => documentos.some((d) => d.tipo === tipo)).map((tipo) => (
+                <DocRow
+                  key={tipo}
+                  studentId={studentId}
+                  tipo={tipo}
+                  doc={documentos.find((d) => d.tipo === tipo) ?? null}
+                  permitirSubir={false}
+                  onChanged={(doc, removed) => {
+                    setDocumentos((prev) => {
+                      const list = prev ?? [];
+                      if (removed) return list.filter((d) => d.tipo !== tipo);
+                      return doc ? [...list.filter((d) => d.tipo !== tipo), doc] : list;
+                    });
+                  }}
+                />
+              ))}
+            </ul>
+          )}
+        </>
       ) : (
         <ul className="divide-y divide-isel-line overflow-hidden rounded-xl border border-isel-line">
           {TODOS_LOS_TIPOS.map((tipo) => (
@@ -126,11 +156,14 @@ function DocRow({
   studentId,
   tipo,
   doc,
+  permitirSubir = true,
   onChanged,
 }: {
   studentId: number;
   tipo: DocumentoTipo;
   doc: ApplicantDocument | null;
+  /** `false` en la lista de «ya al día»: ahí solo se ve y se quita. */
+  permitirSubir?: boolean;
   onChanged: (doc: ApplicantDocument | null, removed: boolean) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -189,10 +222,14 @@ function DocRow({
               Ver
             </PortalButton>
           )}
-          <input ref={inputRef} type="file" accept="application/pdf" className="hidden" onChange={handleFile} />
-          <PortalButton tone="ghost" size="sm" icon="upload" loading={busy} onClick={() => inputRef.current?.click()}>
-            {doc ? "Reemplazar" : "Subir PDF"}
-          </PortalButton>
+          {permitirSubir && (
+            <>
+              <input ref={inputRef} type="file" accept="application/pdf" className="hidden" onChange={handleFile} />
+              <PortalButton tone="ghost" size="sm" icon="upload" loading={busy} onClick={() => inputRef.current?.click()}>
+                {doc ? "Reemplazar" : "Subir PDF"}
+              </PortalButton>
+            </>
+          )}
           {doc && (
             <PortalButton tone="quiet" size="sm" icon="trash" disabled={busy} onClick={handleDelete}>
               Quitar

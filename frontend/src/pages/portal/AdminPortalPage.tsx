@@ -753,11 +753,17 @@ export function AdminPortalPage() {
                         </Td>
                         <Td>
                           <div className="flex items-center justify-end gap-1">
+                            {/* Sin botón «Documentos» aquí.
+                                Hacía exactamente lo mismo que la insignia de la
+                                columna «Papelería» —abrir la ficha ya puesta en
+                                el apartado de documentos— así que la fila tenía
+                                dos controles distintos para un mismo destino, y
+                                eso obliga a probarlos para descubrir que no se
+                                diferencian en nada. Se queda el de la columna,
+                                que además dice de un vistazo cómo va: «Al día»,
+                                «3 subidos» o «Ver». */}
                             <PortalButton tone="ghost" size="sm" icon="eye" onClick={() => openFicha(s)}>
                               Ver ficha
-                            </PortalButton>
-                            <PortalButton tone="ghost" size="sm" icon="file" onClick={() => openFicha(s, true)}>
-                              Documentos
                             </PortalButton>
                             {/* Solo para quien entró por la inscripción en línea: al alumno dado
                                 de alta a mano no hay expediente que abrirle. */}

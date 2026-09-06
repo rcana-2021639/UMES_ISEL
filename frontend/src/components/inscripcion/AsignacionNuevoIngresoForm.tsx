@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { getCarreras, getCourses, getTrimestres } from "@/lib/coursesApi";
 import { saveAsignacion } from "@/lib/inscripcionesApi";
 import { splitNombreCompleto } from "@/lib/nombres";
@@ -6,6 +6,7 @@ import { ApiError } from "@/lib/http";
 import type { Course } from "@/types/course";
 import type { TipoPago } from "@/types/courseAssignment";
 import type { AsignacionNuevoIngreso, AsignacionNuevoIngresoInput } from "@/types/inscripcion";
+import type { FichaHandle } from "./fichaHandle";
 import { SignaturePad, type SignaturePadHandle } from "@/components/portal/SignaturePad";
 import { Modal } from "@/components/ui/Modal";
 import { Icon } from "@/components/portal/Icon";
@@ -36,11 +37,24 @@ interface AsignacionNuevoIngresoFormProps {
    * acierta siempre con dos nombres y dos apellidos.
    */
   nombreSugerido?: string | null;
+  /**
+   * Lo demás que la preinscripción ya preguntó: la maestría elegida y los dos
+   * datos de contacto. Se usan como valores de partida en una ficha que aún no
+   * se ha guardado ni tocado — nadie tiene que teclear dos veces su correo, y
+   * si algo cambió, los tres campos siguen siendo editables.
+   */
+  carreraSugerida?: string | null;
+  correoSugerido?: string | null;
+  telefonoSugerido?: string | null;
   onSaved: (a: AsignacionNuevoIngreso) => void;
   readOnly?: boolean;
 }
 
-export function AsignacionNuevoIngresoForm({ applicantId, initial, nombreSugerido, onSaved, readOnly = false }: AsignacionNuevoIngresoFormProps) {
+export const AsignacionNuevoIngresoForm = forwardRef<FichaHandle, AsignacionNuevoIngresoFormProps>(
+  function AsignacionNuevoIngresoForm(
+    { applicantId, initial, nombreSugerido, carreraSugerida, correoSugerido, telefonoSugerido, onSaved, readOnly = false },
+    ref,
+  ) {
   const [allCourses, setAllCourses] = useState<Course[]>([]);
   const [primerApellido, setPrimerApellido] = useState(initial?.primerApellido ?? "");
   const [segundoApellido, setSegundoApellido] = useState(initial?.segundoApellido ?? "");
@@ -64,7 +78,16 @@ export function AsignacionNuevoIngresoForm({ applicantId, initial, nombreSugerid
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
+  const [savedFlag, setSavedFlag] = useState(false);
+  /** Ver el comentario gemelo en PreinscripcionForm: los campos de esta ficha
+      ya avisaban de cada cambio con `setSaved(false)`, así que esa misma señal
+      es la que le dice al cierre del expediente si queda algo sin mandar. */
+  const [tocado, setTocado] = useState(false);
+  const saved = savedFlag;
+  function setSaved(v: boolean) {
+    setSavedFlag(v);
+    setTocado(!v);
+  }
   const signatureRef = useRef<SignaturePadHandle>(null);
 
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -80,6 +103,15 @@ export function AsignacionNuevoIngresoForm({ applicantId, initial, nombreSugerid
 
   // Re-hidrata todo cuando cambia la ficha ya guardada de este aspirante (p.ej. al recargar el wizard).
   useEffect(() => {
+    /* Freno de mano: si esta ficha todavía no está guardada pero alguien ya
+       escribió en ella, nada de fuera la reescribe.
+
+       Sin él, guardar la PREINSCRIPCIÓN mientras se está llenando esta —que es
+       el orden natural: se baja, se guarda la de arriba, se sigue— cambiaba las
+       sugerencias, disparaba este efecto y borraba de un plumazo la maestría,
+       el trimestre, el correo y el teléfono que se acababan de elegir aquí. */
+    if (!initial && tocado) return;
+
     if (initial) {
       setPrimerApellido(initial.primerApellido);
       setSegundoApellido(initial.segundoApellido ?? "");
@@ -93,14 +125,20 @@ export function AsignacionNuevoIngresoForm({ applicantId, initial, nombreSugerid
       setPrimerNombre(partes.primerNombre);
       setSegundoNombre(partes.segundoNombre);
     }
-    setCarrera(initial?.carrera ?? null);
+    /* Llegados aquí, «sin ficha guardada» ya significa «e intacta» (lo garantiza
+       el freno de arriba), así que las sugerencias de la preinscripción pueden
+       entrar sin miedo a pisar nada escrito. */
+    const virgen = !initial;
+    setCarrera(initial?.carrera ?? (virgen ? (carreraSugerida ?? null) : null));
     setTrimestre(initial?.trimestre ?? null);
     setSeccion(initial?.seccion ?? "");
     setPendientesTrimestres(initial?.tienePendientesTrimestres ?? false);
     setPendientesMaterias(initial?.tienePendientesMaterias ?? false);
-    setCorreoContacto(initial?.correoContacto ?? "");
-    setTelefonoContacto(initial?.telefonoContacto ?? "");
+    setCorreoContacto(initial?.correoContacto ?? (virgen ? (correoSugerido ?? "") : ""));
+    setTelefonoContacto(initial?.telefonoContacto ?? (virgen ? (telefonoSugerido ?? "") : ""));
     setTipoPago(initial?.tipoPago ?? "");
+    // Lo que acaba de llegar del servidor ES lo guardado: nada pendiente.
+    setTocado(false);
 
     if (!initial || initial.cursosAdicionales.length === 0) {
       setAdditional([blankAdditionalRow()]);
@@ -122,7 +160,7 @@ export function AsignacionNuevoIngresoForm({ applicantId, initial, nombreSugerid
       }),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initial, nombreSugerido, allCourses.length]);
+  }, [initial, nombreSugerido, carreraSugerida, correoSugerido, telefonoSugerido, allCourses.length]);
 
   useEffect(() => {
     if (carrera === null) {
@@ -235,15 +273,18 @@ export function AsignacionNuevoIngresoForm({ applicantId, initial, nombreSugerid
     return null;
   }
 
-  async function handleSave() {
+  /** Ver `guardar` en PreinscripcionForm: devuelve `null` si guardó, o el motivo. */
+  async function guardar(): Promise<string | null> {
     if (!primerApellido.trim() || !primerNombre.trim() || carrera === null || trimestre === null) {
-      setError("Primer apellido, primer nombre, maestría y trimestre son obligatorios.");
-      return;
+      const motivo = "Primer apellido, primer nombre, maestría y trimestre son obligatorios.";
+      setError(motivo);
+      return motivo;
     }
     const incompleteRow = findIncompleteAdditionalRow();
     if (incompleteRow !== null) {
-      setError(`Falta elegir el curso en la fila ${incompleteRow} de "Cursos adicionales", o bórrala con "Quitar este campo".`);
-      return;
+      const motivo = `Falta elegir el curso en la fila ${incompleteRow} de "Cursos adicionales", o bórrala con "Quitar este campo".`;
+      setError(motivo);
+      return motivo;
     }
     setSaving(true);
     setError(null);
@@ -281,12 +322,22 @@ export function AsignacionNuevoIngresoForm({ applicantId, initial, nombreSugerid
       const savedAsn = await saveAsignacion(applicantId, input);
       onSaved(savedAsn);
       setSaved(true);
+      return null;
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "No se pudo guardar la asignación de cursos.");
+      const motivo = e instanceof ApiError ? e.message : "No se pudo guardar la asignación de cursos.";
+      setError(motivo);
+      return motivo;
     } finally {
       setSaving(false);
     }
   }
+
+  useImperativeHandle(ref, () => ({
+    nombre: "Asignación de cursos",
+    anclaId: "paso-asignacion",
+    tieneCambios: () => !readOnly && tocado,
+    guardar,
+  }));
 
   const cursosCount = (mainCourses ?? []).length;
   const nombrePrellenado = !readOnly && !initial && !nombreTocado && !!nombreSugerido?.trim();
@@ -537,10 +588,11 @@ export function AsignacionNuevoIngresoForm({ applicantId, initial, nombreSugerid
 
         {!readOnly && (
           <div className="flex justify-end border-t border-isel-line pt-5">
-            <PortalButton tone="accent" icon="save" onClick={handleSave} loading={saving}>Guardar asignación de cursos</PortalButton>
+            <PortalButton tone="accent" icon="save" onClick={() => void guardar()} loading={saving}>Guardar asignación de cursos</PortalButton>
           </div>
         )}
       </div>
     </PortalPanel>
   );
-}
+},
+);

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { PortalPanel } from "@/components/portal/PortalShell";
 import { StepGuide } from "@/components/portal/StepGuide";
 import { SignaturePad, type SignaturePadHandle } from "@/components/portal/SignaturePad";
@@ -9,6 +9,7 @@ import { getCarreras } from "@/lib/coursesApi";
 import { savePreinscripcion } from "@/lib/inscripcionesApi";
 import { ApiError } from "@/lib/http";
 import type { Preinscripcion, PreinscripcionInput, PuebloPertenencia } from "@/types/inscripcion";
+import type { FichaHandle } from "./fichaHandle";
 
 const PUEBLOS: { value: PuebloPertenencia; label: string }[] = [
   { value: "Maya", label: "Maya" },
@@ -60,11 +61,29 @@ interface PreinscripcionFormProps {
 }
 
 /** Sección 1 del wizard de Inscripción — mismo formato que la ficha "FICHA DE PREINSCRIPCIÓN PARA NUEVO INGRESO". */
-export function PreinscripcionForm({ applicantId, initial, onSaved, readOnly = false }: PreinscripcionFormProps) {
+export const PreinscripcionForm = forwardRef<FichaHandle, PreinscripcionFormProps>(function PreinscripcionForm(
+  { applicantId, initial, onSaved, readOnly = false },
+  ref,
+) {
   const [form, setForm] = useState<PreinscripcionInput>(initial ?? blank());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
+  const [savedFlag, setSavedFlag] = useState(false);
+  /**
+   * «Hay algo escrito sin mandar».
+   *
+   * No hace falta un vigilante nuevo: cada campo ya avisaba de que cambió algo
+   * llamando a `setSaved(false)`, y el guardado avisaba con `setSaved(true)`.
+   * Esa señal, que solo servía para esconder el aviso verde, es exactamente la
+   * que el botón de cierre necesita — así que se aprovecha en vez de duplicar
+   * la contabilidad en cada `onChange`.
+   */
+  const [tocado, setTocado] = useState(false);
+  const saved = savedFlag;
+  function setSaved(v: boolean) {
+    setSavedFlag(v);
+    setTocado(!v);
+  }
   // null mientras carga; [] si la API no responde — entonces el campo vuelve a
   // ser de texto libre en vez de dejar al aspirante sin poder escribir nada.
   const [carreras, setCarreras] = useState<string[] | null>(null);
@@ -72,6 +91,8 @@ export function PreinscripcionForm({ applicantId, initial, onSaved, readOnly = f
 
   useEffect(() => {
     setForm(initial ?? blank());
+    // Lo que acaba de llegar del servidor ES lo guardado: nada pendiente.
+    setTocado(false);
   }, [initial]);
 
   useEffect(() => {
@@ -89,11 +110,17 @@ export function PreinscripcionForm({ applicantId, initial, onSaved, readOnly = f
     setSaved(false);
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  /**
+   * El guardado, separado del evento del formulario: así lo puede disparar
+   * tanto el botón de esta ficha como el cierre del expediente. Devuelve
+   * `null` si quedó guardada y el motivo si no — el mismo texto que se muestra
+   * aquí en el aviso rojo.
+   */
+  async function guardar(): Promise<string | null> {
     if (!form.nombreCompleto.trim() || !form.carrera.trim()) {
-      setError("Nombre completo y carrera son obligatorios.");
-      return;
+      const motivo = "Nombre completo y carrera son obligatorios.";
+      setError(motivo);
+      return motivo;
     }
     setSaving(true);
     setError(null);
@@ -101,18 +128,33 @@ export function PreinscripcionForm({ applicantId, initial, onSaved, readOnly = f
       const firma = signatureRef.current?.getSignature() ?? form.firmaBase64 ?? null;
       // fechaNacimiento es un DateOnly? en el backend — un string vacío no deserializa como "sin
       // fecha", tiene que viajar como null.
-      const saved = await savePreinscripcion(applicantId, {
+      const guardada = await savePreinscripcion(applicantId, {
         ...form,
         fechaNacimiento: form.fechaNacimiento || null,
         firmaBase64: firma,
       });
-      onSaved(saved);
+      onSaved(guardada);
       setSaved(true);
+      return null;
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "No se pudo guardar la preinscripción.");
+      const motivo = e instanceof ApiError ? e.message : "No se pudo guardar la preinscripción.";
+      setError(motivo);
+      return motivo;
     } finally {
       setSaving(false);
     }
+  }
+
+  useImperativeHandle(ref, () => ({
+    nombre: "Preinscripción",
+    anclaId: "paso-preinscripcion",
+    tieneCambios: () => !readOnly && tocado,
+    guardar,
+  }));
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    await guardar();
   }
 
   return (
@@ -328,4 +370,4 @@ export function PreinscripcionForm({ applicantId, initial, onSaved, readOnly = f
       </form>
     </PortalPanel>
   );
-}
+})
