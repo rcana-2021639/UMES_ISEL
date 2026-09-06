@@ -57,19 +57,30 @@ const TRAMITES: Acceso[] = [
  * Navegación solo-ISEL.
  *
  * La barra dejó de ser un menú: los anclajes a secciones (Inicio, Programas,
- * Metodología, Objetivos, Dirección) se fueron —la página se recorre con el
- * scroll y ese menú solo saturaba— y lo que queda son las cinco puertas que
- * alguien busca de verdad al llegar.
+ * Metodología…) se fueron —la página se recorre con el scroll— y lo que queda
+ * son las cinco puertas que alguien busca de verdad al llegar.
  *
- * Están ordenadas en tres peldaños para que se entiendan sin leerlas todas:
- * dos accesos a sistemas externos (flecha diagonal, píldora hueca), un
- * separador de un pelo, dos trámites internos (píldora llena, verde elevado)
- * y, al final y en verde vivo, la única acción que la página persigue: la
- * inscripción de nuevo ingreso. El peso visual crece de izquierda a derecha.
+ * ── El rediseño ─────────────────────────────────────────────────────────────
+ * Antes eran cinco píldoras sueltas flotando sobre una píldora mayor: seis
+ * bordes redondos anidados, sin ninguna jerarquía que se leyera de un vistazo,
+ * y con dos rellenos distintos peleando por decir "esto es un botón".
  *
- * El gesto de firma es el foco que se desliza: una píldora compartida
- * (layoutId) viaja de un acceso a otro al pasar el cursor, igual que antes
- * hacía el indicador de sección.
+ * Ahora hay DOS objetos y no seis: un **riel hundido** que contiene las cuatro
+ * consultas, y **una acción** fuera de él. El riel se hunde de verdad —fondo
+ * más oscuro que la barra y un filo interior de un píxel— así que se entiende
+ * como un control, no como decoración. Dentro, un pelo vertical separa los dos
+ * sitios externos de los dos trámites internos: la misma información que antes
+ * daban dos colores, ahora con un solo trazo y sin ruido.
+ *
+ * La geometría cambia de píldora a esquina corta, para alinearse con la nueva
+ * regla del sitio: lo redondo informa (etiquetas, estados), lo rectangular
+ * actúa (botones, riel, barra).
+ *
+ * ── La animación (intacta) ──────────────────────────────────────────────────
+ * El gesto de firma sigue siendo el mismo: una pastilla compartida (layoutId)
+ * viaja de un acceso a otro al pasar el cursor. Lo único que cambió es que
+ * ahora viaja DENTRO de un carril visible, que es donde ese movimiento
+ * significa algo — antes se deslizaba por el aire.
  */
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -99,12 +110,16 @@ export function Navbar() {
 
   const solid = scrolled || !isHome;
 
-  /** Acceso de escritorio: píldora con foco deslizante y flecha de relevo.
-      Es una función de render, no un componente anidado: así el foco
-      compartido no se remonta en cada scroll. */
+  /**
+   * Un acceso del riel.
+   *
+   * Es una función de render, no un componente anidado: así el foco compartido
+   * no se remonta en cada scroll y la pastilla puede viajar de verdad.
+   */
   function navAccess(item: Acceso, variant: "externo" | "interno") {
     const isHot = hovered === item.id;
     const externo = variant === "externo";
+    const aqui = Boolean(item.to) && pathname === item.to;
 
     const content = (
       <>
@@ -112,11 +127,13 @@ export function Navbar() {
           <motion.span
             layoutId="nav-focus"
             transition={{ duration: 0.45, ease: SNAP }}
-            className={`absolute inset-0 -z-10 rounded-full ${
-              externo ? "bg-white/[0.12] ring-1 ring-inset ring-white/25" : "bg-white"
-            }`}
+            className="absolute inset-0 -z-10 rounded-[0.5rem] bg-white/[0.13] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.2)]"
           />
         )}
+        {/* Dónde estoy: un punto de ámbar en el trámite que ya está abierto.
+            La barra no tiene anclajes de sección, así que esta es la única
+            señal de ubicación que la página puede dar. */}
+        {aqui && <span aria-hidden className="h-1 w-1 shrink-0 rounded-full bg-isel-gold" />}
         <span className="relative">{item.label}</span>
         <span
           aria-hidden
@@ -142,17 +159,15 @@ export function Navbar() {
       </>
     );
 
+    /* Un solo tratamiento para los cuatro. La diferencia entre "sitio de fuera"
+       y "trámite de aquí" la lleva el glifo (↗ / →) y el pelo que los separa,
+       no dos rellenos distintos: eso es lo que antes hacía que la barra
+       pareciera cinco cosas sin relación. */
     const classes = [
-      "group/na relative inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2",
+      "group/na relative inline-flex items-center gap-1.5 whitespace-nowrap rounded-[0.5rem] px-3.5 py-2",
       "text-[12.5px] font-semibold tracking-[-0.005em] transition-colors duration-300 ease-entry",
       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-isel-gold",
-      externo
-        ? isHot
-          ? "text-white"
-          : "text-white/70"
-        : isHot
-          ? "text-isel-deep"
-          : "bg-isel-navy2 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14)]",
+      isHot || aqui ? "text-white" : "text-white/65",
     ].join(" ");
 
     const handlers = {
@@ -168,7 +183,14 @@ export function Navbar() {
         {content}
       </Link>
     ) : (
-      <a key={item.id} href={item.href} target="_blank" rel="noopener noreferrer" className={classes} {...handlers}>
+      <a
+        key={item.id}
+        href={item.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={classes}
+        {...handlers}
+      >
         {content}
       </a>
     );
@@ -178,7 +200,7 @@ export function Navbar() {
     <>
       <motion.div
         style={{ scaleX: progress }}
-        className="fixed inset-x-0 top-0 z-[60] h-[2px] origin-left bg-isel-gold"
+        className="fixed inset-x-0 top-0 z-[60] h-[2px] origin-left bg-gradient-to-r from-isel-gold via-isel-gold to-isel-emerald"
       />
 
       <header
@@ -187,12 +209,14 @@ export function Navbar() {
         <div
           className={`mx-auto flex w-full items-center justify-between gap-4 px-5 transition-all duration-500 ease-snap sm:px-6 ${
             solid
-              ? "max-w-[80rem] rounded-full border border-white/10 bg-isel-deep/90 py-2.5 shadow-lift backdrop-blur-xl"
+              ? "max-w-[80rem] rounded-2xl border border-white/10 bg-isel-deep/85 py-2.5 shadow-lift backdrop-blur-xl"
               : "max-w-[86rem] border border-transparent py-2"
           }`}
         >
           <Link to="/" className="group flex shrink-0 items-center gap-3">
-            <div className="h-10 w-10 overflow-hidden rounded-full bg-white/10 ring-1 ring-white/15 transition-transform duration-500 ease-snap group-hover:scale-105">
+            {/* Tesela de esquina corta, no disco: la marca se alinea con la
+                geometría nueva de la barra en lugar de repetir el círculo. */}
+            <div className="h-10 w-10 overflow-hidden rounded-[0.7rem] bg-white/10 ring-1 ring-white/15 transition-transform duration-500 ease-snap group-hover:scale-105">
               <ImageSlot src="/images/hero/logo-isel.avif" alt="Logo ISEL" label="ISEL" tone="dark" glyph="I" />
             </div>
             <span className="flex flex-col leading-none">
@@ -203,30 +227,24 @@ export function Navbar() {
             </span>
           </Link>
 
-          {/* Ritmo: 2px entre hermanos del mismo peldaño, un pelo de separación
-              y 16px entre peldaños, y otro salto antes del CTA. Ese aire
-              desigual es lo que hace que los tres bloques se lean como tres
-              cosas distintas de un vistazo, sin necesidad de rótulos. */}
-          <div className="hidden shrink-0 items-center gap-1.5 lg:flex">
-            <div className="flex items-center gap-0.5">
-              {ACCESOS.map((item) => (
-                navAccess(item, "externo")
-              ))}
+          <div className="hidden shrink-0 items-center gap-3 lg:flex">
+            {/* El riel: una sola pieza hundida que contiene las cuatro
+                consultas. El pelo interior hace el trabajo que antes hacían
+                dos rellenos distintos. */}
+            <div className="flex items-center gap-0.5 rounded-xl bg-black/20 p-1 shadow-[inset_0_1px_2px_rgba(0,0,0,0.35),inset_0_0_0_1px_rgba(255,255,255,0.07)]">
+              {ACCESOS.map((item) => navAccess(item, "externo"))}
+              <span aria-hidden className="mx-1 h-5 w-px bg-white/12" />
+              {TRAMITES.map((item) => navAccess(item, "interno"))}
             </div>
 
-            <span aria-hidden className="mx-2 h-5 w-px bg-white/15" />
-
-            <div className="flex items-center gap-1">
-              {TRAMITES.map((item) => (
-                navAccess(item, "interno")
-              ))}
-            </div>
-
+            {/* Fuera del riel y con imán: es lo único de la barra que no es
+                una consulta sino la acción que la página persigue. */}
             <ActionButton
               to="/inscripcion"
               tone="accent"
               size="nav"
-              className="ml-2 [--accent:#12855C] [--accent-soft:rgba(18,133,92,0.28)]"
+              magnetic
+              className="[--accent:#12855C]"
             >
               {/* El rótulo completo solo donde cabe entero; por debajo, la mitad
                   que de verdad identifica el trámite. */}
@@ -239,7 +257,7 @@ export function Navbar() {
             aria-label={mobileOpen ? "Cerrar menú" : "Abrir menú"}
             aria-expanded={mobileOpen}
             onClick={() => setMobileOpen((v) => !v)}
-            className="relative z-[70] flex h-11 w-11 shrink-0 flex-col items-center justify-center gap-[5px] rounded-full border border-white/15 lg:hidden"
+            className="relative z-[70] flex h-11 w-11 shrink-0 flex-col items-center justify-center gap-[5px] rounded-xl border border-white/15 bg-black/20 lg:hidden"
           >
             <motion.span
               animate={mobileOpen ? { rotate: 45, y: 6 } : { rotate: 0, y: 0 }}
@@ -276,79 +294,78 @@ export function Navbar() {
                 pantallas cortas, deja que el bloque crezca y se pueda desplazar sin
                 que se recorte por arriba. */}
             <div className="relative m-auto w-full">
-
-            <motion.div
-              initial={{ opacity: 0, y: 24 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.06, duration: 0.6, ease: SNAP }}
-              className="relative"
-            >
-              <Link
-                to="/inscripcion"
-                onClick={() => setMobileOpen(false)}
-                className="flex items-center justify-between gap-4 rounded-3xl bg-isel-emerald px-6 py-5 text-white"
+              <motion.div
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.06, duration: 0.6, ease: SNAP }}
+                className="relative"
               >
-                <span className="flex flex-col gap-1 text-left">
-                  <span className="font-display text-xl font-bold leading-tight">
-                    Inscripción nuevo ingreso
+                <Link
+                  to="/inscripcion"
+                  onClick={() => setMobileOpen(false)}
+                  className="flex items-center justify-between gap-4 rounded-2xl bg-isel-emerald px-6 py-5 text-white"
+                >
+                  <span className="flex flex-col gap-1 text-left">
+                    <span className="font-display text-xl font-bold leading-tight">
+                      Inscripción nuevo ingreso
+                    </span>
+                    <span className="text-[12px] leading-snug text-white/80">
+                      Complete su ficha y reserve su lugar
+                    </span>
                   </span>
-                  <span className="text-[12px] leading-snug text-white/80">
-                    Complete su ficha y reserve su lugar
+                  <span aria-hidden className="text-lg">
+                    →
                   </span>
-                </span>
-                <span aria-hidden className="text-lg">
-                  →
-                </span>
-              </Link>
-            </motion.div>
+                </Link>
+              </motion.div>
 
-            <p className="relative mt-9 text-[10px] font-bold uppercase tracking-[0.18em] text-isel-gold">
-              Ya soy estudiante
-            </p>
-            <nav className="relative mt-3 flex flex-col gap-2">
-              {[...ACCESOS, ...TRAMITES].map((item, i) => {
-                const externo = Boolean(item.href);
-                const inner = (
-                  <>
-                    <span className="flex flex-col gap-1 text-left">
-                      <span className="font-display text-lg font-semibold leading-tight text-white">
-                        {item.label}
+              <p className="relative mt-9 text-[10px] font-bold uppercase tracking-[0.18em] text-isel-gold">
+                Ya soy estudiante
+              </p>
+              <nav className="relative mt-3 flex flex-col gap-2">
+                {[...ACCESOS, ...TRAMITES].map((item, i) => {
+                  const externo = Boolean(item.href);
+                  const inner = (
+                    <>
+                      <span className="flex flex-col gap-1 text-left">
+                        <span className="font-display text-lg font-semibold leading-tight text-white">
+                          {item.label}
+                        </span>
+                        <span className="text-[12px] leading-snug text-white/55">{item.hint}</span>
                       </span>
-                      <span className="text-[12px] leading-snug text-white/55">{item.hint}</span>
-                    </span>
-                    <span aria-hidden className="text-base text-white/45">
-                      {externo ? "↗" : "→"}
-                    </span>
-                  </>
-                );
-                const cls =
-                  "flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4";
-                return (
-                  <motion.div
-                    key={item.id}
-                    initial={{ opacity: 0, y: 22 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.14 + i * 0.07, duration: 0.55, ease: SNAP }}
-                  >
-                    {item.to ? (
-                      <Link to={item.to} onClick={() => setMobileOpen(false)} className={cls}>
-                        {inner}
-                      </Link>
-                    ) : (
-                      <a
-                        href={item.href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={() => setMobileOpen(false)}
-                        className={cls}
-                      >
-                        {inner}
-                      </a>
-                    )}
-                  </motion.div>
-                );
-              })}
-            </nav>
+                      <span aria-hidden className="text-base text-white/45">
+                        {externo ? "↗" : "→"}
+                      </span>
+                    </>
+                  );
+                  const cls =
+                    "flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/[0.04] px-5 py-4";
+                  return (
+                    <motion.div
+                      key={item.id}
+                      initial={{ opacity: 0, y: 22 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.14 + i * 0.07, duration: 0.55, ease: SNAP }}
+                    >
+                      {item.to ? (
+                        <Link to={item.to} onClick={() => setMobileOpen(false)} className={cls}>
+                          {inner}
+                        </Link>
+                      ) : (
+                        <a
+                          href={item.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => setMobileOpen(false)}
+                          className={cls}
+                        >
+                          {inner}
+                        </a>
+                      )}
+                    </motion.div>
+                  );
+                })}
+              </nav>
             </div>
           </motion.div>
         )}
