@@ -272,13 +272,33 @@ export const PreinscripcionForm = forwardRef<FichaHandle, PreinscripcionFormProp
                     active ? "border-isel-emerald bg-isel-emerald/[0.08] text-isel-navy" : "border-isel-line text-isel-ink/65 hover:enabled:border-isel-navy/30"
                   }`}
                 >
+                  {/* La casilla se ve ANTES de marcarla. Sin borde era un
+                      cuadro del color del papel sobre papel: no se distinguía
+                      de un adorno, así que no se leía como algo que hay que
+                      marcar — y una vez marcada tampoco se entendía de dónde
+                      había salido el recuadro verde. El mismo cuadro con borde
+                      que usa el selector de cursos. */}
                   <span
                     aria-hidden
-                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md ${active ? "bg-isel-emerald text-white" : "bg-isel-paper text-transparent"}`}
+                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors duration-300 ease-crisp ${
+                      active
+                        ? "border-isel-emerald bg-isel-emerald text-white"
+                        : "border-isel-line bg-white text-transparent"
+                    }`}
                   >
-                    <Icon name="check" size={12} />
+                    <Icon name="check" size={13} />
                   </span>
-                  {p.label}
+                  {/* La etiqueta va en su propio tramo, y ese tramo puede
+                      encoger y partir palabras.
+                      Suelta como estaba —un trozo de texto pelado dentro de una
+                      fila flexible— no encogía por debajo de lo que mide su
+                      palabra más larga, y «Afroascendiente/Creole/Afromestizo»
+                      mide 268px de una tirada. En un teléfono la casilla tiene
+                      140: el rótulo se salía del recuadro, se montaba sobre la
+                      casilla de al lado y empujaba la rejilla entera fuera del
+                      formulario. `min-w-0` le permite encoger y
+                      `break-words` parte la palabra cuando no queda otra. */}
+                  <span className="min-w-0 flex-1 break-words">{p.label}</span>
                 </button>
               );
             })}

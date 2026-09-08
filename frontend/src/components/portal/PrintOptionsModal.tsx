@@ -71,7 +71,9 @@ function Option({
       <span aria-hidden className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${active ? "border-isel-emerald bg-isel-emerald text-white" : "border-isel-line text-transparent"}`}>
         <Icon name="check" size={11} />
       </span>
-      {label}
+      {/* Mismo motivo que en el pueblo de pertenencia: el rótulo necesita su
+          propio tramo para poder encoger dentro de la fila. */}
+      <span className="min-w-0 flex-1">{label}</span>
     </button>
   );
 }

@@ -184,6 +184,25 @@ export function IconButton({
  * encoger un botón por debajo de su contenido, y la pastilla calculada como
  * 100/n quedaba corrida y el texto se salía. Midiendo, da igual lo que midan
  * las etiquetas.
+ *
+ * ── Por qué se vuelve a medir sola ──────────────────────────────────────────
+ * Medir una vez al montar no bastaba, y ahí estaba la casilla que "no encaja":
+ * el control se mide cuando nace, pero después la caja que lo contiene cambia
+ * de ancho por su cuenta —el diálogo de una ficha que se abre, un aviso que
+ * aparece encima y reparte el espacio de otra forma, la ventana que se
+ * redimensiona, el navegador con el zoom cambiado— y la pastilla se quedaba
+ * con la medida vieja: pintada a un lado, encima de la etiqueta de al lado, o
+ * de un ancho que no era el del botón. Un `ResizeObserver` la vuelve a colocar
+ * cada vez que algo de eso pasa, sin que nadie tenga que avisar.
+ *
+ * ── Por qué el botón activo también se pinta solo ───────────────────────────
+ * La opción marcada iba en blanco porque contaba con tener la pastilla oscura
+ * debajo. Si la medición aún no había ocurrido —o daba cero, que es lo que
+ * devuelve un elemento que todavía no tiene sitio en la página—, quedaba texto
+ * blanco sobre fondo blanco: la casilla estaba marcada de verdad, pero no se
+ * veía marcada. Ahora, mientras no haya medida, el propio botón lleva su
+ * fondo; en cuanto la hay, la pastilla toma el relevo y el botón se lo cede.
+ * Nunca hay un instante en el que lo elegido no se vea.
  */
 export function Segmented<T extends string | number>({
   options,
@@ -202,28 +221,41 @@ export function Segmented<T extends string | number>({
 }) {
   const index = options.findIndex((o) => o.value === value);
   const pad = size === "sm" ? "px-3 py-1.5 text-[12px]" : "px-4 py-2 text-[13px]";
+  const box = useRef<HTMLDivElement>(null);
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const [pill, setPill] = useState<{ x: number; w: number } | null>(null);
 
   useLayoutEffect(() => {
     function measure() {
       const el = refs.current[index];
-      if (!el) {
+      // Ancho cero = el control todavía no tiene sitio en la página (recién
+      // montado dentro de un diálogo, o en una rama oculta). No se guarda esa
+      // medida: se deja sin pastilla y el botón se pinta a sí mismo hasta que
+      // haya una de verdad.
+      if (!el || el.offsetWidth === 0) {
         setPill(null);
         return;
       }
       setPill({ x: el.offsetLeft, w: el.offsetWidth });
     }
     measure();
-    window.addEventListener("resize", measure);
+
+    // El observador cubre de una vez todo lo que mueve la medida: el diálogo
+    // que se abre, el aviso que aparece al lado, el zoom, el giro del
+    // teléfono. `resize` de ventana solo cubría el último caso.
+    const ro = new ResizeObserver(measure);
+    if (box.current) ro.observe(box.current);
+    for (const el of refs.current) if (el) ro.observe(el);
+
     // Las fuentes llegan después del primer pintado y cambian los anchos.
     const fonts = (document as Document & { fonts?: FontFaceSet }).fonts;
     fonts?.ready.then(measure).catch(() => {});
-    return () => window.removeEventListener("resize", measure);
+    return () => ro.disconnect();
   }, [index, options.length, size]);
 
   return (
     <div
+      ref={box}
       role="group"
       className={`relative inline-flex rounded-xl border border-isel-line bg-white p-1 ${
         disabled ? "opacity-55" : ""
@@ -247,7 +279,9 @@ export function Segmented<T extends string | number>({
           aria-pressed={o.value === value}
           onClick={() => onChange(o.value)}
           className={`relative z-10 whitespace-nowrap rounded-lg font-semibold transition-colors duration-300 ease-crisp disabled:cursor-default ${pad} ${
-            o.value === value ? "text-white" : "text-isel-ink/55 hover:text-isel-navy"
+            o.value === value
+              ? `text-white ${pill ? "" : "bg-isel-navy"}`
+              : "text-isel-ink/55 hover:text-isel-navy"
           }`}
         >
           {o.label}

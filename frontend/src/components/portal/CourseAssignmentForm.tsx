@@ -993,7 +993,11 @@ export function AdditionalRow({
       }`}
     >
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
+        {/* También envuelve: el control de dos opciones mide 252px y en un
+            teléfono estrecho no cabe junto al numeral en la misma línea — se
+            salía del borde de la fila. Envolviendo, el numeral se queda arriba
+            y el control aprovecha el ancho entero. */}
+        <div className="flex flex-wrap items-center gap-3">
           {numeral}
           <Segmented
             size="sm"
