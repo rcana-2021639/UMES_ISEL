@@ -115,6 +115,40 @@
     transform-style: preserve-3d;
   }
 
+  /**
+   * Párrafo que se enciende palabra a palabra al leerlo.
+   *
+   * El scroll escribe UNA variable en el párrafo —`--lectura`, de 0 a 1— y de
+   * ahí sale la opacidad de cada palabra sin que JavaScript toque una sola.
+   * Antes cada palabra llevaba su propio valor animado: en Metodología eso
+   * eran unas ciento cincuenta escrituras al DOM por fotograma, y ahí estaba
+   * el agarrotamiento. Ver `ScrollHighlightText` en ui/RevealOnScroll.tsx.
+   *
+   * A cada palabra le toca su tramo del recorrido, y cada tramo dura lo que
+   * ocupan 1.6 palabras: así siempre hay un puñado a media luz —el degradado
+   * que hace que se lea como un dedo siguiendo el renglón y no como un
+   * interruptor. Los arranques se reparten dejando sitio para ese tramo, de
+   * modo que la última palabra termina de encenderse ANTES de que el párrafo
+   * acabe de cruzar; si no, se quedaba a media luz para siempre.
+   */
+  .lectura {
+    --lectura-tramo: calc(1.6 / var(--lectura-n));
+  }
+  .lectura > span {
+    --lectura-ini: calc(var(--i) / var(--lectura-n) * (1 - var(--lectura-tramo)));
+    --t: calc((var(--lectura, 0) - var(--lectura-ini)) / var(--lectura-tramo));
+    opacity: clamp(var(--lectura-dim), calc(var(--lectura-dim) + var(--t) * (1 - var(--lectura-dim))), 1);
+  }
+
+  /* Capas que el scroll mueve en cada fotograma: se les reserva su propio
+     plano de composición para que desplazarlas no obligue a repintar la banda
+     entera que tienen debajo. Se usa con cuentagotas —cada capa promocionada
+     ocupa memoria de vídeo— y solo en lo que se mueve de verdad. */
+  .capa-scroll {
+    will-change: transform;
+    transform: translateZ(0);
+  }
+
   /* Grano fino sobre superficies oscuras: rompe el plano digital sin pesar. */
   .grain::after {
     content: "";
@@ -187,6 +221,17 @@
     -webkit-mask-image: linear-gradient(to bottom, #000 70%, transparent);
     mask-image: linear-gradient(to bottom, #000 70%, transparent);
   }
+}
+
+/* Los halos de color se desplazan en bucle detrás de las bandas oscuras. Al
+   llevar un desenfoque de más de 100px, cualquier cambio de tamaño obliga al
+   navegador a volver a calcular el borrón entero en cada fotograma; por eso
+   los fotogramas clave solo trasladan (ver tailwind.config.js) y aquí se les
+   reserva su plano. Trasladar una capa ya dibujada es gratis; volver a
+   difuminarla, no. */
+.animate-drift,
+.animate-drift2 {
+  will-change: transform;
 }
 
 /* Transición entre páginas: la vista saliente se desvanece hacia atrás y la

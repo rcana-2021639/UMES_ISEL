@@ -66,13 +66,19 @@ export default {
         back: "cubic-bezier(0.34, 1.56, 0.64, 1)", // overshoot corto
       },
       keyframes: {
+        /* Los dos halos de las bandas oscuras. SOLO trasladan: llevan un
+           desenfoque de 130–140px y escalar una capa difuminada obliga al
+           navegador a recalcular el borrón entero en cada fotograma —era un
+           coste constante mientras se leía Metodología, justo donde la página
+           tiene que ir suelta. Trasladarla no cuesta nada, así que el recorrido
+           se alarga un poco para compensar el vaivén que daba la escala. */
         drift: {
-          "0%, 100%": { transform: "translate3d(0,0,0) scale(1)" },
-          "50%": { transform: "translate3d(4%, -6%, 0) scale(1.08)" },
+          "0%, 100%": { transform: "translate3d(0,0,0)" },
+          "50%": { transform: "translate3d(7%, -9%, 0)" },
         },
         drift2: {
-          "0%, 100%": { transform: "translate3d(0,0,0) scale(1.05)" },
-          "50%": { transform: "translate3d(-5%, 5%, 0) scale(0.95)" },
+          "0%, 100%": { transform: "translate3d(0,0,0)" },
+          "50%": { transform: "translate3d(-8%, 8%, 0)" },
         },
         marquee: {
           from: { transform: "translate3d(0,0,0)" },

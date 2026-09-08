@@ -405,31 +405,6 @@ interface ScrollHighlightTextProps {
   dim?: number;
 }
 
-/** Una palabra del párrafo: se enciende cuando el scroll llega a su tramo. */
-function HighlightWord({
-  word,
-  progress,
-  start,
-  end,
-  dim,
-}: {
-  word: string;
-  progress: MotionValue<number>;
-  start: number;
-  end: number;
-  dim: number;
-}) {
-  const opacity = useTransform(progress, [start, end], [dim, 1]);
-  // Sin margen a la derecha: la separación es un espacio de verdad (lo pone
-  // quien renderiza). Un `margin-right` fijo no se estira, así que con él el
-  // párrafo NO se puede justificar — el navegador no tiene de dónde repartir.
-  return (
-    <motion.span style={{ opacity }} className="inline-block">
-      {word}
-    </motion.span>
-  );
-}
-
 /**
  * Texto que se enciende al leerlo.
  *
@@ -438,33 +413,55 @@ function HighlightWord({
  * siguiendo la línea. Es lo que convierte un párrafo largo en algo que apetece
  * leer, y por eso se reserva a los textos que de verdad hay que leer
  * (metodología y la reseña de dirección), nunca a etiquetas sueltas.
+ *
+ * ── Por qué el encendido se calcula en CSS y no en JavaScript ───────────────
+ * El efecto es el mismo de siempre; lo que cambió es quién lo mueve.
+ *
+ * Antes cada palabra era un componente con su propio valor animado: en los
+ * tres bloques de Metodología eso son unas ciento cincuenta opacidades que
+ * JavaScript reescribía en el DOM en CADA fotograma del scroll. Ahí estaba el
+ * agarrotamiento — no en el efecto, sino en la cuenta. Ahora se escribe UNA
+ * sola variable en el párrafo (`--lectura`) y es el navegador quien deriva la
+ * opacidad de cada palabra, en su propio motor de estilos. De ciento cincuenta
+ * escrituras por fotograma a una.
+ *
+ * Y esa única variable pasa por un muelle: sin él el avance va a tirones, uno
+ * por cada evento de la rueda, que es lo que hacía que el texto pareciera
+ * encenderse a trompicones.
+ *
+ * Las palabras van en línea, no en `inline-block`: una caja de bloque no se
+ * puede partir a final de renglón, así que la partición de palabras del
+ * justificado no llegaba a aplicarse nunca.
  */
 export function ScrollHighlightText({ text, className = "", dim = 0.22 }: ScrollHighlightTextProps) {
   const ref = useRef<HTMLParagraphElement>(null);
   const reduce = useReducedMotion();
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start 0.85", "end 0.55"] });
+  const lectura = useSpring(scrollYProgress, { stiffness: 170, damping: 36, mass: 0.4 });
   const words = text.split(" ");
 
   if (reduce) return <p className={className}>{text}</p>;
 
   return (
-    <p ref={ref} className={className}>
-      {words.map((w, i) => {
-        const start = i / words.length;
-        return (
-          <Fragment key={`${w}-${i}`}>
-            <HighlightWord
-              word={w}
-              progress={scrollYProgress}
-              start={start}
-              end={Math.min(start + 1.6 / words.length, 1)}
-              dim={dim}
-            />
-            {i < words.length - 1 ? " " : ""}
-          </Fragment>
-        );
-      })}
-    </p>
+    <motion.p
+      ref={ref}
+      className={`lectura ${className}`}
+      style={{
+        ["--lectura-n" as string]: words.length,
+        ["--lectura-dim" as string]: dim,
+        ["--lectura" as string]: lectura,
+      }}
+    >
+      {words.map((w, i) => (
+        <Fragment key={`${w}-${i}`}>
+          {/* El espacio de separación es un espacio de verdad, fuera del
+              tramo: un margen fijo no se estira y sin sobrante que repartir
+              el navegador no puede justificar el párrafo. */}
+          <span style={{ ["--i" as string]: i }}>{w}</span>
+          {i < words.length - 1 ? " " : ""}
+        </Fragment>
+      ))}
+    </motion.p>
   );
 }
 

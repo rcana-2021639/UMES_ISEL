@@ -138,7 +138,7 @@ export function MethodologySection() {
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
         <motion.div
           style={reduce ? undefined : { y: reticulaY }}
-          className="grid-lines absolute -inset-y-10 inset-x-0 opacity-50"
+          className="grid-lines capa-scroll absolute -inset-y-10 inset-x-0 opacity-50"
         />
         <motion.div
           animate={{ backgroundColor: current.accent }}
@@ -288,6 +288,56 @@ function RailSegment({
 
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Un trazo del glifo, dibujándose con el scroll.
+ *
+ * Va en su propio componente porque cada línea necesita SU tramo del recorrido:
+ * la primera empieza a dibujarse antes que la segunda y así el glifo se
+ * construye por partes, como si alguien lo estuviera trazando.
+ *
+ * Antes ese escalonado se intentaba con `transitionDelay` en el estilo, y ahí
+ * no hacía nada: `pathLength` lo escribe el scroll fotograma a fotograma, no
+ * es una transición de CSS que se pueda retrasar. Las cuatro líneas salían a
+ * la vez y el dibujo aparecía de golpe.
+ *
+ * El glifo termina a media altura del bloque, cuando el ojo llega al párrafo:
+ * si acabara con el bloque, nadie lo vería completo.
+ */
+function Trazo({
+  d,
+  color,
+  paso,
+  index,
+  total,
+  quieto,
+}: {
+  d: string;
+  color: string;
+  paso: MotionValue<number>;
+  index: number;
+  total: number;
+  quieto: boolean;
+}) {
+  // El último trazo sigue cerrando dentro del primer tercio largo del bloque,
+  // por muchos que sean: el reparto se calcula sobre el total, no fijo.
+  const desfase = (index / Math.max(total, 1)) * 0.14;
+  const dibujo = useTransform(paso, [0.1 + desfase, 0.46 + desfase], [0, 1], { clamp: true });
+
+  return (
+    <motion.path
+      d={d}
+      stroke={color}
+      strokeWidth={1.4}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      opacity={0.55}
+      style={{ pathLength: quieto ? 1 : dibujo }}
+    />
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
 interface StepProps {
   item: (typeof ITEMS)[number];
   index: number;
@@ -306,26 +356,35 @@ function Step({ item, index, isActive, onEnter }: StepProps) {
   const reduce = useReducedMotion();
   const ref = useRef<HTMLElement>(null);
 
+  /**
+   * El recorrido del bloque por la pantalla, amortiguado UNA vez.
+   *
+   * De aquí cuelgan las cinco capas del bloque —encabezado, filete, glifo y
+   * los dos numerales—, y esa es la corrección de fondo: antes las cinco
+   * colgaban del scroll en crudo, es decir, avanzaban un escalón por cada
+   * evento de la rueda. Cinco capas dando el mismo escalón a la vez es lo que
+   * se veía trabado; el resto de la sección ya iba amortiguado y por eso este
+   * bloque desentonaba. Con el muelle en medio, las cinco llegan con inercia y
+   * la rueda deja de notarse dato a dato.
+   */
+  const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
+  const paso = useSpring(scrollYProgress, { stiffness: 175, damping: 36, mass: 0.45 });
+
   // Parallax de lectura: el encabezado entra un poco por debajo de su sitio y
   // sale un poco por encima, a menos velocidad que el párrafo. Da profundidad
   // sin mover el texto que se está leyendo, que es lo que marea.
-  const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
-  const headY = useTransform(scrollYProgress, [0, 1], [26, -26]);
+  const headY = useTransform(paso, [0, 1], [26, -26]);
 
   /* El filete de color ya no se enciende de golpe al activarse el bloque: se
      LLENA de arriba abajo al ritmo de la lectura y se vacía al subir. Antes
      marcaba «este es el activo»; ahora marca «vas por aquí», que es una
      información distinta y bastante más útil en un texto largo. */
-  const relleno = useTransform(scrollYProgress, [0.2, 0.68], [0, 1], { clamp: true });
+  const relleno = useTransform(paso, [0.2, 0.68], [0, 1], { clamp: true });
 
-  /* El trazo del glifo va por delante de la lectura: termina de dibujarse a
-     media altura del bloque, cuando el ojo llega al párrafo. Si acabara con el
-     bloque, nadie lo vería completo. */
-  const trazo = useTransform(scrollYProgress, [0.12, 0.52], [0, 1], { clamp: true });
   /* El numeral de fondo cruza el bloque a contramano. Es la capa más lejana de
      las tres, y por eso la que más se desplaza. */
-  const numeralY = useTransform(scrollYProgress, [0, 1], [80, -80]);
-  const glifoY = useTransform(scrollYProgress, [0, 1], [34, -34]);
+  const numeralY = useTransform(paso, [0, 1], [80, -80]);
+  const glifoY = useTransform(paso, [0, 1], [34, -34]);
 
   return (
     <article
@@ -338,7 +397,7 @@ function Step({ item, index, isActive, onEnter }: StepProps) {
       <motion.span
         aria-hidden
         style={reduce ? undefined : { y: numeralY }}
-        className="numeral-outline pointer-events-none absolute -right-4 top-1/2 hidden -translate-y-1/2 select-none font-display text-[16rem] font-bold leading-none tracking-ultratight text-white/[0.045] xl:block"
+        className="numeral-outline capa-scroll pointer-events-none absolute -right-4 top-1/2 hidden -translate-y-1/2 select-none font-display text-[16rem] font-bold leading-none tracking-ultratight text-white/[0.045] xl:block"
       >
         0{index + 1}
       </motion.span>
@@ -349,22 +408,11 @@ function Step({ item, index, isActive, onEnter }: StepProps) {
       <motion.div
         aria-hidden
         style={reduce ? undefined : { y: glifoY }}
-        className="pointer-events-none absolute right-0 top-10 hidden lg:block xl:right-24"
+        className="capa-scroll pointer-events-none absolute right-0 top-10 hidden lg:block xl:right-24"
       >
         <svg viewBox="0 0 120 120" className="h-40 w-40 xl:h-52 xl:w-52" fill="none">
-          {(GLIFOS[item.key] ?? []).map((d, i) => (
-            <motion.path
-              key={d}
-              d={d}
-              stroke={item.accent}
-              strokeWidth={1.4}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              opacity={0.55}
-              /* Cada trazo arranca un poco después que el anterior, así que el
-                 dibujo se construye por partes en vez de aparecer entero. */
-              style={{ pathLength: reduce ? 1 : trazo, transitionDelay: `${i * 40}ms` }}
-            />
+          {(GLIFOS[item.key] ?? []).map((d, i, todos) => (
+            <Trazo key={d} d={d} color={item.accent} paso={paso} index={i} total={todos.length} quieto={!!reduce} />
           ))}
         </svg>
       </motion.div>
