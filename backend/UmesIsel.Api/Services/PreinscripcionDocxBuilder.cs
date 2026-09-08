@@ -27,6 +27,7 @@ public class PreinscripcionDocxBuilder
         {
             var xml = DocxCellSurgery.ReadEntry(archive, "word/document.xml");
             xml = ApplyTokens(xml, p);
+            MarcarCasillas(archive, p);
             xml = string.IsNullOrWhiteSpace(p.FirmaBase64)
                 ? DocxCellSurgery.ReplaceToken(xml, "FIRMA", null)
                 : DocxCellSurgery.InsertSignatureImage(archive, xml, "FIRMA", p.FirmaBase64, BuildFirmaPosition);
@@ -55,12 +56,18 @@ public class PreinscripcionDocxBuilder
         xml = DocxCellSurgery.ReplaceToken(xml, "IDIOMA_MATERNO", p.IdiomaMaterno);
         xml = DocxCellSurgery.ReplaceToken(xml, "CORREO", p.CorreoElectronico);
 
-        xml = DocxCellSurgery.ReplaceCheckToken(xml, "PUEBLO_MAYA", p.PuebloPertenencia == "Maya");
-        xml = DocxCellSurgery.ReplaceCheckToken(xml, "PUEBLO_GARIFUNA", p.PuebloPertenencia == "Garifuna");
-        xml = DocxCellSurgery.ReplaceCheckToken(xml, "PUEBLO_EXTRANJERO", p.PuebloPertenencia == "Extranjero");
-        xml = DocxCellSurgery.ReplaceCheckToken(xml, "PUEBLO_XINKA", p.PuebloPertenencia == "Xinka");
-        xml = DocxCellSurgery.ReplaceCheckToken(xml, "PUEBLO_LADINO", p.PuebloPertenencia == "Ladino");
-        xml = DocxCellSurgery.ReplaceCheckToken(xml, "PUEBLO_AFRO", p.PuebloPertenencia == "Afroascendiente");
+        // Las marcas NO se escriben aquí: los recuadros de esta ficha son imágenes flotantes con
+        // posición absoluta, así que un "✓" de texto al lado de la etiqueta caía fuera del recuadro.
+        // Se marcan cambiando la imagen de la casilla (ver MarcarCasillas); estos tokens solo se
+        // limpian.
+        foreach (var marca in new[]
+                 {
+                     "PUEBLO_MAYA", "PUEBLO_GARIFUNA", "PUEBLO_EXTRANJERO", "PUEBLO_XINKA", "PUEBLO_LADINO",
+                     "PUEBLO_AFRO", "ALERGIA_SI", "ALERGIA_NO", "SALUD_SI", "SALUD_NO",
+                 })
+        {
+            xml = DocxCellSurgery.ReplaceToken(xml, marca, null);
+        }
 
         // Estos van pegados justo tras su etiqueta ("Celular:", "Nombre:"…) — un espacio antes los separa.
         xml = DocxCellSurgery.ReplaceToken(xml, "TELEFONO_CELULAR", Prefixed(p.TelefonoCelular));
@@ -70,15 +77,38 @@ public class PreinscripcionDocxBuilder
         xml = DocxCellSurgery.ReplaceToken(xml, "EMERGENCIA2_NOMBRE", Prefixed(p.Emergencia2Nombre));
         xml = DocxCellSurgery.ReplaceToken(xml, "EMERGENCIA2_TELEFONO", Prefixed(p.Emergencia2Telefono));
 
-        xml = DocxCellSurgery.ReplaceCheckToken(xml, "ALERGIA_SI", p.TieneAlergia);
-        xml = DocxCellSurgery.ReplaceCheckToken(xml, "ALERGIA_NO", !p.TieneAlergia);
         xml = DocxCellSurgery.ReplaceToken(xml, "ALERGIA_DESCRIPCION", Prefixed(p.AlergiaDescripcion));
-
-        xml = DocxCellSurgery.ReplaceCheckToken(xml, "SALUD_SI", p.TieneProblemaSalud);
-        xml = DocxCellSurgery.ReplaceCheckToken(xml, "SALUD_NO", !p.TieneProblemaSalud);
         xml = DocxCellSurgery.ReplaceToken(xml, "SALUD_DESCRIPCION", Prefixed(p.SaludDescripcion));
 
         return xml;
+    }
+
+    // El FORMATO dibuja sus casillas con dos recuadros de distinto tamaño: uno para casi todas
+    // (image4.png) y otro un poco mayor para "Extranjero" y "Afroascendiente" (image5.png). Cada uno
+    // tiene su propio PNG marcado — el mismo recuadro con la X dentro — para que la casilla marcada
+    // calce pixel a pixel con la vacía.
+    private const string CasillaMarcadaChica = "media/casillaMarcada4.png";
+    private const string CasillaMarcadaGrande = "media/casillaMarcada5.png";
+
+    private static void MarcarCasillas(ZipArchive archive, PreinscripcionDto p)
+    {
+        DocxCellSurgery.SetCheckboxes(archive, new Dictionary<string, bool>
+        {
+            ["rIdChkPuebloMaya"] = p.PuebloPertenencia == "Maya",
+            ["rIdChkPuebloGarifuna"] = p.PuebloPertenencia == "Garifuna",
+            ["rIdChkPuebloXinka"] = p.PuebloPertenencia == "Xinka",
+            ["rIdChkPuebloLadino"] = p.PuebloPertenencia == "Ladino",
+            ["rIdChkAlergiaSi"] = p.TieneAlergia,
+            ["rIdChkAlergiaNo"] = !p.TieneAlergia,
+            ["rIdChkSaludSi"] = p.TieneProblemaSalud,
+            ["rIdChkSaludNo"] = !p.TieneProblemaSalud,
+        }, CasillaMarcadaChica);
+
+        DocxCellSurgery.SetCheckboxes(archive, new Dictionary<string, bool>
+        {
+            ["rIdChkPuebloExtranjero"] = p.PuebloPertenencia == "Extranjero",
+            ["rIdChkPuebloAfro"] = p.PuebloPertenencia == "Afroascendiente",
+        }, CasillaMarcadaGrande);
     }
 
     private static string? Prefixed(string? value) => string.IsNullOrEmpty(value) ? value : " " + value;

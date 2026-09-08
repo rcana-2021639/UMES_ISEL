@@ -56,14 +56,14 @@ public class CartaCompromisoDocxBuilder
         xml = DocxCellSurgery.ReplaceToken(xml, "NOMBRE_COMPLETO", c.NombreCompleto);
         xml = DocxCellSurgery.ReplaceToken(xml, "NO_DPI", c.NoDpi);
 
-        xml = DocxCellSurgery.ReplaceCheckToken(xml, "DOC_DPI", subidos.Contains(DocumentoTipos.DpiAutenticado));
-        xml = DocxCellSurgery.ReplaceCheckToken(xml, "DOC_FOTOS", subidos.Contains(DocumentoTipos.Fotos));
-        xml = DocxCellSurgery.ReplaceCheckToken(xml, "DOC_TITULO_MEDIO", subidos.Contains(DocumentoTipos.TituloMedio));
-        xml = DocxCellSurgery.ReplaceCheckToken(xml, "DOC_TITULO_LICENCIATURA", subidos.Contains(DocumentoTipos.TituloLicenciatura));
-        xml = DocxCellSurgery.ReplaceCheckToken(xml, "DOC_PASAPORTE", subidos.Contains(DocumentoTipos.PasaporteCompleto));
-        xml = DocxCellSurgery.ReplaceCheckToken(xml, "DOC_FOTOS_EXTRANJERO", subidos.Contains(DocumentoTipos.FotosExtranjero));
-        xml = DocxCellSurgery.ReplaceCheckToken(xml, "DOC_TITULO_MEDIO_EXTRANJERO", subidos.Contains(DocumentoTipos.TituloMedioExtranjero));
-        xml = DocxCellSurgery.ReplaceCheckToken(xml, "DOC_TITULO_PREGRADO", subidos.Contains(DocumentoTipos.TituloPregrado));
+        xml = DocxCellSurgery.ReplaceInBoxToken(xml, "DOC_DPI", subidos.Contains(DocumentoTipos.DpiAutenticado));
+        xml = DocxCellSurgery.ReplaceInBoxToken(xml, "DOC_FOTOS", subidos.Contains(DocumentoTipos.Fotos));
+        xml = DocxCellSurgery.ReplaceInBoxToken(xml, "DOC_TITULO_MEDIO", subidos.Contains(DocumentoTipos.TituloMedio));
+        xml = DocxCellSurgery.ReplaceInBoxToken(xml, "DOC_TITULO_LICENCIATURA", subidos.Contains(DocumentoTipos.TituloLicenciatura));
+        xml = DocxCellSurgery.ReplaceInBoxToken(xml, "DOC_PASAPORTE", subidos.Contains(DocumentoTipos.PasaporteCompleto));
+        xml = DocxCellSurgery.ReplaceInBoxToken(xml, "DOC_FOTOS_EXTRANJERO", subidos.Contains(DocumentoTipos.FotosExtranjero));
+        xml = DocxCellSurgery.ReplaceInBoxToken(xml, "DOC_TITULO_MEDIO_EXTRANJERO", subidos.Contains(DocumentoTipos.TituloMedioExtranjero));
+        xml = DocxCellSurgery.ReplaceInBoxToken(xml, "DOC_TITULO_PREGRADO", subidos.Contains(DocumentoTipos.TituloPregrado));
 
         return xml;
     }

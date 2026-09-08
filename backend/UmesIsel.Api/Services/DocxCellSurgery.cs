@@ -12,9 +12,11 @@ namespace UmesIsel.Api.Services;
 /// Las dos plantillas (Resources/PreinscripcionTemplate.docx, Resources/CartaCompromisoTemplate.docx)
 /// son el archivo original tal cual, con una única preparación de una vez: se insertó un token de
 /// texto plano <c>{{NOMBRE_DEL_CAMPO}}</c> en cada espacio en blanco (celda vacía o renglón
-/// subrayado) y, junto a cada opción de casilla o documento del checklist, un token de marca
-/// (p. ej. <c>{{PUEBLO_LADINO}}</c>) que se resuelve a " ✓" cuando esa opción aplica o a cadena vacía
-/// si no — sin tocar ni un borde, fuente, imagen o casilla del diseño original. Esa preparación vive
+/// subrayado) — sin tocar ni un borde, fuente, imagen o casilla del diseño original. Las casillas no
+/// se marcan escribiendo un "✓" al lado (quedaría fuera del recuadro): en la Preinscripción cada
+/// recuadro es una imagen y se cambia por la misma imagen con una X dentro (ver
+/// <see cref="SetCheckboxes"/>), y en la Carta de Compromiso cada recuadro es una forma que lleva
+/// dentro su propio token, resuelto a "X" (ver <see cref="ReplaceInBoxToken"/>). Esa preparación vive
 /// en <c>tools/docx-templates/prepare-preinscripcion.mjs</c> y <c>prepare-carta.mjs</c> (Node, se
 /// corre a mano solo si el FORMATO oficial cambia); en producción, llenar la ficha es solo
 /// reemplazar cada token por su valor real.
@@ -49,6 +51,10 @@ public static class DocxCellSurgery
     public static string ReplaceCheckToken(string xml, string token, bool isChecked) =>
         ReplaceToken(xml, token, isChecked ? CheckedMark : string.Empty);
 
+    /// <summary>La "X" de una casilla cuyo token vive DENTRO del recuadro (ver la Carta de Compromiso): sin espacio delante, para que quede centrada.</summary>
+    public static string ReplaceInBoxToken(string xml, string token, bool isChecked) =>
+        ReplaceToken(xml, token, isChecked ? "X" : string.Empty);
+
     // ---- Casillas que son IMÁGENES, no texto -----------------------------------------------------
     // La Solicitud de Título no dibuja sus casillas con caracteres: cada una es un PNG
     // ("Icono de casilla sin marcar"). Escribirles un "✓" al lado dejaría la marca FUERA del
@@ -58,7 +64,7 @@ public static class DocxCellSurgery
     // casilla queda marcada sin desplazar un solo píxel del diseño.
     public const string CheckedBoxMedia = "media/casillaMarcada.png";
 
-    public static void SetCheckboxes(ZipArchive archive, IReadOnlyDictionary<string, bool> marcas)
+    public static void SetCheckboxes(ZipArchive archive, IReadOnlyDictionary<string, bool> marcas, string checkedMedia = CheckedBoxMedia)
     {
         var rels = ReadEntry(archive, "word/_rels/document.xml.rels");
         foreach (var (relId, marcada) in marcas)
@@ -67,7 +73,7 @@ public static class DocxCellSurgery
             rels = Regex.Replace(
                 rels,
                 $"(<Relationship Id=\"{Regex.Escape(relId)}\"[^>]*Target=\")[^\"]+(\")",
-                $"$1{CheckedBoxMedia}$2");
+                $"$1{checkedMedia}$2");
         }
         WriteEntry(archive, "word/_rels/document.xml.rels", rels);
     }

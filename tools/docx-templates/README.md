@@ -12,6 +12,20 @@ LibreOffice — igual que ya se hacía con la ficha de Asignación en Excel.
 Resultado: cada ficha sale **en una sola hoja**, en **vertical**, con el formato original intacto.
 (La de Asignación sigue siendo el `.xlsx` oficial, en horizontal — esa no cambió.)
 
+## Las casillas van marcadas por dentro
+
+Ninguna de las tres fichas dibuja sus casillas con caracteres, así que escribir un "✓" junto a la
+etiqueta dejaba la marca **fuera** del recuadro. Cada plantilla se marca por dentro, según cómo esté
+dibujado su recuadro:
+
+- **Preinscripción** y **Solicitud de Título**: el recuadro es una imagen. Cada casilla tiene su
+  propia relación (`rIdChkPuebloLadino`, `rIdChkAlergiaNo`, …) y marcarla es apuntar esa relación al
+  PNG marcado, que es el mismo recuadro con una X dibujada dentro (`png-check.mjs`). Preinscripción
+  usa dos recuadros de distinto tamaño, así que tiene dos PNG marcados
+  (`casillaMarcada4.png` y `casillaMarcada5.png`).
+- **Carta de Compromiso**: el recuadro es una forma, no una imagen. Cada uno lleva dentro un cuadro
+  de texto centrado con su token (`{{DOC_DPI}}`, …), que el backend resuelve a `X` o a nada.
+
 ## La Solicitud de Título, aparte
 
 Esa ficha necesita tres cosas que las otras no:
@@ -43,8 +57,12 @@ Solo si la universidad cambia el FORMATO oficial de alguna de las fichas. En ese
 3. Corre el script y vuelve a empaquetar:
 
 ```bash
-node prepare-preinscripcion.mjs <carpeta>/word/document.xml
+node prepare-preinscripcion.mjs <carpeta>
 ```
+
+(Este también recibe la CARPETA descomprimida, no solo el `document.xml`: toca además
+`word/_rels/document.xml.rels` y `word/media/` para las casillas. Los dos scripts son idempotentes:
+si la carpeta ya trae los tokens, solo rehacen la parte de las casillas.)
 
 ```bash
 node zip-dir.mjs <carpeta> ../../backend/UmesIsel.Api/Resources/PreinscripcionTemplate.docx

@@ -40,6 +40,10 @@ se borra al redesplegar, se borra la base de datos.
 > son las migraciones y un par de detalles de tipos. **Pregúntame antes de
 > empezarla**; no es algo que convenga improvisar la víspera.
 
+> **Si no van a dar ningún dominio ni servidor, salta a §1-ter**: Cloudflare
+> Pages + Fly.io, gratis, con HTTPS y con direcciones que no caducan. Es el
+> camino recomendado y está explicado paso a paso.
+
 ### Caso concreto: InfinityFree
 
 InfinityFree es **PHP 8.3 + MySQL**, y nada más. No corre .NET, no da acceso SSH
@@ -204,6 +208,186 @@ están cerrados en el código:
 
 El límite real de SQLite aquí no es el número de alumnos: es **tener más de una
 instancia de la aplicación escribiendo el mismo archivo**. No lo hagan.
+
+---
+
+## 1-ter. El camino recomendado si NO hay dominio propio: Cloudflare Pages + Fly.io
+
+Este es el montaje que hay que seguir cuando nadie va a dar un dominio de la
+universidad. Sale **gratis**, con **HTTPS**, y las dos direcciones son
+**permanentes**: no caducan, no piden renovación anual y no se desactivan por
+falta de uso.
+
+```
+   Alumno ──► https://umes-isel.pages.dev      (Cloudflare Pages — el sitio)
+                        │
+                        │ llamadas a la API por HTTPS
+                        ▼
+              https://umes-isel-api.fly.dev    (Fly.io — backend + SQLite + LibreOffice)
+```
+
+### Por qué estas dos y no otras
+
+| Servicio | Dirección que da | ¿Caduca? | Por qué se eligió |
+|---|---|---|---|
+| **Cloudflare Pages** | `<proyecto>.pages.dev` | No | Gratis de verdad, sin anuncios, sin páginas de "verificación", sin corte por tráfico, HTTPS automático. Sustituye a InfinityFree con ventaja en todo. |
+| **Fly.io** | `<app>.fly.dev` | No | Corre Docker con **disco persistente**, que es lo único que aguanta SQLite. Pide tarjeta para verificar identidad; el uso de este proyecto entra en el tramo que no se cobra. |
+
+Sobre "un dominio gratis con nombre propio" (tipo `.tk`, `.ml`, `.ga`):
+**ya no existe**. Freenom, que era el único que los daba, dejó de registrar
+dominios nuevos y los que quedaban se fueron cayendo — justo el problema de
+"se desactiva a cada rato" que hay que evitar. Si más adelante quieren un
+nombre propio (`isel-umes.site`, por ejemplo), un dominio barato cuesta entre
+2 y 12 USD al año y se enchufa a este mismo montaje sin tocar el código: se
+apunta en Cloudflare y se cambia `Cors__Origins__0`. Mientras tanto,
+`pages.dev` es una dirección seria y estable.
+
+### Paso 1 — subir el backend a Fly.io
+
+Todo esto es en la **raíz del repositorio** (donde está el `Dockerfile`).
+
+```bash
+# 1. Instalar la herramienta (una sola vez, en PowerShell)
+iwr https://fly.io/install.ps1 -useb | iex
+
+# 2. Crear la cuenta / entrar
+fly auth signup        # si ya tienes cuenta: fly auth login
+
+# 3. Crear la aplicación SIN desplegarla todavía
+fly launch --no-deploy --name umes-isel-api --region mia
+```
+
+Cuando pregunte si quiere crear Postgres o Redis, responder **que no**: la base
+de datos de este proyecto es un archivo SQLite y va en el volumen del paso
+siguiente.
+
+```bash
+# 4. El disco que sobrevive a los despliegues. SIN ESTO se pierde todo.
+fly volumes create isel_data --size 1 --region mia
+```
+
+Abrir el `fly.toml` que acaba de generarse y dejar estas cuatro cosas puestas
+(el resto del archivo se queda como está):
+
+```toml
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false     # que no se duerma: hay respaldos programados
+  min_machines_running = 1
+
+[[mounts]]
+  source = "isel_data"
+  destination = "/data"          # coincide con el VOLUME del Dockerfile
+
+[[vm]]
+  memory = "1gb"                 # LibreOffice necesita margen; con 256 MB falla
+```
+
+```bash
+# 5. Los secretos. Nunca se escriben en el repositorio.
+#    El dominio de Cors sale del paso 2; si aún no lo tienes, pon el que
+#    piensas usar y lo corriges al final (paso 3).
+fly secrets set `
+  Security__TokenSecret="pega-aqui-una-cadena-larga-y-aleatoria" `
+  AdminAccess__BootstrapUser="tu.usuario" `
+  AdminAccess__BootstrapPassword="una contraseña larga que elijas tú" `
+  Cors__Origins__0="https://umes-isel.pages.dev" `
+  Hosting__BehindReverseProxy=true
+
+# 6. Desplegar
+fly deploy
+```
+
+> Para generar el `Security__TokenSecret` en Windows:
+> `[Convert]::ToBase64String((1..48 | ForEach-Object { Get-Random -Max 256 }))`
+
+Comprobar que arrancó:
+
+```bash
+fly logs                                          # busca "CUENTA DE ADMINISTRADOR"
+curl -i https://umes-isel-api.fly.dev/api/programs # tiene que responder 200
+```
+
+**Anota la contraseña del primer administrador** que aparece en el log.
+
+### Paso 2 — subir el frontend a Cloudflare Pages
+
+```bash
+cd frontend
+copy .env.production.example .env.production
+```
+
+Editar `.env.production` y poner la dirección real del backend:
+
+```
+VITE_API_URL=https://umes-isel-api.fly.dev
+```
+
+```bash
+pnpm install
+pnpm run build          # deja el sitio compilado en frontend/dist
+```
+
+Ahora, en el navegador:
+
+1. Entrar a <https://dash.cloudflare.com> y crear la cuenta (gratis, no pide
+   tarjeta).
+2. Menú lateral → **Workers & Pages** → **Create** → pestaña **Pages** →
+   **Upload assets**.
+3. Ponerle de nombre al proyecto `umes-isel` (ese nombre es el que decide la
+   dirección: `umes-isel.pages.dev`).
+4. Arrastrar **el contenido de `frontend/dist`** — los archivos sueltos
+   (`index.html`, `assets/`, `images/`, `.htaccess`), **no** la carpeta `dist`.
+5. **Deploy**. En menos de un minuto el sitio está en línea con HTTPS.
+
+Cloudflare Pages ya sirve una aplicación de una sola página correctamente, así
+que no hay que configurar nada más para que funcione recargar en
+`/portal/admin`. (El `.htaccess` solo lo usa Apache; que viaje en la carpeta no
+molesta.)
+
+**Para publicar cambios más adelante**: `pnpm run build` otra vez y, en el mismo
+proyecto de Pages, **Create new deployment** → subir el `dist` nuevo.
+
+### Paso 3 — enlazar los dos
+
+Si la dirección que quedó en Pages no es la que pusiste en el paso 1, corrígela:
+
+```bash
+fly secrets set Cors__Origins__0="https://umes-isel.pages.dev"
+```
+
+Cambiar un secreto reinicia la aplicación sola; no hay que volver a desplegar.
+
+### Paso 4 — comprobar que todo quedó bien
+
+1. Abrir `https://umes-isel.pages.dev` y entrar al portal.
+2. Guardar una ficha de prueba y **volver a abrirla**: si los datos siguen ahí,
+   la base está escribiendo en el volumen.
+3. Descargar el PDF de esa ficha: si sale, LibreOffice quedó bien instalado.
+4. Entrar al panel con el usuario administrador del paso 1.
+5. `fly deploy` otra vez y repetir el punto 2: si la ficha sigue existiendo
+   **después de redesplegar**, el volumen está bien montado. Esta es la prueba
+   que de verdad importa.
+
+Si el sitio carga pero ningún formulario guarda, abrir la consola del navegador
+con F12:
+
+- `CORS policy` → el dominio de Pages no coincide con `Cors__Origins__0`.
+- `Mixed Content` → `VITE_API_URL` quedó en `http://`; tiene que ser `https://`.
+- `Failed to fetch` → la aplicación de Fly está caída: `fly logs` para ver por qué.
+
+### Paso 5 — dejar los respaldos andando
+
+Los respaldos automáticos se guardan en `/data/backups`, dentro del volumen. Para
+bajarse una copia a la computadora:
+
+```bash
+fly ssh sftp get /data/backups/<archivo>.db respaldo-local.db
+```
+
+Conviene hacerlo una vez al mes y guardarlo fuera de Fly.io — un volumen es un
+disco, no un respaldo. Ver §5.
 
 ---
 

@@ -176,11 +176,38 @@ public class FichaXlsxBuilder
     // so "checking" one means writing <x:Checked>1</x:Checked> into that shape's <x:ClientData>.
     private static string ApplyCheckboxes(string vml, bool pendientesTrimestres, bool pendientesMaterias)
     {
+        vml = WidenSiCaption(vml, "_x0000_s1201", 39);
+        vml = WidenSiCaption(vml, "_x0000_s1204", 37);
         vml = SetChecked(vml, "_x0000_s1199", !pendientesTrimestres);
         vml = SetChecked(vml, "_x0000_s1201", pendientesTrimestres);
         vml = SetChecked(vml, "_x0000_s1203", !pendientesMaterias);
         vml = SetChecked(vml, "_x0000_s1204", pendientesMaterias);
         return vml;
+    }
+
+    // Las casillas de "No" del FORMATO miden 31.5 pt de ancho — lo justo para el cuadrito y su
+    // leyenda — pero las de "SI" solo ~14 pt: alcanza para el cuadrito y la palabra "SI" queda
+    // recortada, así que en la ficha impresa el renglón se leía "☐ No ☐" sin el "SI" a la vista. Se
+    // les da el mismo ancho que a las de "No" (y se estira igual su ancla, que es lo que manda en
+    // Excel); posición, tamaño de letra y todo lo demás del diseño quedan igual.
+    private const double AnchoCasillaPt = 31.5;
+    private const int AnchoCasillaPx = 42; // 31.5 pt en las unidades de <x:Anchor> (0.75 pt por unidad)
+
+    private static string WidenSiCaption(string vml, string shapeId, int anchorStart)
+    {
+        var pattern = $@"<v:shape id=""{Regex.Escape(shapeId)}"".*?</v:shape>";
+        var match = Regex.Match(vml, pattern, RegexOptions.Singleline);
+        if (!match.Success) return vml;
+
+        var block = Regex.Replace(
+            match.Value,
+            @"width:[\d.]+pt",
+            $"width:{AnchoCasillaPt.ToString(System.Globalization.CultureInfo.InvariantCulture)}pt");
+        block = Regex.Replace(
+            block,
+            $@"(<x:Anchor>\s*0, {anchorStart}, \d+, \d+, 0, )\d+",
+            $"${{1}}{anchorStart + AnchoCasillaPx}");
+        return string.Concat(vml.AsSpan(0, match.Index), block, vml.AsSpan(match.Index + match.Length));
     }
 
     private static string SetChecked(string vml, string shapeId, bool @checked)
