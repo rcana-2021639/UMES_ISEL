@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
+import { motion, useReducedMotion, useScroll, useSpring, useTransform } from "framer-motion";
 import {
   RevealOnScroll,
   SplitHeading,
@@ -52,9 +52,9 @@ const OBJECTIVES = [
  * barrido solo existe si hay ratón. Se le han sumado cuatro capas atadas al
  * scroll, todas reversibles, ninguna compitiendo con el barrido:
  *
- *  1. La marca de agua del fondo ya no es una sola: son dos, cruzando a
- *     velocidades y en sentidos distintos. Dos planos a distinta velocidad es
- *     lo que produce profundidad; uno solo es un adorno que se desliza.
+ *  1. Una marca de agua cruza el fondo a contramano del scroll, amortiguada
+ *     por un muelle. Fueron dos durante un tiempo y se pisaban entre ellas:
+ *     ver el comentario del propio bloque.
  *  2. El numeral de cada franja flota a contramano de su propia fila mientras
  *     esta cruza la pantalla. Las cifras se descolocan y se recolocan solas:
  *     es lo que hace que el índice se vea vivo al bajar Y al subir.
@@ -71,10 +71,19 @@ export function ObjectivesSection() {
   const [hover, setHover] = useState<number | null>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
 
-  /* Dos planos de marca de agua a velocidades opuestas. El de delante corre
-     más y en sentido contrario al scroll; el de detrás apenas se mueve. */
-  const marcaFrente = useTransform(scrollYProgress, [0, 1], reduce ? ["0%", "0%"] : ["12%", "-26%"]);
-  const marcaFondo = useTransform(scrollYProgress, [0, 1], reduce ? ["0%", "0%"] : ["-14%", "6%"]);
+  /* UNA sola marca de agua.
+     Antes cruzaban dos a la vez —«ISEL» por detrás y «OBJETIVOS» por delante—
+     y a media sección se montaban la una sobre la otra: lo que se leía no era
+     ninguna de las dos, sino un amasijo de letras justo detrás del titular.
+     Una marca de agua sostiene el fondo; no le disputa la lectura al texto.
+     Queda la de la sección — el nombre de la casa ya está en la barra, en el
+     pie y en Dirección.
+
+     El muelle no es adorno: sin él un bloque de este tamaño avanza a saltos,
+     uno por cada evento de la rueda, y eso es justo lo que hace que la página
+     se sienta trabada. */
+  const marcaRaw = useTransform(scrollYProgress, [0, 1], reduce ? [0, 0] : [160, -360]);
+  const marcaFrente = useSpring(marcaRaw, { stiffness: 170, damping: 40, mass: 0.6 });
 
   /* Raíl de avance por la lista. Se mide contra el recorrido de la sección, de
      forma que llega al tope justo cuando el último objetivo termina de leerse. */
@@ -88,15 +97,8 @@ export function ObjectivesSection() {
     <section id="objetivos" ref={ref} className="relative overflow-hidden bg-isel-arena px-6 py-24 lg:py-32">
       <motion.span
         aria-hidden
-        style={{ x: marcaFondo }}
-        className="pointer-events-none absolute left-0 top-[38%] -translate-y-1/2 select-none whitespace-nowrap font-display text-[30vw] font-bold leading-none tracking-ultratight text-isel-navy/[0.028]"
-      >
-        ISEL ISEL
-      </motion.span>
-      <motion.span
-        aria-hidden
         style={{ x: marcaFrente }}
-        className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 select-none whitespace-nowrap font-display text-[26vw] font-bold leading-none tracking-ultratight text-isel-navy/[0.045]"
+        className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 select-none whitespace-nowrap font-display text-[26vw] font-bold leading-none tracking-ultratight text-isel-navy/[0.05] will-change-transform"
       >
         OBJETIVOS OBJETIVOS
       </motion.span>
@@ -198,7 +200,7 @@ function Objective({ item, index, on, onEnter, onLeave }: ObjectiveProps) {
         <div className="relative grid grid-cols-1 items-start gap-5 px-1 py-9 transition-[padding] duration-500 ease-snap group-hover:px-6 md:grid-cols-[7rem_1fr_1.25fr] md:items-center md:gap-10 md:py-11">
           <motion.span
             style={reduce ? undefined : { y: numeralY }}
-            className={`font-display text-[3.2rem] font-bold leading-none tracking-ultratight transition-colors duration-500 ease-snap md:text-[4.2rem] ${
+            className={`font-display text-[3.2rem] font-bold leading-none tracking-ultratight transition-colors duration-500 ease-snap will-change-transform md:text-[4.2rem] ${
               on ? "numeral-outline text-white" : "text-isel-navy/15"
             }`}
           >
