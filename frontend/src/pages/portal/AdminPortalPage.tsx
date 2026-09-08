@@ -176,6 +176,16 @@ export function AdminPortalPage() {
     }
   }
 
+  /**
+   * El padrón indexado por id.
+   *
+   * La tabla de fichas trae el `studentId` de cada asignación pero no el estado
+   * de la papelería, que vive en el alumno. Con este índice la fila de una
+   * ficha puede decir si a esa persona le falta papelería sin pedir nada más al
+   * servidor: la lista de alumnos ya está cargada desde que se abre el panel.
+   */
+  const studentsById = useMemo(() => new Map(students.map((s) => [s.id, s])), [students]);
+
   /** Las carreras que de verdad aparecen en el padrón, para el desplegable. */
   const studentCarreras = useMemo(
     () => Array.from(new Set(students.map((s) => s.carrera))).sort((a, b) => a.localeCompare(b)),
@@ -567,7 +577,7 @@ export function AdminPortalPage() {
               />
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[780px] border-collapse text-left text-[13.5px]">
+                <table className="w-full min-w-[900px] border-collapse text-left text-[13.5px]">
                   <thead>
                     <tr className="border-b border-isel-line bg-isel-paper/60">
                       <Th>Carné</Th>
@@ -575,6 +585,15 @@ export function AdminPortalPage() {
                       <Th>Carrera</Th>
                       <Th className="text-center">Tri</Th>
                       <Th>Tipo de pago</Th>
+                      {/* La papelería también aquí.
+                          Quien busca a alguien lo busca donde está su ficha, y
+                          aquí no había forma de saber si le faltaba algún papel
+                          ni de abrir el apartado que lo dice: había que
+                          acordarse de que existe una segunda tabla más abajo y
+                          volver a buscar a la misma persona en ella. La
+                          pregunta —«¿este ya entregó todo?»— se hace mirando la
+                          ficha, así que la respuesta va en la fila de la ficha. */}
+                      <Th className="text-center">Papelería</Th>
                       <Th className="text-right">Acciones</Th>
                     </tr>
                   </thead>
@@ -599,6 +618,12 @@ export function AdminPortalPage() {
                           ) : (
                             <span className="text-isel-ink/25">—</span>
                           )}
+                        </Td>
+                        <Td className="text-center">
+                          <PapeleriaChip
+                            student={studentsById.get(a.studentId) ?? null}
+                            onOpen={(st) => openFicha(st, true)}
+                          />
                         </Td>
                         <Td>
                           <div className="flex items-center justify-end gap-1">
@@ -736,20 +761,7 @@ export function AdminPortalPage() {
                         <Td className="text-center text-isel-ink/65">{s.seccion || "—"}</Td>
                         <Td className="tabular text-center text-isel-ink/65">{s.trimestre ?? "—"}</Td>
                         <Td className="text-center">
-                          <button
-                            type="button"
-                            onClick={() => openFicha(s, true)}
-                            title={`Ver la papelería de ${s.nombreCompleto}`}
-                            className="rounded-full transition-transform duration-300 ease-snap hover:-translate-y-px"
-                          >
-                            {s.papeleriaEnOrden ? (
-                              <Chip tone="emerald" icon="check">Al día</Chip>
-                            ) : s.documentosSubidos > 0 ? (
-                              <Chip tone="gold" icon="file">{s.documentosSubidos} subidos</Chip>
-                            ) : (
-                              <Chip tone="neutral" icon="file">Ver</Chip>
-                            )}
-                          </button>
+                          <PapeleriaChip student={s} onOpen={(st) => openFicha(st, true)} />
                         </Td>
                         <Td>
                           <div className="flex items-center justify-end gap-1">
@@ -922,6 +934,41 @@ export function AdminPortalPage() {
       )}
       {confirmDialog}
     </main>
+  );
+}
+
+/**
+ * Estado de la papelería de un alumno, y atajo para abrirla.
+ *
+ * Vive en las dos tablas del panel —la de fichas y la del padrón— y dice de un
+ * vistazo lo mismo en ambas: «Al día», cuántos documentos ha subido, o «Ver» si
+ * no hay nada todavía. Al pulsarla abre la ficha de esa persona ya desplazada
+ * hasta el apartado de documentos.
+ *
+ * Ojo con lo que significa el estado por defecto: el padrón viene de un Excel
+ * que no registra quién entregó su papelería, así que todo el mundo empieza en
+ * «Ver» —ni al día ni pendiente, sencillamente sin responder— hasta que alguien
+ * lo marca desde el panel. No es que falte el dato: es que todavía nadie lo ha
+ * dado.
+ */
+function PapeleriaChip({ student, onOpen }: { student: Student | null; onOpen: (s: Student) => void }) {
+  if (!student) return <span className="text-isel-ink/25">—</span>;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(student)}
+      title={`Ver la papelería de ${student.nombreCompleto}`}
+      className="rounded-full transition-transform duration-300 ease-snap hover:-translate-y-px"
+    >
+      {student.papeleriaEnOrden ? (
+        <Chip tone="emerald" icon="check">Al día</Chip>
+      ) : student.documentosSubidos > 0 ? (
+        <Chip tone="gold" icon="file">{student.documentosSubidos} subidos</Chip>
+      ) : (
+        <Chip tone="neutral" icon="file">Ver</Chip>
+      )}
+    </button>
   );
 }
 
