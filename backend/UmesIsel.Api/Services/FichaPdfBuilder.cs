@@ -86,6 +86,40 @@ public class FichaPdfBuilder
     /// </summary>
     internal byte[] ConvertToPdf(byte[] fileBytes, string inputFileName)
     {
+        // Techo GLOBAL de conversiones simultáneas. El limitador de peticiones
+        // (RateLimitPolicies.Pesado) ya frena a cada cliente por separado, pero reparte por
+        // cliente: treinta alumnos distintos imprimiendo su ficha a la vez pasarían los treinta,
+        // y cada conversión levanta un LibreOffice de ~200 MB. Con eso se acaba la memoria de la
+        // máquina y el servidor deja de responder a TODO, no solo a los PDF. Este semáforo es lo
+        // que hace que el pico se convierta en cola en vez de en caída.
+        if (!ConversionSlots.Wait(ConversionQueueTimeout))
+        {
+            throw new InvalidOperationException(
+                "El servidor está generando otros documentos en este momento. " +
+                "Espera unos segundos y vuelve a intentarlo.");
+        }
+        try
+        {
+            return ConvertToPdfCore(fileBytes, inputFileName);
+        }
+        finally
+        {
+            ConversionSlots.Release();
+        }
+    }
+
+    // 3 a la vez: con 2 GB de RAM caben de sobra (LibreOffice ronda los 200 MB por proceso) y el
+    // servidor sigue teniendo aire para atender el resto de peticiones. Subirlo no acelera nada:
+    // la conversión es un proceso externo que ya usa la CPU entera que puede.
+    private static readonly SemaphoreSlim ConversionSlots = new(3, 3);
+
+    // Cuánto espera una petición su turno antes de rendirse. Generoso a propósito: "Imprimir todas"
+    // convierte una ficha detrás de otra y puede ocupar un hueco un buen rato. Si se agota, es mejor
+    // decirle a la persona que reintente que dejar la petición colgada hasta que el navegador corte.
+    private static readonly TimeSpan ConversionQueueTimeout = TimeSpan.FromSeconds(120);
+
+    private byte[] ConvertToPdfCore(byte[] fileBytes, string inputFileName)
+    {
         var soffice = FindSoffice();
         var workDir = Path.Combine(Path.GetTempPath(), "isel-ficha-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(workDir);
