@@ -1,0 +1,269 @@
+---
+title: UMES / ISEL — Modelo Entidad-Relación (EF Core + SQLite · isel.db)
+---
+erDiagram
+    CARRERAS ||--o{ COURSES : "define el pensum de"
+    CARRERAS ||--o{ STUDENTS : "clasifica a"
+
+    STUDENTS ||--o{ COURSE_ASSIGNMENTS : "llena (CASCADE)"
+    STUDENTS ||--o{ STUDENT_DOCUMENTS : "entrega (CASCADE)"
+    STUDENTS ||--o| SOLICITUDES_TITULO : "solicita 1 viva (CASCADE)"
+    COURSE_ASSIGNMENTS ||--o{ ASSIGNED_COURSE_ROWS : "detalla (CASCADE)"
+    COURSE_ASSIGNMENTS ||--o{ ADDITIONAL_COURSE_ROWS : "detalla (CASCADE)"
+
+    APPLICANTS ||--o| PREINSCRIPCIONES : "ficha 1 de 3 (CASCADE)"
+    APPLICANTS ||--o| ASIGNACIONES_NUEVO_INGRESO : "ficha 2 de 3 (CASCADE)"
+    APPLICANTS ||--o| CARTAS_COMPROMISO : "ficha 3 de 3 (CASCADE)"
+    APPLICANTS ||--o{ APPLICANT_DOCUMENTS : "adjunta (CASCADE)"
+    ASIGNACIONES_NUEVO_INGRESO ||--o{ ASIGNACION_NI_CURSO_ROWS : "detalla (CASCADE)"
+    ASIGNACIONES_NUEVO_INGRESO ||--o{ ASIGNACION_NI_ADICIONAL_ROWS : "detalla (CASCADE)"
+    APPLICANTS |o--o| STUDENTS : "migrado a (SET NULL)"
+
+    CARRERAS {
+        int Id PK
+        varchar Nombre UK "clave real que usan Students y Courses"
+        varchar Tipo
+        bool EsPrograma
+        bool Activa
+        int Orden
+        datetime CreatedAt
+        datetime UpdatedAt
+    }
+
+    COURSES {
+        int Id PK
+        varchar Carrera FK "FK logica por nombre"
+        int Trimestre
+        varchar Nombre
+        datetime CreatedAt
+    }
+
+    STUDENTS {
+        int Id PK
+        varchar Carnet UK "credencial 1 de 2"
+        varchar PrimerNombre
+        varchar SegundoNombre
+        varchar PrimerApellido
+        varchar SegundoApellido
+        varchar NombreCompleto
+        varchar Carrera FK "FK logica por nombre"
+        varchar Seccion
+        int Trimestre
+        varchar CorreoInstitucional "credencial 2 de 2"
+        varchar CorreoPersonal
+        varchar Celular
+        bool PapeleriaEnOrden
+        datetime CreatedAt
+        datetime UpdatedAt
+    }
+
+    STUDENT_DOCUMENTS {
+        int Id PK
+        int StudentId FK
+        varchar Tipo UK "unico junto a StudentId"
+        varchar FileName
+        varchar FilePath
+        varchar ContentType
+        bigint SizeBytes
+        datetime UploadedAt
+    }
+
+    COURSE_ASSIGNMENTS {
+        int Id PK
+        int StudentId FK
+        date Fecha
+        int Trimestre
+        varchar Carrera
+        varchar Seccion
+        bool TienePendientesTrimestres
+        bool TienePendientesMaterias
+        varchar CorreoContacto
+        varchar TelefonoContacto
+        varchar TipoPago
+        text FirmaBase64
+        datetime FirmadoEn
+        varchar AutorizadoPorCodigo
+        datetime CreatedAt
+        datetime UpdatedAt
+    }
+
+    ASSIGNED_COURSE_ROWS {
+        int Id PK
+        int CourseAssignmentId FK
+        int Numero
+        varchar Curso
+        varchar SemTri
+        varchar Seccion
+    }
+
+    ADDITIONAL_COURSE_ROWS {
+        int Id PK
+        int CourseAssignmentId FK
+        int Numero
+        varchar CursoAdicional
+        varchar Carrera
+        varchar SemTri
+        varchar Seccion
+        varchar Jornada
+    }
+
+    SOLICITUDES_TITULO {
+        int Id PK
+        int StudentId FK "UNIQUE - una solicitud viva por alumno"
+        varchar Carnet
+        varchar Nombres
+        varchar Apellidos
+        varchar Sexo
+        varchar EstadoCivil
+        date FechaNacimiento
+        date FechaSolicitud
+        varchar TituloObtener
+        varchar FacultadDepartamento
+        varchar Campus
+        varchar DireccionDomicilio
+        varchar TelefonoDomicilio
+        varchar TelefonoCelular
+        varchar TelefonoEmergencia
+        varchar CorreoElectronico
+        varchar Empresa
+        varchar Cargo
+        varchar DireccionTrabajo
+        varchar TelefonoTrabajo
+        bool ParticipaCeremonia
+        text FotoBase64
+        text FirmaBase64
+        datetime FirmadoEn
+        bool Entregada
+        datetime EntregadaEn
+        datetime CreatedAt
+        datetime UpdatedAt
+    }
+
+    APPLICANTS {
+        int Id PK
+        varchar Dpi "credencial del aspirante"
+        varchar Pasaporte "alternativa para extranjeros"
+        bool EsExtranjero
+        varchar PrimerNombre
+        varchar SegundoNombre
+        varchar PrimerApellido
+        varchar SegundoApellido
+        varchar NombreCompleto
+        int MigradoStudentId FK "ON DELETE SET NULL"
+        datetime MigradoEn
+        datetime CreatedAt
+        datetime UpdatedAt
+    }
+
+    APPLICANT_DOCUMENTS {
+        int Id PK
+        int ApplicantId FK
+        varchar Tipo UK "unico junto a ApplicantId"
+        varchar FileName
+        varchar FilePath
+        varchar ContentType
+        bigint SizeBytes
+        datetime UploadedAt
+    }
+
+    PREINSCRIPCIONES {
+        int Id PK
+        int ApplicantId FK "UNIQUE"
+        varchar NombreCompleto
+        varchar Carrera
+        varchar Jornada
+        varchar Dpi
+        varchar NoPasaporte
+        date FechaNacimiento
+        varchar LugarNacimiento
+        varchar Genero
+        varchar EstadoCivil
+        varchar Nacionalidad
+        varchar PuebloPertenencia
+        varchar ComunidadLinguistica
+        varchar IdiomaMaterno
+        varchar DireccionCompleta
+        varchar Municipio
+        varchar Departamento
+        varchar TelefonoCasa
+        varchar TelefonoCelular
+        varchar CorreoElectronico
+        varchar Emergencia1Nombre
+        varchar Emergencia1Telefono
+        varchar Emergencia2Nombre
+        varchar Emergencia2Telefono
+        bool TieneProblemaSalud
+        varchar SaludDescripcion
+        bool TieneAlergia
+        varchar AlergiaDescripcion
+        text FirmaBase64
+        datetime FirmadoEn
+        datetime CreatedAt
+        datetime UpdatedAt
+    }
+
+    ASIGNACIONES_NUEVO_INGRESO {
+        int Id PK
+        int ApplicantId FK "UNIQUE"
+        date Fecha
+        int Trimestre
+        varchar Carrera
+        varchar Seccion
+        varchar PrimerNombre
+        varchar SegundoNombre
+        varchar PrimerApellido
+        varchar SegundoApellido
+        bool TienePendientesTrimestres
+        bool TienePendientesMaterias
+        varchar CorreoContacto
+        varchar TelefonoContacto
+        varchar TipoPago
+        text FirmaBase64
+        datetime FirmadoEn
+        datetime CreatedAt
+        datetime UpdatedAt
+    }
+
+    ASIGNACION_NI_CURSO_ROWS {
+        int Id PK
+        int AsignacionNuevoIngresoId FK
+        int Numero
+        varchar Curso
+        varchar SemTri
+        varchar Seccion
+    }
+
+    ASIGNACION_NI_ADICIONAL_ROWS {
+        int Id PK
+        int AsignacionNuevoIngresoId FK
+        int Numero
+        varchar CursoAdicional
+        varchar Carrera
+        varchar SemTri
+        varchar Seccion
+        varchar Jornada
+    }
+
+    ADMIN_USERS {
+        int Id PK
+        varchar Username UK "siempre en minusculas"
+        varchar NombreCompleto
+        varchar PasswordHash "PBKDF2 - nunca sale en un DTO"
+        bool Activo
+        bool DebeCambiarPassword
+        int IntentosFallidos
+        datetime BloqueadaHasta
+        datetime UltimoAcceso
+        datetime CreatedAt
+        datetime UpdatedAt
+    }
+
+    SECURITY_EVENTS {
+        int Id PK
+        varchar Tipo
+        varchar Actor "admin-usuario / alumno-carne / aspirante-expN"
+        varchar Detalle
+        varchar Ip
+        bool EsAlerta
+        datetime OcurridoEn
+    }

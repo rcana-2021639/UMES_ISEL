@@ -1,0 +1,100 @@
+---
+title: UMES / ISEL — Flujo real del sistema (React + Vite → API .NET 8 → SQLite)
+---
+flowchart TB
+    classDef pub fill:#e8f1fb,stroke:#2a6099,color:#10243a
+    classDef api fill:#fff4e0,stroke:#c47f16,color:#3a2a10
+    classDef db fill:#e9f7ee,stroke:#2f7d46,color:#12301f
+    classDef doc fill:#f3ecfa,stroke:#7a4fb0,color:#2a1840
+    classDef admin fill:#fdeaea,stroke:#b23b3b,color:#3a1414
+    classDef stop fill:#f1f1f1,stroke:#888,color:#333
+
+    INICIO(["Persona entra a umes-isel"]):::pub
+
+    INICIO --> QUIEN{"Quien es?"}:::pub
+
+    %% ============ RAMA 1: ASPIRANTE DE NUEVO INGRESO ============
+    QUIEN -->|"Aspirante sin carne"| A1["/inscripcion<br/>escribe DPI o Pasaporte"]:::pub
+    A1 --> A2["POST /api/inscripciones/acceso<br/>rate limit por IP"]:::api
+    A2 --> A3{"Existe ese DPI<br/>en Applicants?"}:::api
+    A3 -->|No| A4["INSERT Applicants<br/>expediente nuevo"]:::db
+    A3 -->|Si| A5{"MigradoStudentId<br/>ya tiene valor?"}:::api
+    A5 -->|Si| AX["409 Conflict<br/>ya fue migrado, ver coordinacion"]:::stop
+    A5 -->|No| A6["Reanuda el expediente"]:::db
+    A4 --> A7
+    A6 --> A7["Emite token de sesion<br/>rol Applicant atado a ESE expediente"]:::api
+    A7 --> A8["SecurityEvents:<br/>AccesoInscripcion (sin guardar el DPI)"]:::db
+
+    A8 --> F1["Ficha 1 de 3 — Preinscripcion<br/>PUT /api/inscripciones/{id}/preinscripcion"]:::pub
+    F1 --> F2["Ficha 2 de 3 — Asignacion de cursos<br/>PUT /api/inscripciones/{id}/asignacion<br/>cursos del pensum por carrera y trimestre"]:::pub
+    F2 --> F3["Ficha 3 de 3 — Carta de compromiso<br/>PUT /api/inscripciones/{id}/compromiso"]:::pub
+    F3 --> F4["Sube papeleria<br/>POST /api/inscripciones/{id}/documentos/{tipo}<br/>1 archivo por tipo"]:::pub
+    F4 --> F5["Firma en pantalla<br/>FirmaBase64 + FirmadoEn"]:::pub
+    F5 --> F6["Descarga sus fichas<br/>preinscripcion.pdf · asignacion.pdf<br/>compromiso.pdf · completas.pdf"]:::doc
+
+    %% ============ RAMA 2: PANEL ADMINISTRATIVO ============
+    QUIEN -->|"Personal del ISEL"| B1["/portal/login<br/>usuario + contrasena"]:::admin
+    B1 --> B2["POST /api/auth/login/admin<br/>PBKDF2 · hash senuelo si no existe<br/>bloqueo temporal por intentos fallidos"]:::api
+    B2 --> B3{"Credenciales<br/>validas?"}:::api
+    B3 -->|No| B4["401 · SecurityEvents LoginAdminFallido<br/>IntentosFallidos++ · BloqueadaHasta"]:::stop
+    B3 -->|Si| B5["Token rol Admin<br/>SecurityEvents LoginAdminOk"]:::api
+    B5 --> B6{"DebeCambiar<br/>Password?"}:::api
+    B6 -->|Si| B7["PUT /api/auth/password"]:::admin
+    B6 -->|No| B8
+    B7 --> B8["/portal/admin"]:::admin
+
+    B8 --> C1["Bandeja de inscripciones<br/>GET /api/inscripciones"]:::admin
+    B8 --> C2["Padron de alumnos<br/>GET /api/students"]:::admin
+    B8 --> C3["Pensum<br/>/api/pensum/carreras · cursos"]:::admin
+    B8 --> C4["Solicitudes de titulo<br/>GET /api/solicitudes-titulo"]:::admin
+    B8 --> C5["Cuentas y bitacora<br/>/api/admin/usuarios · /api/admin/bitacora"]:::admin
+    B8 --> C6["Respaldos, import y export CSV<br/>/api/admin/exportar · importar · respaldos"]:::admin
+
+    %% ============ MIGRACION: ASPIRANTE -> ALUMNO ============
+    F6 -.->|"expediente listo"| C1
+    C1 --> M1["Revisa fichas y papeleria<br/>descarga ficha-batch.pdf"]:::admin
+    M1 --> M2{"Tiene ficha de<br/>asignacion llena?"}:::api
+    M2 -->|No| M3["400 · falta la ficha 2 de 3"]:::stop
+    M2 -->|Si| M4["POST /api/inscripciones/{id}/migrar<br/>con carne, seccion y trimestre"]:::api
+    M4 --> M5{"Ese carne<br/>ya existe?"}:::api
+    M5 -->|Si| M6["409 Conflict"]:::stop
+    M5 -->|No| M7["INSERT Students<br/>nombre, carrera, seccion y contacto<br/>copiados del expediente"]:::db
+    M7 --> M8["INSERT CourseAssignments<br/>Fecha = hoy · AutorizadoPorCodigo = MIGRADO-INSCRIPCION<br/>+ CursosAsignados y CursosAdicionales"]:::db
+    M8 --> M9["Applicants.MigradoStudentId = Students.Id<br/>MigradoEn = ahora · el expediente queda cerrado"]:::db
+
+    %% ============ RAMA 3: ALUMNO YA INSCRITO ============
+    QUIEN -->|"Alumno con carne"| D1["/portal/login<br/>carne + correo institucional"]:::pub
+    M9 -.->|"ya esta en el padron"| D1
+    D1 --> D2["POST /api/auth/login/estudiante<br/>tolera mayusculas y solo la parte antes de la arroba<br/>el correo personal NO sirve"]:::api
+    D2 --> D3{"Carne y correo<br/>coinciden?"}:::api
+    D3 -->|No| D4["401 identico en ambos casos<br/>SecurityEvents LoginAlumnoFallido (alerta)"]:::stop
+    D3 -->|Si| D5["Token rol Student<br/>/portal/estudiante"]:::api
+
+    D5 --> E1["Llena su ficha de asignacion<br/>POST /api/course-assignments"]:::pub
+    E1 --> E2["Cursos del trimestre desde el pensum<br/>GET /api/courses?carrera=&trimestre="]:::api
+    E2 --> E3["INSERT CourseAssignments<br/>+ AssignedCourseRows + AdditionalCourseRows"]:::db
+    E3 --> E4["Descarga ficha.xlsx / ficha.pdf<br/>o ficha-y-documentos.pdf"]:::doc
+    D5 --> E5["Sube su papeleria<br/>POST /api/students/{id}/documentos/{tipo}"]:::pub
+    E5 --> E6["El admin marca PapeleriaEnOrden<br/>PUT /api/students/{id}/papeleria-en-orden"]:::admin
+
+    %% ============ RAMA 4: SOLICITUD DE TITULO ============
+    QUIEN -->|"Alumno que se gradua"| G1["/solicitud-titulo<br/>carne + correo institucional"]:::pub
+    G1 --> G2["POST /api/solicitudes-titulo/acceso"]:::api
+    G2 --> G3{"Ya existe<br/>solicitud?"}:::api
+    G3 -->|No| G4["INSERT SolicitudesTitulo<br/>sembrada con lo que el padron ya sabe:<br/>nombres, correo, celular, carrera"]:::db
+    G3 -->|"Si y Entregada"| G5["409 · ya la proceso Secretaria"]:::stop
+    G3 -->|"Si y viva"| G6["La reanuda tal como quedo"]:::db
+    G4 --> G7
+    G6 --> G7["Token rol Student atado al ALUMNO<br/>sirve tambien para el portal de asignacion"]:::api
+    G7 --> G8["Completa datos, foto y firma<br/>PUT /api/solicitudes-titulo/{id}"]:::pub
+    G8 --> G9["Descarga solicitud.pdf"]:::doc
+    G9 -.-> C4
+    C4 --> G10["Secretaria marca entregada<br/>PATCH /api/solicitudes-titulo/{id}/entregada"]:::admin
+    G10 --> G11["Entregada = true · EntregadaEn = ahora<br/>la solicitud queda cerrada"]:::db
+
+    %% ============ TRANSVERSAL ============
+    A2 -.-> LOG[("SecurityEvents<br/>bitacora de seguridad<br/>quien, que, cuando, IP")]:::db
+    B2 -.-> LOG
+    D2 -.-> LOG
+    G2 -.-> LOG
+    M4 -.-> LOG

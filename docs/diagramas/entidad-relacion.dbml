@@ -1,0 +1,326 @@
+// ============================================================
+// UMES / ISEL - Modelo entidad-relacion real (EF Core + SQLite)
+// Generado desde IselDbContext + IselDbContextModelSnapshot
+// ============================================================
+
+Table AdminUsers {
+  Id integer [pk, increment]
+  Username varchar(60) [not null, unique, note: 'siempre en minusculas']
+  NombreCompleto varchar(120) [not null]
+  PasswordHash varchar(300) [not null, note: 'PBKDF2, nunca sale en un DTO']
+  Activo boolean [not null]
+  DebeCambiarPassword boolean [not null]
+  IntentosFallidos integer [not null]
+  BloqueadaHasta datetime
+  UltimoAcceso datetime
+  CreatedAt datetime [not null]
+  UpdatedAt datetime [not null]
+  Note: 'Cuentas del panel administrativo'
+}
+
+Table SecurityEvents {
+  Id integer [pk, increment]
+  Tipo varchar(60) [not null]
+  Actor varchar(120) [not null, note: 'admin:usuario / alumno:carne / aspirante:exp-N']
+  Detalle varchar(400)
+  Ip varchar(64)
+  EsAlerta boolean [not null]
+  OcurridoEn datetime [not null]
+
+  indexes {
+    OcurridoEn
+    (EsAlerta, OcurridoEn)
+  }
+  Note: 'Bitacora de seguridad. Sin FK: sobrevive al borrado del actor'
+}
+
+Table Carreras {
+  Id integer [pk, increment]
+  Nombre varchar(200) [not null, unique, note: 'clave real que usan Students.Carrera y Courses.Carrera']
+  Tipo varchar(60) [not null]
+  EsPrograma boolean [not null]
+  Activa boolean [not null]
+  Orden integer [not null]
+  CreatedAt datetime [not null]
+  UpdatedAt datetime [not null]
+}
+
+Table Courses {
+  Id integer [pk, increment]
+  Carrera varchar(200) [not null, note: 'FK logica -> Carreras.Nombre']
+  Trimestre integer [not null]
+  Nombre varchar(200) [not null]
+  CreatedAt datetime [not null]
+
+  indexes {
+    (Carrera, Trimestre, Nombre) [unique]
+  }
+  Note: 'Pensum: un curso por trimestre por carrera'
+}
+
+Table Students {
+  Id integer [pk, increment]
+  Carnet varchar(20) [not null, unique]
+  PrimerNombre varchar(120) [not null]
+  SegundoNombre varchar(120)
+  PrimerApellido varchar(120) [not null]
+  SegundoApellido varchar(120)
+  NombreCompleto varchar(250) [not null]
+  Carrera varchar(200) [not null, note: 'FK logica -> Carreras.Nombre']
+  Seccion varchar(10)
+  Trimestre integer
+  CorreoInstitucional varchar(150) [note: 'credencial de acceso junto al carne']
+  CorreoPersonal varchar(150)
+  Celular varchar(30)
+  PapeleriaEnOrden boolean [not null]
+  CreatedAt datetime [not null]
+  UpdatedAt datetime [not null]
+  Note: 'Padron de alumnos'
+}
+
+Table StudentDocuments {
+  Id integer [pk, increment]
+  StudentId integer [not null]
+  Tipo varchar(40) [not null]
+  FileName varchar(260) [not null]
+  FilePath varchar(400) [not null]
+  ContentType varchar(100) [not null]
+  SizeBytes bigint [not null]
+  UploadedAt datetime [not null]
+
+  indexes {
+    (StudentId, Tipo) [unique]
+  }
+  Note: 'Un documento por tipo. Cascade al borrar el alumno'
+}
+
+Table CourseAssignments {
+  Id integer [pk, increment]
+  StudentId integer [not null]
+  Fecha date [not null]
+  Trimestre integer [not null]
+  Carrera varchar(200) [not null]
+  Seccion varchar(10)
+  TienePendientesTrimestres boolean [not null]
+  TienePendientesMaterias boolean [not null]
+  CorreoContacto varchar(150)
+  TelefonoContacto varchar(30)
+  TipoPago varchar(20)
+  FirmaBase64 text
+  FirmadoEn datetime
+  AutorizadoPorCodigo varchar(50)
+  CreatedAt datetime [not null]
+  UpdatedAt datetime [not null]
+  Note: 'Ficha de asignacion de cursos del alumno ya inscrito'
+}
+
+Table AssignedCourseRows {
+  Id integer [pk, increment]
+  CourseAssignmentId integer [not null]
+  Numero integer [not null]
+  Curso varchar(200) [not null]
+  SemTri varchar(10)
+  Seccion varchar(10)
+  Note: 'Renglones de cursos del trimestre'
+}
+
+Table AdditionalCourseRows {
+  Id integer [pk, increment]
+  CourseAssignmentId integer [not null]
+  Numero integer [not null]
+  CursoAdicional varchar(200) [not null]
+  Carrera varchar(200)
+  SemTri varchar(10)
+  Seccion varchar(10)
+  Jornada varchar(30)
+  Note: 'Cursos de otra carrera o jornada'
+}
+
+Table SolicitudesTitulo {
+  Id integer [pk, increment]
+  StudentId integer [not null, unique, note: 'una solicitud viva por alumno']
+  Carnet varchar(20) [not null]
+  Nombres varchar(120) [not null]
+  Apellidos varchar(120) [not null]
+  Sexo varchar(1)
+  EstadoCivil varchar(40)
+  FechaNacimiento date
+  FechaSolicitud date [not null]
+  TituloObtener varchar(250)
+  FacultadDepartamento varchar(200)
+  Campus varchar(30)
+  DireccionDomicilio varchar(250)
+  TelefonoDomicilio varchar(30)
+  TelefonoCelular varchar(30)
+  TelefonoEmergencia varchar(30)
+  CorreoElectronico varchar(150)
+  Empresa varchar(200)
+  Cargo varchar(150)
+  DireccionTrabajo varchar(250)
+  TelefonoTrabajo varchar(60)
+  ParticipaCeremonia boolean [not null]
+  FotoBase64 text
+  FirmaBase64 text
+  FirmadoEn datetime
+  Entregada boolean [not null]
+  EntregadaEn datetime
+  CreatedAt datetime [not null]
+  UpdatedAt datetime [not null]
+
+  indexes {
+    Carnet
+  }
+  Note: 'Solicitud de impresion de titulo'
+}
+
+Table Applicants {
+  Id integer [pk, increment]
+  Dpi varchar(20) [note: 'credencial del aspirante']
+  Pasaporte varchar(30) [note: 'alternativa para extranjeros']
+  EsExtranjero boolean [not null]
+  PrimerNombre varchar(120)
+  SegundoNombre varchar(120)
+  PrimerApellido varchar(120)
+  SegundoApellido varchar(120)
+  NombreCompleto varchar(250)
+  MigradoStudentId integer [note: 'ON DELETE SET NULL']
+  MigradoEn datetime
+  CreatedAt datetime [not null]
+  UpdatedAt datetime [not null]
+
+  indexes {
+    Dpi
+    Pasaporte
+  }
+  Note: 'Expediente de aspirante de nuevo ingreso'
+}
+
+Table ApplicantDocuments {
+  Id integer [pk, increment]
+  ApplicantId integer [not null]
+  Tipo varchar(40) [not null]
+  FileName varchar(260) [not null]
+  FilePath varchar(400) [not null]
+  ContentType varchar(100) [not null]
+  SizeBytes bigint [not null]
+  UploadedAt datetime [not null]
+
+  indexes {
+    (ApplicantId, Tipo) [unique]
+  }
+}
+
+Table Preinscripciones {
+  Id integer [pk, increment]
+  ApplicantId integer [not null, unique]
+  NombreCompleto varchar(250) [not null]
+  Carrera varchar(200) [not null]
+  Jornada varchar(60)
+  Dpi varchar(20)
+  NoPasaporte varchar(30)
+  FechaNacimiento date
+  LugarNacimiento varchar(150)
+  Genero varchar(30)
+  EstadoCivil varchar(40)
+  Nacionalidad varchar(80)
+  PuebloPertenencia varchar(30)
+  ComunidadLinguistica varchar(80)
+  IdiomaMaterno varchar(80)
+  DireccionCompleta varchar(250)
+  Municipio varchar(100)
+  Departamento varchar(100)
+  TelefonoCasa varchar(30)
+  TelefonoCelular varchar(30)
+  CorreoElectronico varchar(150)
+  Emergencia1Nombre varchar(150)
+  Emergencia1Telefono varchar(30)
+  Emergencia2Nombre varchar(150)
+  Emergencia2Telefono varchar(30)
+  TieneProblemaSalud boolean [not null]
+  SaludDescripcion varchar(250)
+  TieneAlergia boolean [not null]
+  AlergiaDescripcion varchar(250)
+  FirmaBase64 text
+  FirmadoEn datetime
+  CreatedAt datetime [not null]
+  UpdatedAt datetime [not null]
+  Note: 'Ficha 1 de 3 - datos personales'
+}
+
+Table AsignacionesNuevoIngreso {
+  Id integer [pk, increment]
+  ApplicantId integer [not null, unique]
+  Fecha date [not null]
+  Trimestre integer [not null]
+  Carrera varchar(200) [not null]
+  Seccion varchar(10)
+  PrimerNombre varchar(120) [not null]
+  SegundoNombre varchar(120)
+  PrimerApellido varchar(120) [not null]
+  SegundoApellido varchar(120)
+  TienePendientesTrimestres boolean [not null]
+  TienePendientesMaterias boolean [not null]
+  CorreoContacto varchar(150)
+  TelefonoContacto varchar(30)
+  TipoPago varchar(20)
+  FirmaBase64 text
+  FirmadoEn datetime
+  CreatedAt datetime [not null]
+  UpdatedAt datetime [not null]
+  Note: 'Ficha 2 de 3 - asignacion de cursos. Semilla del CourseAssignment al migrar'
+}
+
+Table AsignacionNuevoIngresoCursoRows {
+  Id integer [pk, increment]
+  AsignacionNuevoIngresoId integer [not null]
+  Numero integer [not null]
+  Curso varchar(200) [not null]
+  SemTri varchar(10)
+  Seccion varchar(10)
+}
+
+Table AsignacionNuevoIngresoAdicionalRows {
+  Id integer [pk, increment]
+  AsignacionNuevoIngresoId integer [not null]
+  Numero integer [not null]
+  CursoAdicional varchar(200) [not null]
+  Carrera varchar(200)
+  SemTri varchar(10)
+  Seccion varchar(10)
+  Jornada varchar(30)
+}
+
+Table CartasCompromiso {
+  Id integer [pk, increment]
+  ApplicantId integer [not null, unique]
+  NombreCompleto varchar(250) [not null]
+  NoDpi varchar(20) [not null]
+  EsExtranjero boolean [not null]
+  Carrera varchar(200) [not null]
+  Fecha date [not null]
+  FirmaBase64 text
+  FirmadoEn datetime
+  CreatedAt datetime [not null]
+  UpdatedAt datetime [not null]
+  Note: 'Ficha 3 de 3 - carta de compromiso'
+}
+
+// ---------------- Relaciones ----------------
+
+Ref: CourseAssignments.StudentId > Students.Id [delete: cascade]
+Ref: AssignedCourseRows.CourseAssignmentId > CourseAssignments.Id [delete: cascade]
+Ref: AdditionalCourseRows.CourseAssignmentId > CourseAssignments.Id [delete: cascade]
+Ref: StudentDocuments.StudentId > Students.Id [delete: cascade]
+Ref: SolicitudesTitulo.StudentId - Students.Id [delete: cascade]
+
+Ref: Preinscripciones.ApplicantId - Applicants.Id [delete: cascade]
+Ref: AsignacionesNuevoIngreso.ApplicantId - Applicants.Id [delete: cascade]
+Ref: CartasCompromiso.ApplicantId - Applicants.Id [delete: cascade]
+Ref: ApplicantDocuments.ApplicantId > Applicants.Id [delete: cascade]
+Ref: AsignacionNuevoIngresoCursoRows.AsignacionNuevoIngresoId > AsignacionesNuevoIngreso.Id [delete: cascade]
+Ref: AsignacionNuevoIngresoAdicionalRows.AsignacionNuevoIngresoId > AsignacionesNuevoIngreso.Id [delete: cascade]
+
+Ref: Applicants.MigradoStudentId > Students.Id [delete: set null]
+
+Ref: Courses.Carrera > Carreras.Nombre
+Ref: Students.Carrera > Carreras.Nombre
