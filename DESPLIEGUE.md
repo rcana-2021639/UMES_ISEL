@@ -25,369 +25,414 @@ La pregunta que decide todo lo demás es si el servidor tiene **un disco propio
 que persiste entre reinicios y despliegues**. SQLite es un archivo: si el disco
 se borra al redesplegar, se borra la base de datos.
 
-| Opción | ¿Sirve SQLite? | Notas |
+Y la segunda: si deja **instalar LibreOffice**, que es lo que convierte las
+fichas a PDF. Sin él la aplicación arranca y funciona, pero ningún documento se
+puede imprimir.
+
+| Opción | ¿Sirve? | Notas |
 |---|---|---|
-| **VPS Linux** (DigitalOcean, Hetzner, Linode, AWS Lightsail) | ✅ Sí | La más recomendable. Disco propio, control total, ~6-12 USD/mes. |
+| **VPS Linux** (Hetzner, DigitalOcean, Linode, Oracle Cloud) | ✅ Sí | La más recomendable. Disco propio, control total, 0-12 USD/mes. |
 | **Servidor Windows de la universidad + IIS** | ✅ Sí | Perfecto si ya lo tienen. Ver §4B. |
-| **Docker con volumen persistente** | ✅ Sí | Hay que montar `/app/App_Data` como volumen. Sin volumen, se pierde todo. |
-| **Azure App Service / AWS Elastic Beanstalk** | ⚠️ Con cuidado | Sirve solo con almacenamiento persistente montado y **una sola instancia**. Si escala a dos, SQLite se corrompe. |
-| **Vercel / Netlify / Cloudflare Pages** | ❌ **No** | Son para sitios estáticos y funciones sin disco. Aquí el backend no puede vivir. El *frontend* sí. |
-| **Hosting compartido tipo cPanel** | ❌ Casi nunca | Rara vez corren .NET 8. |
+| **Docker con volumen persistente** (Fly.io, Railway de paga) | ✅ Sí | Hay que montar `/data` como volumen. Sin volumen, se pierde todo. |
+| **Azure App Service / AWS Elastic Beanstalk** | ⚠️ Con cuidado | Solo con disco persistente y **una sola instancia**. Si escala a dos, SQLite se corrompe. |
+| **Planes gratuitos de Render / Koyeb / Railway** | ⚠️ Demo | El disco NO persiste y el servicio se duerme: **la base de datos se pierde**. Solo para enseñar la página un rato. |
+| **Vercel / Netlify / Cloudflare Pages** | ❌ backend, ✅ frontend | No corren procesos con disco. El *frontend* sí va perfecto ahí. |
+| **Hosting compartido tipo cPanel / InfinityFree** | ❌ No | Es PHP+MySQL. No corre .NET ni deja instalar LibreOffice. |
 
-> **Si la empresa da un hosting de los ❌**, hay dos caminos: publicar solo el
-> frontend ahí y el backend en un VPS aparte, o migrar la base a PostgreSQL.
-> La migración es real pero acotada: EF Core abstrae casi todo, y el trabajo
-> son las migraciones y un par de detalles de tipos. **Pregúntame antes de
-> empezarla**; no es algo que convenga improvisar la víspera.
-
-> **Si no van a dar ningún dominio ni servidor, salta a §1-ter**: Cloudflare
-> Pages + Fly.io, gratis, con HTTPS y con direcciones que no caducan. Es el
-> camino recomendado y está explicado paso a paso.
-
-### Caso concreto: InfinityFree
-
-InfinityFree es **PHP 8.3 + MySQL**, y nada más. No corre .NET, no da acceso SSH
-y no deja instalar binarios (LibreOffice, que es lo que genera los PDF, queda
-descartado de entrada). **El backend no puede vivir ahí.** No es una limitación
-del plan gratuito: es que ese servidor no habla ese idioma.
-
-Lo que sí funciona, y es lo que hay que hacer: **partir el despliegue en dos**.
+En los dos caminos de abajo el montaje es el mismo dibujo: **el sitio por un
+lado, la API por otro**, hablando por HTTPS.
 
 ```
-   Alumno  ──►  https://tusitio.infinityfreeapp.com     (InfinityFree)
-                └── frontend/dist — HTML, CSS, JS estáticos
+   Alumno  ──►  el sitio (React compilado, archivos estáticos)
                              │
                              │  llamadas a la API
                              ▼
-                https://umes-isel-api.fly.dev           (Fly.io u otro)
-                └── el backend .NET + SQLite + LibreOffice
+                la API (.NET + SQLite + LibreOffice, en Docker sobre un VPS)
 ```
 
-Es un montaje normal y perfectamente válido: el sitio y la API en dominios
-distintos, hablando por HTTPS. Lo único que hay que recordar es poner el
-dominio de InfinityFree en `Cors__Origins__0`, o el navegador bloqueará las
-llamadas.
+Lo único que hay que recordar es poner la dirección del sitio en
+`Cors__Origins__0`, o el navegador bloqueará todas las llamadas y **ningún
+formulario guardará**.
 
-**Dónde poner el backend, para probar y gratis:**
+> **Nota sobre Fly.io:** la versión anterior de esta guía lo recomendaba como
+> opción gratuita. **Ya no lo es**: Fly.io cobra desde el primer mes (mínimo
+> ~5 USD). Sigue funcionando bien y el `Dockerfile` del repositorio corre tal
+> cual, pero entra en la ruta de paga, no en la gratis.
 
-| Opción | Ventaja | Pega |
-|---|---|---|
-| **Fly.io** (recomendado) | Docker, volumen persistente, HTTPS incluido. El `Dockerfile` del repo funciona tal cual. | Pide tarjeta para verificar, aunque el uso pequeño no se cobra. |
-| **Oracle Cloud Always Free** | Una máquina de verdad, gratis para siempre y con buenos recursos. | Más pasos: es montar un VPS entero (§4A). |
-| **Railway / Koyeb / Render** | Muy fáciles. | En el plan gratis el disco NO persiste o el servicio se duerme: **la base de datos se pierde**. Solo para una demo de un rato. |
-| **MonsterASP.NET (gratis)** | Hecho para .NET. | Sin LibreOffice: todo funciona menos generar PDF. |
+### ¿Aguanta este proyecto un día de inscripciones?
 
----
+Sí. Para 170 alumnos, con decenas guardando su ficha la misma tarde, SQLite en
+modo WAL va sobrado — es el mismo motor que llevan los aviones y los teléfonos.
+Los tres fallos que de verdad tumban un montaje así ya están cerrados en el
+código:
 
-## 1-bis. Despliegue partido: InfinityFree + Fly.io
-
-### Paso 1 — el backend en Fly.io
-
-```bash
-# Instalar la herramienta (una vez)
-#   Windows PowerShell:  iwr https://fly.io/install.ps1 -useb | iex
-#   Linux/macOS:         curl -L https://fly.io/install.sh | sh
-
-fly auth signup          # o `fly auth login` si ya tienes cuenta
-
-# Desde la raíz del repositorio (donde está el Dockerfile)
-fly launch --no-deploy --name umes-isel-api --region mia
-```
-
-Cuando pregunte si crea una base de datos Postgres o Redis, di que **no**: la
-base es SQLite y va en el volumen.
-
-```bash
-# Disco persistente. SIN ESTO se pierde todo en cada despliegue.
-fly volumes create isel_data --size 1 --region mia
-
-# Los secretos (nunca en el repositorio)
-fly secrets set \
-  Security__TokenSecret="$(openssl rand -base64 48)" \
-  AdminAccess__BootstrapUser="tu.usuario" \
-  AdminAccess__BootstrapPassword="una contraseña larga que elijas tú" \
-  Cors__Origins__0="https://tusitio.infinityfreeapp.com" \
-  Hosting__BehindReverseProxy=true
-
-fly deploy
-```
-
-El archivo `fly.toml` que genera `fly launch` hay que ajustarlo para que monte
-el volumen y no apague la máquina (si se apaga, se pierde el respaldo
-programado):
-
-```toml
-[http_service]
-  internal_port = 8080
-  force_https = true
-  auto_stop_machines = false     # que no se duerma: hay respaldos programados
-  min_machines_running = 1
-
-[[mounts]]
-  source = "isel_data"
-  destination = "/data"          # coincide con el VOLUME del Dockerfile
-
-[[vm]]
-  memory = "1gb"                 # LibreOffice necesita margen; con 256 MB falla
-```
-
-Comprueba que arrancó y **anota la contraseña del primer administrador**:
-
-```bash
-fly logs | grep -A6 "CUENTA DE ADMINISTRADOR"
-curl -i https://umes-isel-api.fly.dev/api/programs     # debe dar 200
-```
-
-### Paso 2 — el frontend en InfinityFree
-
-```bash
-cd frontend
-cp .env.production.example .env.production
-# edita .env.production y pon:  VITE_API_URL=https://umes-isel-api.fly.dev
-pnpm install
-pnpm run build          # deja todo en frontend/dist
-```
-
-En el panel de InfinityFree:
-
-1. **Crear la cuenta de hosting** y anotar el subdominio que te dan
-   (`tusitio.infinityfreeapp.com`) o conectar tu dominio propio.
-2. Entrar al **File Manager** (o por FTP con FileZilla, que es más cómodo para
-   subir muchos archivos).
-3. Subir **el contenido de `frontend/dist`** dentro de la carpeta **`htdocs`**.
-   Ojo: el contenido, no la carpeta `dist` — en `htdocs` tienen que quedar
-   `index.html`, `assets/`, `images/` y `.htaccess` sueltos.
-4. Comprobar que `.htaccess` subió: los clientes FTP a veces ocultan los
-   archivos que empiezan por punto. En FileZilla, *Servidor → Forzar mostrar
-   archivos ocultos*. **Sin ese archivo, recargar en `/portal/admin` da 404.**
-5. Borrar el `index2.html` de bienvenida que InfinityFree deja puesto.
-6. En **SSL/TLS** del panel, emitir el certificado gratis y esperar a que se
-   active (suele tardar unos minutos).
-
-### Paso 3 — enlazarlos
-
-El backend ya tiene el dominio del frontend en `Cors__Origins__0` (paso 1). Si
-lo cambias:
-
-```bash
-fly secrets set Cors__Origins__0="https://tu-dominio-nuevo"
-```
-
-### Comprobación
-
-Abre el sitio, entra como alumno y guarda algo. Si la página carga pero **ningún
-formulario guarda**, abre la consola del navegador (F12):
-
-- `CORS policy` → falta tu dominio en `Cors__Origins__0`.
-- `Mixed Content` → `VITE_API_URL` quedó en `http://`; tiene que ser `https://`.
-- `404` al recargar en una ruta interna → falta el `.htaccess`.
-
-### Lo que hay que saber del plan gratuito de InfinityFree
-
-- Corta las visitas si el sitio recibe mucho tráfico de golpe. Para probar y
-  para el volumen de ISEL (170 alumnos) va bien; para el día de inscripciones
-  puede quedarse corto.
-- Algunos planes gratuitos muestran una página de "verificación" antes de dejar
-  entrar. Es molesto pero no rompe nada.
-- **No subas nada del backend ahí**: ni `isel.db`, ni `App_Data`, ni el
-  `appsettings.json`. Ese servidor sirve archivos por HTTP y cualquiera podría
-  descargarse la base de datos entera escribiendo su nombre en la barra.
-
-### ¿Aguanta SQLite este proyecto?
-
-Sí, y con holgura. Para 170 alumnos, con picos de decenas de personas guardando
-su ficha el mismo día, SQLite en modo WAL va sobrado — es el mismo motor que
-llevan los aviones y los teléfonos. Los dos fallos clásicos que sí lo tumban ya
-están cerrados en el código:
-
-- **Ruta relativa** → resuelta contra la carpeta de la aplicación (`Program.cs`).
-  Sin esto, el servidor crea una base vacía en otro sitio y parece que "se
-  borraron todos los alumnos".
+- **Ruta relativa de la base** → resuelta contra la carpeta de la aplicación
+  (`Program.cs`). Sin esto, el servidor crea una base vacía en otro sitio y
+  parece que "se borraron todos los alumnos".
 - **Bloqueos de escritura** → `journal_mode=WAL` y 30 s de espera. Sin esto, dos
   personas guardando a la vez producen *"database is locked"*.
+- **Avalancha de LibreOffice** → generar un PDF levanta un proceso de unos
+  200 MB. Hay dos frenos: uno por persona
+  (`RateLimitPolicies.Pesado`, 2 a la vez) y un techo global de 3 conversiones
+  simultáneas en `FichaPdfBuilder`. Un pico se convierte en cola, no en una
+  máquina sin memoria.
 
 El límite real de SQLite aquí no es el número de alumnos: es **tener más de una
 instancia de la aplicación escribiendo el mismo archivo**. No lo hagan.
 
 ---
 
-## 1-ter. El camino recomendado si NO hay dominio propio: Cloudflare Pages + Fly.io
+## 1-A. Ruta GRATIS — para que la prueben
 
-Este es el montaje que hay que seguir cuando nadie va a dar un dominio de la
-universidad. Sale **gratis**, con **HTTPS**, y las dos direcciones son
-**permanentes**: no caducan, no piden renovación anual y no se desactivan por
-falta de uso.
+Dos piezas, las dos gratis de verdad y sin fecha de caducidad:
 
+| Pieza | Dónde | Por qué |
+|---|---|---|
+| Sitio | **Cloudflare Pages** → `umes-isel.pages.dev` | Gratis sin trampa, HTTPS automático, no duerme, no corta por tráfico, no pide tarjeta. |
+| API | **Oracle Cloud Always Free** → una máquina propia | Lo único gratis *para siempre* con disco propio. Hasta 4 vCPU / 24 GB de RAM en ARM. Pide tarjeta solo para verificar identidad; no cobra. |
+
+> **¿Solo quieres enseñarla media hora?** Sáltate Oracle y sube el backend a
+> Render con el `Dockerfile`. Tarda cinco minutos, pero **el servicio se duerme
+> y la base de datos se borra en cada despliegue**. Para eso y nada más.
+
+### Paso 1 — la máquina en Oracle Cloud
+
+1. Crear la cuenta en <https://cloud.oracle.com> (elegir una región cercana,
+   por ejemplo São Paulo o Ashburn) y verificar con tarjeta.
+2. **Compute → Instances → Create Instance.**
+3. En *Image and shape*: imagen **Ubuntu 22.04**, y en *Shape* elegir
+   **Ampere (VM.Standard.A1.Flex)** con **2 OCPU y 12 GB de memoria** — está
+   dentro del tramo Always Free.
+4. Guardar la **clave SSH** que ofrece descargar. Sin ella no se entra nunca más.
+5. En *Networking*, dejar que cree la red por defecto y **anotar la IP pública**.
+6. Ya creada: **Networking → Virtual Cloud Networks → (la red) → Security Lists
+   → Default** → *Add Ingress Rules*, y abrir los puertos **80** y **443**
+   (Source `0.0.0.0/0`, protocolo TCP). Sin esto la máquina existe pero nadie la
+   alcanza — es el tropiezo clásico de Oracle.
+
+### Paso 2 — instalar la API en esa máquina
+
+Entrar por SSH (desde PowerShell, en la carpeta donde guardaste la clave):
+
+```powershell
+ssh -i .\clave.key ubuntu@<IP-PUBLICA>
 ```
-   Alumno ──► https://umes-isel.pages.dev      (Cloudflare Pages — el sitio)
-                        │
-                        │ llamadas a la API por HTTPS
-                        ▼
-              https://umes-isel-api.fly.dev    (Fly.io — backend + SQLite + LibreOffice)
-```
 
-### Por qué estas dos y no otras
-
-| Servicio | Dirección que da | ¿Caduca? | Por qué se eligió |
-|---|---|---|---|
-| **Cloudflare Pages** | `<proyecto>.pages.dev` | No | Gratis de verdad, sin anuncios, sin páginas de "verificación", sin corte por tráfico, HTTPS automático. Sustituye a InfinityFree con ventaja en todo. |
-| **Fly.io** | `<app>.fly.dev` | No | Corre Docker con **disco persistente**, que es lo único que aguanta SQLite. Pide tarjeta para verificar identidad; el uso de este proyecto entra en el tramo que no se cobra. |
-
-Sobre "un dominio gratis con nombre propio" (tipo `.tk`, `.ml`, `.ga`):
-**ya no existe**. Freenom, que era el único que los daba, dejó de registrar
-dominios nuevos y los que quedaban se fueron cayendo — justo el problema de
-"se desactiva a cada rato" que hay que evitar. Si más adelante quieren un
-nombre propio (`isel-umes.site`, por ejemplo), un dominio barato cuesta entre
-2 y 12 USD al año y se enchufa a este mismo montaje sin tocar el código: se
-apunta en Cloudflare y se cambia `Cors__Origins__0`. Mientras tanto,
-`pages.dev` es una dirección seria y estable.
-
-### Paso 1 — subir el backend a Fly.io
-
-Todo esto es en la **raíz del repositorio** (donde está el `Dockerfile`).
+Y una vez dentro:
 
 ```bash
-# 1. Instalar la herramienta (una sola vez, en PowerShell)
-iwr https://fly.io/install.ps1 -useb | iex
+# Oracle trae el cortafuegos cerrado por dentro también
+sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 80  -j ACCEPT
+sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 443 -j ACCEPT
+sudo netfilter-persistent save
 
-# 2. Crear la cuenta / entrar
-fly auth signup        # si ya tienes cuenta: fly auth login
+# Docker
+sudo apt update && sudo apt install -y docker.io git
+sudo usermod -aG docker ubuntu && newgrp docker
 
-# 3. Crear la aplicación SIN desplegarla todavía
-fly launch --no-deploy --name umes-isel-api --region mia
+# El proyecto
+git clone <la-url-de-tu-repositorio> isel && cd isel
+docker build -t isel-api .
+
+# El disco donde vive la base de datos, FUERA del contenedor
+docker volume create isel_data
 ```
 
-Cuando pregunte si quiere crear Postgres o Redis, responder **que no**: la base
-de datos de este proyecto es un archivo SQLite y va en el volumen del paso
-siguiente.
+Arrancar la aplicación (cambiando los valores de ejemplo):
 
 ```bash
-# 4. El disco que sobrevive a los despliegues. SIN ESTO se pierde todo.
-fly volumes create isel_data --size 1 --region mia
+docker run -d --name isel-api --restart always \
+  -p 8080:8080 \
+  -v isel_data:/data \
+  -e Security__TokenSecret="$(openssl rand -base64 48)" \
+  -e AdminAccess__BootstrapUser="tu.usuario" \
+  -e AdminAccess__BootstrapPassword="una contraseña larga que elijas tú" \
+  -e Cors__Origins__0="https://umes-isel.pages.dev" \
+  -e Hosting__BehindReverseProxy=true \
+  isel-api
 ```
 
-Abrir el `fly.toml` que acaba de generarse y dejar estas cuatro cosas puestas
-(el resto del archivo se queda como está):
-
-```toml
-[http_service]
-  internal_port = 8080
-  force_https = true
-  auto_stop_machines = false     # que no se duerma: hay respaldos programados
-  min_machines_running = 1
-
-[[mounts]]
-  source = "isel_data"
-  destination = "/data"          # coincide con el VOLUME del Dockerfile
-
-[[vm]]
-  memory = "1gb"                 # LibreOffice necesita margen; con 256 MB falla
-```
+Comprobar que arrancó y **anotar la contraseña del administrador**:
 
 ```bash
-# 5. Los secretos. Nunca se escriben en el repositorio.
-#    El dominio de Cors sale del paso 2; si aún no lo tienes, pon el que
-#    piensas usar y lo corriges al final (paso 3).
-fly secrets set `
-  Security__TokenSecret="pega-aqui-una-cadena-larga-y-aleatoria" `
-  AdminAccess__BootstrapUser="tu.usuario" `
-  AdminAccess__BootstrapPassword="una contraseña larga que elijas tú" `
-  Cors__Origins__0="https://umes-isel.pages.dev" `
-  Hosting__BehindReverseProxy=true
-
-# 6. Desplegar
-fly deploy
+docker logs isel-api | grep -A6 "CUENTA DE ADMINISTRADOR"
+curl -i http://localhost:8080/api/programs      # tiene que dar 200
 ```
 
-> Para generar el `Security__TokenSecret` en Windows:
-> `[Convert]::ToBase64String((1..48 | ForEach-Object { Get-Random -Max 256 }))`
+### Paso 3 — HTTPS en la API
 
-Comprobar que arrancó:
+El sitio va por `https://`, así que la API también tiene que ir por `https://` o
+el navegador bloqueará las llamadas por *Mixed Content*. Hace falta un nombre;
+la IP pelada no sirve para un certificado. Si aún no hay dominio, sirve un
+subdominio gratis de [DuckDNS](https://duckdns.org) (`isel-api.duckdns.org`)
+apuntando a esa IP.
 
 ```bash
-fly logs                                          # busca "CUENTA DE ADMINISTRADOR"
-curl -i https://umes-isel-api.fly.dev/api/programs # tiene que responder 200
+sudo apt install -y nginx certbot python3-certbot-nginx
+sudo nano /etc/nginx/sites-available/isel
 ```
 
-**Anota la contraseña del primer administrador** que aparece en el log.
+Pegar dentro:
 
-### Paso 2 — subir el frontend a Cloudflare Pages
+```nginx
+server {
+    listen 80;
+    server_name isel-api.duckdns.org;
+
+    location / {
+        proxy_pass         http://127.0.0.1:8080;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+
+        proxy_read_timeout 120s;
+        client_max_body_size 12M;
+    }
+}
+```
+
+Y activarlo:
 
 ```bash
+sudo ln -sf /etc/nginx/sites-available/isel /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t && sudo systemctl reload nginx
+
+sudo certbot --nginx -d isel-api.duckdns.org
+```
+
+Como ahora Nginx está delante, conviene relanzar el contenedor con
+`-p 127.0.0.1:8080:8080` en vez de `-p 8080:8080`, para que la API solo se
+alcance desde dentro de la máquina.
+
+### Paso 4 — el sitio en Cloudflare Pages
+
+En tu computadora:
+
+```powershell
 cd frontend
 copy .env.production.example .env.production
 ```
 
-Editar `.env.production` y poner la dirección real del backend:
+Editar `.env.production` y poner la dirección de la API del paso 3:
 
 ```
-VITE_API_URL=https://umes-isel-api.fly.dev
+VITE_API_URL=https://isel-api.duckdns.org
 ```
 
-```bash
+```powershell
 pnpm install
-pnpm run build          # deja el sitio compilado en frontend/dist
+pnpm run build          # deja el sitio compilado en frontend\dist
 ```
 
-Ahora, en el navegador:
+En el navegador:
 
-1. Entrar a <https://dash.cloudflare.com> y crear la cuenta (gratis, no pide
-   tarjeta).
-2. Menú lateral → **Workers & Pages** → **Create** → pestaña **Pages** →
-   **Upload assets**.
-3. Ponerle de nombre al proyecto `umes-isel` (ese nombre es el que decide la
-   dirección: `umes-isel.pages.dev`).
-4. Arrastrar **el contenido de `frontend/dist`** — los archivos sueltos
-   (`index.html`, `assets/`, `images/`, `.htaccess`), **no** la carpeta `dist`.
-5. **Deploy**. En menos de un minuto el sitio está en línea con HTTPS.
+1. Entrar a <https://dash.cloudflare.com> y crear la cuenta (gratis, sin tarjeta).
+2. **Workers & Pages → Create → pestaña Pages → Upload assets.**
+3. Nombre del proyecto: `umes-isel` (ese nombre decide la dirección,
+   `umes-isel.pages.dev`).
+4. Arrastrar **el contenido de `frontend\dist`** — los archivos sueltos
+   (`index.html`, `assets/`, `images/`), **no** la carpeta `dist`.
+5. **Deploy.** En menos de un minuto está en línea con HTTPS.
 
-Cloudflare Pages ya sirve una aplicación de una sola página correctamente, así
-que no hay que configurar nada más para que funcione recargar en
-`/portal/admin`. (El `.htaccess` solo lo usa Apache; que viaje en la carpeta no
-molesta.)
+Cloudflare Pages ya sirve bien una aplicación de una sola página, así que
+recargar en `/portal/admin` funciona sin configurar nada más.
 
-**Para publicar cambios más adelante**: `pnpm run build` otra vez y, en el mismo
-proyecto de Pages, **Create new deployment** → subir el `dist` nuevo.
+**Para publicar cambios**: `pnpm run build` otra vez y, en el mismo proyecto,
+**Create new deployment** → subir el `dist` nuevo.
 
-### Paso 3 — enlazar los dos
+### Paso 5 — enlazarlos y comprobar
 
-Si la dirección que quedó en Pages no es la que pusiste en el paso 1, corrígela:
+Si la dirección que quedó en Pages no es la que pusiste en el paso 2, hay que
+relanzar el contenedor con el `Cors__Origins__0` correcto:
 
 ```bash
-fly secrets set Cors__Origins__0="https://umes-isel.pages.dev"
+docker rm -f isel-api      # y repetir el `docker run` con el dominio bueno
 ```
 
-Cambiar un secreto reinicia la aplicación sola; no hay que volver a desplegar.
+Comprobación, en este orden:
 
-### Paso 4 — comprobar que todo quedó bien
-
-1. Abrir `https://umes-isel.pages.dev` y entrar al portal.
-2. Guardar una ficha de prueba y **volver a abrirla**: si los datos siguen ahí,
-   la base está escribiendo en el volumen.
+1. Abrir `https://umes-isel.pages.dev` y entrar al portal como alumno.
+2. Guardar una ficha y **volver a abrirla**: si los datos siguen ahí, la base
+   está escribiendo en el volumen.
 3. Descargar el PDF de esa ficha: si sale, LibreOffice quedó bien instalado.
-4. Entrar al panel con el usuario administrador del paso 1.
-5. `fly deploy` otra vez y repetir el punto 2: si la ficha sigue existiendo
-   **después de redesplegar**, el volumen está bien montado. Esta es la prueba
-   que de verdad importa.
+4. Entrar al panel con el usuario administrador del paso 2.
+5. `docker rm -f isel-api` y volver a lanzarlo. Si la ficha **sigue existiendo
+   después de eso**, el volumen está bien montado. Esta es la prueba que de
+   verdad importa.
 
-Si el sitio carga pero ningún formulario guarda, abrir la consola del navegador
-con F12:
+Si el sitio carga pero ningún formulario guarda, abrir la consola con F12:
 
 - `CORS policy` → el dominio de Pages no coincide con `Cors__Origins__0`.
 - `Mixed Content` → `VITE_API_URL` quedó en `http://`; tiene que ser `https://`.
-- `Failed to fetch` → la aplicación de Fly está caída: `fly logs` para ver por qué.
+- `Failed to fetch` → el contenedor está caído: `docker logs isel-api`.
 
-### Paso 5 — dejar los respaldos andando
+---
 
-Los respaldos automáticos se guardan en `/data/backups`, dentro del volumen. Para
-bajarse una copia a la computadora:
+## 1-B. Ruta DE PAGA — para producción
 
-```bash
-fly ssh sftp get /data/backups/<archivo>.db respaldo-local.db
+Recomendación: **un VPS de Hetzner con dominio propio**, no una plataforma
+gestionada. Sale más barato, es más máquina y no impone límites raros.
+
+| Opción | Precio/mes | Veredicto |
+|---|---|---|
+| **Hetzner CX22** (2 vCPU, 4 GB RAM, 40 GB SSD) | **~4 €** | ✅ **La recomendada.** Sobra para este proyecto. Snapshots por ~1 € más. |
+| DigitalOcean Droplet 2 GB | ~12 USD | Igual de fiable, el triple de caro por menos máquina. |
+| Fly.io (1 GB + volumen) | ~10 USD | Funciona y el `Dockerfile` corre tal cual, pero pagas más por menos. |
+| Azure App Service | 13+ USD | **Peligroso**: si escala a dos instancias, SQLite se corrompe. |
+
+**Coste total realista: unos 55 USD al año** — VPS, más el dominio (10-12
+USD/año en Cloudflare o Namecheap), más un snapshot semanal.
+
+La diferencia importante con la ruta gratis: aquí va **todo bajo un solo
+dominio**, el sitio en `/` y la API en `/api/`. Eso hace que **desaparezca el
+problema de CORS**, que es la causa número uno de "la página carga pero nada
+guarda".
+
+### Paso 1 — el servidor y el dominio
+
+1. Crear el servidor en <https://console.hetzner.cloud>: **CX22**, imagen
+   **Ubuntu 22.04**, y pegar tu clave SSH. Anotar la IP.
+2. Comprar el dominio (por ejemplo `isel-umes.org`) y, en su DNS, crear:
+
+```
+Tipo   Nombre   Valor              TTL
+A      @        <IP del servidor>  3600
+A      www      <IP del servidor>  3600
 ```
 
-Conviene hacerlo una vez al mes y guardarlo fuera de Fly.io — un volumen es un
-disco, no un respaldo. Ver §5.
+Esperar a que propague — `nslookup isel-umes.org` desde tu máquina tiene que
+devolver esa IP antes de seguir, o Certbot fallará en el paso 4.
+
+### Paso 2 — preparar la máquina
+
+```bash
+ssh root@<IP>
+
+apt update && apt upgrade -y
+apt install -y docker.io nginx certbot python3-certbot-nginx ufw
+
+# Colchón de memoria para los picos de LibreOffice
+fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+echo '/swapfile none swap sw 0 0' >> /etc/fstab
+
+# Cortafuegos: solo SSH y web
+ufw allow OpenSSH && ufw allow 'Nginx Full' && ufw --force enable
+```
+
+### Paso 3 — la API
+
+```bash
+git clone <la-url-de-tu-repositorio> /opt/isel && cd /opt/isel
+docker build -t isel-api .
+docker volume create isel_data
+
+docker run -d --name isel-api --restart always \
+  -p 127.0.0.1:8080:8080 \
+  -v isel_data:/data \
+  -e Security__TokenSecret="$(openssl rand -base64 48)" \
+  -e AdminAccess__BootstrapUser="tu.usuario" \
+  -e AdminAccess__BootstrapPassword="una contraseña larga que elijas tú" \
+  -e Cors__Origins__0="https://isel-umes.org" \
+  -e Hosting__BehindReverseProxy=true \
+  isel-api
+
+docker logs isel-api | grep -A6 "CUENTA DE ADMINISTRADOR"   # anota la contraseña
+```
+
+`-p 127.0.0.1:8080:8080` (y no `-p 8080:8080`) es a propósito: así la API
+**solo** se alcanza desde dentro de la máquina, a través de Nginx. Publicada al
+mundo, cualquiera podría saltarse el HTTPS hablándole directo por el 8080.
+
+### Paso 4 — el sitio y Nginx
+
+Compilar el frontend en tu computadora:
+
+```powershell
+cd frontend
+echo VITE_API_URL=https://isel-umes.org > .env.production
+pnpm install ; pnpm run build
+```
+
+Subirlo al servidor:
+
+```powershell
+ssh root@<IP> "mkdir -p /var/www/isel-web"
+scp -r frontend\dist\* root@<IP>:/var/www/isel-web/
+```
+
+Y en el servidor, `nano /etc/nginx/sites-available/isel`:
+
+```nginx
+server {
+    listen 80;
+    server_name isel-umes.org www.isel-umes.org;
+
+    root /var/www/isel-web;
+    index index.html;
+
+    # React Router: cualquier ruta desconocida la resuelve el navegador
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # La API, en el MISMO dominio — por esto aquí no hay CORS
+    location /api/ {
+        proxy_pass         http://127.0.0.1:8080;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+
+        # Los PDF combinados de "Imprimir todas" pueden tardar
+        proxy_read_timeout 120s;
+        client_max_body_size 12M;
+    }
+}
+```
+
+```bash
+ln -sf /etc/nginx/sites-available/isel /etc/nginx/sites-enabled/
+rm -f /etc/nginx/sites-enabled/default
+nginx -t && systemctl reload nginx
+
+# Certificado gratis con renovación automática. Certbot añade solo el bloque
+# de HTTPS y la redirección desde HTTP; no hay que escribirlos a mano.
+certbot --nginx -d isel-umes.org -d www.isel-umes.org
+```
+
+### Paso 5 — llevarse los datos que ya existen
+
+Los 170 alumnos y el pénsum ya están en tu `isel.db` local. Ver §6: o se copia
+la base tal cual, o se deja que la aplicación siembre el padrón sola al primer
+arranque.
+
+### Paso 6 — respaldos fuera de la máquina
+
+La aplicación ya respalda sola cada 24 h dentro de `/data/backups`, pero eso
+está en el mismo disco que el original. Hay que sacarlos de ahí (ver §5):
+
+```bash
+# /etc/cron.daily/isel-backup-offsite
+docker run --rm -v isel_data:/data -v /root/respaldos:/salida alpine \
+  sh -c 'cp /data/backups/*.gz /salida/'
+rclone sync /root/respaldos b2:isel-respaldos     # o rsync a otra máquina
+```
+
+### Paso 7 — publicar cambios más adelante
+
+```bash
+cd /opt/isel && git pull
+docker build -t isel-api . && docker rm -f isel-api
+# y volver a lanzar el mismo `docker run` del paso 3
+```
+
+El volumen `isel_data` no se toca, así que la base de datos sobrevive al
+redespliegue. Para el frontend, `pnpm run build` y `scp` otra vez.
+
+Terminado esto, seguir con la **§7, lista de comprobación**, antes de anunciar
+la dirección a los alumnos.
 
 ---
 
