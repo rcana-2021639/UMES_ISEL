@@ -2,11 +2,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Student } from "@/types/student";
 import type { CourseAssignment, TipoPago } from "@/types/courseAssignment";
-import { getAssignmentByStudent, saveAssignment } from "@/lib/assignmentsApi";
+import { getAssignmentByStudent, openFichaPdf, saveAssignment } from "@/lib/assignmentsApi";
 import { getCarreras, getCourses, getTrimestres } from "@/lib/coursesApi";
 import type { Course } from "@/types/course";
 import { SignaturePad, type SignaturePadHandle } from "@/components/portal/SignaturePad";
 import { Modal } from "@/components/ui/Modal";
+import { FichaEnviadaModal } from "@/components/portal/FichaEnviadaModal";
 import { CoursePickerModal } from "@/components/portal/CoursePickerModal";
 import { Icon } from "@/components/portal/Icon";
 import { PortalPanel } from "@/components/portal/PortalShell";
@@ -810,43 +811,25 @@ export function CourseAssignmentForm({
       </div>
 
       {/* ------------------------------------------------ resumen guardado */}
-      <Modal open={savedSummary !== null} onClose={handleDismissSaved} title="Ficha guardada" widthClassName="max-w-md">
-        {savedSummary && (
-          <div className="space-y-5">
-            <div className="flex items-start gap-4">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-isel-emerald/10 text-isel-emerald">
-                <Icon name="check" size={22} />
-              </span>
-              <p className="pt-0.5 text-[13.5px] leading-relaxed text-isel-ink">
-                La ficha de <strong className="text-isel-navy">{savedSummary.nombreCompleto}</strong> se envió
-                correctamente. Esto quedó registrado:
-              </p>
-            </div>
-
-            <dl className="divide-y divide-isel-line overflow-hidden rounded-xl border border-isel-line">
-              <SummaryRow label="Carrera" value={savedSummary.carrera} />
-              <SummaryRow label="Trimestre" value={String(savedSummary.trimestre)} />
-              <SummaryRow label="Sección" value={savedSummary.seccion || "No especificada"} />
-              <SummaryRow label="Cursos asignados" value={String(savedSummary.cursosAsignados.length)} />
-              <SummaryRow label="Cursos adicionales" value={String(savedSummary.cursosAdicionales.length)} />
-              <SummaryRow label="Firma" value={savedSummary.firmaBase64 ? "Registrada" : "No registrada"} />
-            </dl>
-
-            <p className="text-[12px] leading-relaxed text-isel-ink/45">
-              No hace falta volver a guardar. Si necesitas corregir algo, edita el formulario y guarda de nuevo.
-            </p>
-
-            <div className="flex justify-end gap-3 border-t border-isel-line pt-4">
-              <PortalButton tone="ghost" onClick={() => setSavedSummary(null)}>
-                Seguir editando
-              </PortalButton>
-              <PortalButton tone="primary" icon="arrowRight" iconRight onClick={handleDismissSaved}>
-                {onDismissSaved ? "Cerrar" : "Volver al inicio"}
-              </PortalButton>
-            </div>
-          </div>
-        )}
-      </Modal>
+      {savedSummary && (
+        <FichaEnviadaModal
+          open
+          onClose={handleDismissSaved}
+          nombre={savedSummary.nombreCompleto}
+          rows={[
+            { label: "Carrera", value: savedSummary.carrera },
+            { label: "Trimestre", value: String(savedSummary.trimestre) },
+            { label: "Sección", value: savedSummary.seccion || "No especificada" },
+            { label: "Cursos asignados", value: String(savedSummary.cursosAsignados.length) },
+            { label: "Cursos adicionales", value: String(savedSummary.cursosAdicionales.length) },
+            { label: "Firma", value: savedSummary.firmaBase64 ? "Registrada" : "No registrada" },
+          ]}
+          onVerFicha={() => openFichaPdf(savedSummary.id)}
+          onSeguirEditando={() => setSavedSummary(null)}
+          primaryLabel={onDismissSaved ? "Cerrar" : "Volver al inicio"}
+          nota="No hace falta volver a guardar. Si necesitas corregir algo, edita el formulario y guarda de nuevo."
+        />
+      )}
     </div>
   );
 }
@@ -867,15 +850,6 @@ function DataItem({ label, value, mono = false }: { label: string; value?: strin
       >
         {value || "—"}
       </dd>
-    </div>
-  );
-}
-
-function SummaryRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-4 bg-white px-4 py-2.5">
-      <dt className="text-[12.5px] text-isel-ink/55">{label}</dt>
-      <dd className="tabular text-[13px] font-semibold text-isel-navy">{value}</dd>
     </div>
   );
 }

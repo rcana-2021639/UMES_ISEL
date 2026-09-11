@@ -3,10 +3,11 @@ import { PortalPanel } from "@/components/portal/PortalShell";
 import { StepGuide } from "@/components/portal/StepGuide";
 import { SignaturePad, type SignaturePadHandle } from "@/components/portal/SignaturePad";
 import { ChoiceRow } from "@/components/portal/CourseAssignmentForm";
+import { FichaEnviadaModal } from "@/components/portal/FichaEnviadaModal";
 import { Icon } from "@/components/portal/Icon";
 import { Alert, Field, PortalButton, fieldClass } from "@/components/portal/kit";
 import { getCarreras } from "@/lib/coursesApi";
-import { saveCompromiso } from "@/lib/inscripcionesApi";
+import { openCompromisoPdf, saveCompromiso } from "@/lib/inscripcionesApi";
 import { ApiError } from "@/lib/http";
 import type { CartaCompromiso, CartaCompromisoInput } from "@/types/inscripcion";
 import type { FichaHandle } from "./fichaHandle";
@@ -37,20 +38,19 @@ export const CartaCompromisoForm = forwardRef<FichaHandle, CartaCompromisoFormPr
   const [form, setForm] = useState<CartaCompromisoInput>(initial ?? blank(defaults));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [savedFlag, setSavedFlag] = useState(false);
   /** Ver el comentario gemelo en PreinscripcionForm: la señal que ya existía
       («cambió algo» / «acabo de guardar») es la que necesita el cierre del
       expediente para saber si le queda algo por mandar. */
   const [tocado, setTocado] = useState(false);
-  const saved = savedFlag;
   function setSaved(v: boolean) {
-    setSavedFlag(v);
     setTocado(!v);
   }
   // null mientras carga; [] si la API no responde — entonces el campo vuelve a
   // ser de texto libre en vez de dejar al aspirante sin poder escribir nada.
   const [carreras, setCarreras] = useState<string[] | null>(null);
   const signatureRef = useRef<SignaturePadHandle>(null);
+  /** La ficha recién guardada, para el modal de confirmación — null si no hay nada que mostrar. */
+  const [savedSummary, setSavedSummary] = useState<CartaCompromiso | null>(null);
 
   /**
    * El listado oficial de maestrías, el mismo que usan la preinscripción y la
@@ -113,6 +113,7 @@ export const CartaCompromisoForm = forwardRef<FichaHandle, CartaCompromisoFormPr
       const savedC = await saveCompromiso(applicantId, { ...form, firmaBase64: firma });
       onSaved(savedC);
       setSaved(true);
+      setSavedSummary(savedC);
       return null;
     } catch (e) {
       const motivo = e instanceof ApiError ? e.message : "No se pudo guardar la carta de compromiso.";
@@ -225,7 +226,6 @@ export const CartaCompromisoForm = forwardRef<FichaHandle, CartaCompromisoFormPr
         )}
 
         {error && <Alert kind="error">{error}</Alert>}
-        {saved && !error && <Alert kind="ok">Carta de compromiso guardada.</Alert>}
 
         {!readOnly && (
           <div className="flex justify-end border-t border-isel-line pt-5">
@@ -233,6 +233,22 @@ export const CartaCompromisoForm = forwardRef<FichaHandle, CartaCompromisoFormPr
           </div>
         )}
       </form>
+
+      {savedSummary && (
+        <FichaEnviadaModal
+          open
+          onClose={() => setSavedSummary(null)}
+          nombre={savedSummary.nombreCompleto}
+          rows={[
+            { label: "Carrera / maestría", value: savedSummary.carrera },
+            { label: "DPI", value: savedSummary.noDpi },
+            { label: "Estudiante extranjero", value: savedSummary.esExtranjero ? "Sí" : "No" },
+            { label: "Firma", value: savedSummary.firmaBase64 ? "Registrada" : "No registrada" },
+          ]}
+          onVerFicha={() => openCompromisoPdf(applicantId)}
+          nota="No hace falta volver a guardar. Si necesita corregir algo, edite el formulario y guarde de nuevo."
+        />
+      )}
     </PortalPanel>
   );
 });

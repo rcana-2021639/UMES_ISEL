@@ -5,8 +5,9 @@ import { SignaturePad, type SignaturePadHandle } from "@/components/portal/Signa
 import { Icon } from "@/components/portal/Icon";
 import { Alert, Field, PortalButton, fieldClass } from "@/components/portal/kit";
 import { ChoiceRow } from "@/components/portal/CourseAssignmentForm";
+import { FichaEnviadaModal } from "@/components/portal/FichaEnviadaModal";
 import { getCarreras } from "@/lib/coursesApi";
-import { savePreinscripcion } from "@/lib/inscripcionesApi";
+import { openPreinscripcionPdf, savePreinscripcion } from "@/lib/inscripcionesApi";
 import { ApiError } from "@/lib/http";
 import type { Preinscripcion, PreinscripcionInput, PuebloPertenencia } from "@/types/inscripcion";
 import type { FichaHandle } from "./fichaHandle";
@@ -68,26 +69,24 @@ export const PreinscripcionForm = forwardRef<FichaHandle, PreinscripcionFormProp
   const [form, setForm] = useState<PreinscripcionInput>(initial ?? blank());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [savedFlag, setSavedFlag] = useState(false);
   /**
    * «Hay algo escrito sin mandar».
    *
    * No hace falta un vigilante nuevo: cada campo ya avisaba de que cambió algo
    * llamando a `setSaved(false)`, y el guardado avisaba con `setSaved(true)`.
-   * Esa señal, que solo servía para esconder el aviso verde, es exactamente la
-   * que el botón de cierre necesita — así que se aprovecha en vez de duplicar
-   * la contabilidad en cada `onChange`.
+   * Esa señal es la que necesita el botón de cierre — así que se aprovecha en
+   * vez de duplicar la contabilidad en cada `onChange`.
    */
   const [tocado, setTocado] = useState(false);
-  const saved = savedFlag;
   function setSaved(v: boolean) {
-    setSavedFlag(v);
     setTocado(!v);
   }
   // null mientras carga; [] si la API no responde — entonces el campo vuelve a
   // ser de texto libre en vez de dejar al aspirante sin poder escribir nada.
   const [carreras, setCarreras] = useState<string[] | null>(null);
   const signatureRef = useRef<SignaturePadHandle>(null);
+  /** La ficha recién guardada, para el modal de confirmación — null si no hay nada que mostrar. */
+  const [savedSummary, setSavedSummary] = useState<Preinscripcion | null>(null);
 
   useEffect(() => {
     setForm(initial ?? blank());
@@ -135,6 +134,7 @@ export const PreinscripcionForm = forwardRef<FichaHandle, PreinscripcionFormProp
       });
       onSaved(guardada);
       setSaved(true);
+      setSavedSummary(guardada);
       return null;
     } catch (e) {
       const motivo = e instanceof ApiError ? e.message : "No se pudo guardar la preinscripción.";
@@ -378,7 +378,6 @@ export const PreinscripcionForm = forwardRef<FichaHandle, PreinscripcionFormProp
         )}
 
         {error && <Alert kind="error">{error}</Alert>}
-        {saved && !error && <Alert kind="ok">Preinscripción guardada.</Alert>}
 
         {!readOnly && (
           <div className="flex justify-end border-t border-isel-line pt-5">
@@ -388,6 +387,23 @@ export const PreinscripcionForm = forwardRef<FichaHandle, PreinscripcionFormProp
           </div>
         )}
       </form>
+
+      {savedSummary && (
+        <FichaEnviadaModal
+          open
+          onClose={() => setSavedSummary(null)}
+          nombre={savedSummary.nombreCompleto}
+          rows={[
+            { label: "Carrera / maestría", value: savedSummary.carrera },
+            { label: "DPI", value: savedSummary.dpi || savedSummary.noPasaporte || "No especificado" },
+            { label: "Correo electrónico", value: savedSummary.correoElectronico || "No especificado" },
+            { label: "Teléfono celular", value: savedSummary.telefonoCelular || "No especificado" },
+            { label: "Firma", value: savedSummary.firmaBase64 ? "Registrada" : "No registrada" },
+          ]}
+          onVerFicha={() => openPreinscripcionPdf(applicantId)}
+          nota="No hace falta volver a guardar. Si necesita corregir algo, edite el formulario y guarde de nuevo."
+        />
+      )}
     </PortalPanel>
   );
 })

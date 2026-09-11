@@ -1,7 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { getCarreras, getCourses, getTrimestres } from "@/lib/coursesApi";
-import { saveAsignacion } from "@/lib/inscripcionesApi";
-import { splitNombreCompleto } from "@/lib/nombres";
+import { openAsignacionInscripcionPdf, saveAsignacion } from "@/lib/inscripcionesApi";
+import { joinNombreCompleto, splitNombreCompleto } from "@/lib/nombres";
 import { ApiError } from "@/lib/http";
 import type { Course } from "@/types/course";
 import type { TipoPago } from "@/types/courseAssignment";
@@ -9,6 +9,7 @@ import type { AsignacionNuevoIngreso, AsignacionNuevoIngresoInput } from "@/type
 import type { FichaHandle } from "./fichaHandle";
 import { SignaturePad, type SignaturePadHandle } from "@/components/portal/SignaturePad";
 import { Modal } from "@/components/ui/Modal";
+import { FichaEnviadaModal } from "@/components/portal/FichaEnviadaModal";
 import { Icon } from "@/components/portal/Icon";
 import { PortalPanel } from "@/components/portal/PortalShell";
 import { StepGuide } from "@/components/portal/StepGuide";
@@ -78,17 +79,16 @@ export const AsignacionNuevoIngresoForm = forwardRef<FichaHandle, AsignacionNuev
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [savedFlag, setSavedFlag] = useState(false);
   /** Ver el comentario gemelo en PreinscripcionForm: los campos de esta ficha
       ya avisaban de cada cambio con `setSaved(false)`, así que esa misma señal
       es la que le dice al cierre del expediente si queda algo sin mandar. */
   const [tocado, setTocado] = useState(false);
-  const saved = savedFlag;
   function setSaved(v: boolean) {
-    setSavedFlag(v);
     setTocado(!v);
   }
   const signatureRef = useRef<SignaturePadHandle>(null);
+  /** La ficha recién guardada, para el modal de confirmación — null si no hay nada que mostrar. */
+  const [savedSummary, setSavedSummary] = useState<AsignacionNuevoIngreso | null>(null);
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [draftCarrera, setDraftCarrera] = useState<string | null>(null);
@@ -327,6 +327,7 @@ export const AsignacionNuevoIngresoForm = forwardRef<FichaHandle, AsignacionNuev
       const savedAsn = await saveAsignacion(applicantId, input);
       onSaved(savedAsn);
       setSaved(true);
+      setSavedSummary(savedAsn);
       return null;
     } catch (e) {
       const motivo = e instanceof ApiError ? e.message : "No se pudo guardar la asignación de cursos.";
@@ -589,7 +590,6 @@ export const AsignacionNuevoIngresoForm = forwardRef<FichaHandle, AsignacionNuev
         </div>
 
         {error && <Alert kind="error">{error}</Alert>}
-        {saved && !error && <Alert kind="ok">Ficha de asignación guardada.</Alert>}
 
         {!readOnly && (
           <div className="flex justify-end border-t border-isel-line pt-5">
@@ -597,6 +597,24 @@ export const AsignacionNuevoIngresoForm = forwardRef<FichaHandle, AsignacionNuev
           </div>
         )}
       </div>
+
+      {savedSummary && (
+        <FichaEnviadaModal
+          open
+          onClose={() => setSavedSummary(null)}
+          nombre={joinNombreCompleto(savedSummary)}
+          rows={[
+            { label: "Carrera / maestría", value: savedSummary.carrera },
+            { label: "Trimestre", value: String(savedSummary.trimestre) },
+            { label: "Sección", value: savedSummary.seccion || "No especificada" },
+            { label: "Cursos asignados", value: String(savedSummary.cursosAsignados.length) },
+            { label: "Cursos adicionales", value: String(savedSummary.cursosAdicionales.length) },
+            { label: "Firma", value: savedSummary.firmaBase64 ? "Registrada" : "No registrada" },
+          ]}
+          onVerFicha={() => openAsignacionInscripcionPdf(applicantId)}
+          nota="No hace falta volver a guardar. Si necesita corregir algo, edite el formulario y guarde de nuevo."
+        />
+      )}
     </PortalPanel>
   );
 },

@@ -7,7 +7,8 @@ import { Icon } from "@/components/portal/Icon";
 import { Alert, Chip, Field, PortalButton, fieldClass } from "@/components/portal/kit";
 import { FotoCapture } from "@/components/titulo/FotoCapture";
 import { RejillaPreview } from "@/components/titulo/RejillaPreview";
-import { saveSolicitudTitulo } from "@/lib/solicitudTituloApi";
+import { FichaEnviadaModal } from "@/components/portal/FichaEnviadaModal";
+import { openSolicitudTituloPdf, saveSolicitudTitulo } from "@/lib/solicitudTituloApi";
 import { ApiError } from "@/lib/http";
 import {
   CAMPUS_OPCIONES,
@@ -99,6 +100,8 @@ export const SolicitudTituloForm = forwardRef<SolicitudTituloFormHandle, Solicit
   const [saved, setSaved] = useState(false);
   const [sinGuardar, setSinGuardar] = useState(false);
   const signatureRef = useRef<SignaturePadHandle>(null);
+  /** La ficha recién guardada, para el modal de confirmación — null si no hay nada que mostrar. */
+  const [savedSummary, setSavedSummary] = useState<SolicitudTitulo | null>(null);
 
   useEffect(() => {
     setForm(aInput(solicitud));
@@ -174,6 +177,14 @@ export const SolicitudTituloForm = forwardRef<SolicitudTituloFormHandle, Solicit
   }, [readOnly, solicitud, form, nombresSobra, apellidosSobra, onSaved]);
 
   useImperativeHandle(ref, () => ({ save: handleSave }), [handleSave]);
+
+  /** Guardar desde el botón propio de la ficha: a diferencia de `save()` (que también usa el paso 08
+      para "Descargar" o "Guardar y salir"), aquí sí corresponde mostrar el modal de confirmación —
+      es el único caso en que quien guarda se queda mirando la pantalla, sin pasar a otra acción. */
+  async function handleSaveClick() {
+    const guardada = await handleSave();
+    if (guardada) setSavedSummary(guardada);
+  }
 
   return (
     <div className={`space-y-6 ${stickyActions ? "pb-24" : ""}`}>
@@ -626,11 +637,28 @@ export const SolicitudTituloForm = forwardRef<SolicitudTituloFormHandle, Solicit
                 </span>
               )}
             </p>
-            <PortalButton tone="accent" icon="save" loading={saving} onClick={() => void handleSave()} className="shrink-0">
+            <PortalButton tone="accent" icon="save" loading={saving} onClick={() => void handleSaveClick()} className="shrink-0">
               Guardar solicitud
             </PortalButton>
           </div>
         </div>
+      )}
+
+      {savedSummary && (
+        <FichaEnviadaModal
+          open
+          onClose={() => setSavedSummary(null)}
+          nombre={savedSummary.nombreCompletoAlumno}
+          rows={[
+            { label: "Sede", value: savedSummary.campus || "No especificada" },
+            { label: "Título a obtener", value: savedSummary.tituloObtener || "No especificado" },
+            { label: "Correo electrónico", value: savedSummary.correoElectronico || "No especificado" },
+            { label: "Fotografía", value: savedSummary.fotoBase64 ? "Registrada" : "No registrada" },
+            { label: "Firma", value: savedSummary.firmaBase64 ? "Registrada" : "No registrada" },
+          ]}
+          onVerFicha={() => openSolicitudTituloPdf(savedSummary.id)}
+          nota="No hace falta volver a guardar. Si necesita corregir algo, edite el formulario y guarde de nuevo."
+        />
       )}
     </div>
   );
