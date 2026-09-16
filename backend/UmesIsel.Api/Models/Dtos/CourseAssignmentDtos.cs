@@ -35,8 +35,15 @@ public record CourseAssignmentDto(
     string? FirmaBase64,
     DateTime? FirmadoEn,
     string? AutorizadoPorCodigo,
-    DateTime UpdatedAt
+    DateTime UpdatedAt,
+    // Con valor por defecto: la ficha de asignación del wizard de Inscripción reutiliza este DTO
+    // para dibujar el mismo formato impreso, y un aspirante no tiene marca de impresión que dar.
+    DateTime? ImpresaEn = null,
+    string? ImpresaPor = null
 );
+
+/// <summary>Cuerpo de PUT /{id}/impresa — para desmarcar una ficha cuando la impresión no salió.</summary>
+public record MarcarImpresaRequest(bool Impresa);
 
 /// <summary>Body the student (or admin) submits to save a ficha. Grids are replaced wholesale on each save.</summary>
 public record CourseAssignmentUpsertRequest(

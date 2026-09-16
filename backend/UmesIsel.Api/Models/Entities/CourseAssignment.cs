@@ -50,6 +50,21 @@ public class CourseAssignment
     [MaxLength(50)]
     public string? AutorizadoPorCodigo { get; set; }
 
+    /// <summary>
+    /// Cuándo se imprimió esta ficha por última vez, o null si todavía no.
+    ///
+    /// Existe porque las fichas llegan a lo largo del día: se imprime un lote, siguen entrando más,
+    /// y sin esta marca no hay forma de distinguir las que ya salieron a papel de las que no — había
+    /// que acordarse. La estampa la pone el servidor al generar el PDF desde el panel (ver
+    /// GetFichaPdf y compañía), no el navegador, para que valga aunque se imprima desde otra máquina.
+    /// Que el propio alumno abra su PDF NO cuenta como impresa: la marca es del trámite del admin.
+    /// </summary>
+    public DateTime? ImpresaEn { get; set; }
+
+    /// <summary>Qué cuenta del panel la imprimió — el "quién" de la marca de arriba.</summary>
+    [MaxLength(120)]
+    public string? ImpresaPor { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

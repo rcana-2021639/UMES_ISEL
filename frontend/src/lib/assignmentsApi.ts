@@ -10,10 +10,23 @@ export function toDateParam(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-export function getAssignments(from: Date, to: Date, tipoPago?: TipoPago): Promise<CourseAssignment[]> {
-  const params = new URLSearchParams({ from: toDateParam(from), to: toDateParam(to) });
+/**
+ * Las fichas de un rango de fechas. Con `from`/`to` en null trae el histórico completo, que es lo
+ * que necesita el rango "Todo" del panel: pasado un mes, la ficha de alguien se busca por su nombre
+ * y no adivinando en el calendario qué día la llenó.
+ */
+export function getAssignments(from: Date | null, to: Date | null, tipoPago?: TipoPago): Promise<CourseAssignment[]> {
+  const params = new URLSearchParams();
+  if (from) params.set("from", toDateParam(from));
+  if (to) params.set("to", toDateParam(to));
   if (tipoPago) params.set("tipoPago", tipoPago);
-  return http.get<CourseAssignment[]>(`/api/course-assignments?${params.toString()}`);
+  const query = params.toString();
+  return http.get<CourseAssignment[]>(`/api/course-assignments${query ? `?${query}` : ""}`);
+}
+
+/** Marca o desmarca una ficha como impresa. La marca normal la pone el servidor al generar el PDF. */
+export function marcarFichaImpresa(id: number, impresa: boolean): Promise<CourseAssignment> {
+  return http.put<CourseAssignment>(`/api/course-assignments/${id}/impresa`, { impresa });
 }
 
 export async function getAssignmentByStudent(carnet: string, trimestre?: number): Promise<CourseAssignment | null> {
@@ -39,8 +52,17 @@ export function openFichaPdf(assignmentId: number): Promise<void> {
 }
 
 /** Every ficha in a date range (+ optional tipoPago filter), combined into one printable PDF. */
-export function openFichaBatchPdf(from: Date, to: Date, tipoPago: TipoPago | undefined): Promise<void> {
-  const params = new URLSearchParams({ from: toDateParam(from), to: toDateParam(to) });
+export function openFichaBatchPdf(
+  from: Date | null,
+  to: Date | null,
+  tipoPago: TipoPago | undefined,
+  soloPendientes = false,
+): Promise<void> {
+  const params = new URLSearchParams();
+  if (from) params.set("from", toDateParam(from));
+  if (to) params.set("to", toDateParam(to));
   if (tipoPago) params.set("tipoPago", tipoPago);
-  return openPdf(`/api/course-assignments/ficha-batch.pdf?${params.toString()}`);
+  if (soloPendientes) params.set("soloPendientes", "true");
+  const query = params.toString();
+  return openPdf(`/api/course-assignments/ficha-batch.pdf${query ? `?${query}` : ""}`);
 }

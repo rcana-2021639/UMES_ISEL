@@ -2,7 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getSession } from "@/lib/auth";
 import { useSession } from "@/hooks/useSession";
-import { getAssignments, toDateParam, deleteAssignment, openFichaPdf, openFichaBatchPdf } from "@/lib/assignmentsApi";
+import {
+  getAssignments,
+  toDateParam,
+  deleteAssignment,
+  marcarFichaImpresa,
+  openFichaPdf,
+  openFichaBatchPdf,
+} from "@/lib/assignmentsApi";
 import { ApiError } from "@/lib/http";
 import { getStudents, deleteStudent } from "@/lib/studentsApi";
 import { rangeFor, type RangeMode } from "@/lib/dateRanges";
@@ -27,6 +34,7 @@ import { useConfirm } from "@/hooks/useConfirm";
 import { Icon } from "@/components/portal/Icon";
 import { FichaStack } from "@/components/portal/FichaCard";
 import { PortalBand, PortalPanel, PortalTopBar } from "@/components/portal/PortalShell";
+import { CorreoPagoModal } from "@/components/portal/CorreoPagoModal";
 import { Alert, Chip, EmptyState, IconButton, Loading, PortalButton, Segmented, fieldClass } from "@/components/portal/kit";
 
 /**
@@ -49,6 +57,13 @@ import { Alert, Chip, EmptyState, IconButton, Loading, PortalButton, Segmented, 
  * texto gris. La ficha de un alumno se abre en consulta; editarla es un clic
  * aparte.
  */
+
+/**
+ * Los rangos del panel de fichas. "todo" no es un rango de fechas sino su ausencia: trae el
+ * histórico entero, que es lo que hace falta cuando pasan dos meses y piden la ficha de alguien —
+ * se busca por su nombre en vez de adivinar en el calendario qué día la llenó.
+ */
+export type RangoPanel = RangeMode | "todo";
 
 export function todayInput(): string {
   const d = new Date();
@@ -111,8 +126,11 @@ export function AdminPortalPage() {
 
   // ---- Impresión de asignaciones ----
   const [dateInput, setDateInput] = useState(todayInput());
-  const [rangeMode, setRangeMode] = useState<RangeMode | null>(null);
+  const [rangeMode, setRangeMode] = useState<RangoPanel | null>(null);
   const [tipoPagoFilter, setTipoPagoFilter] = useState<TipoPago | "todas">("todas");
+  // Pendiente / impresa. Las fichas llegan a lo largo del día: se imprime un lote, siguen entrando
+  // más, y sin este filtro no había forma de ver cuáles faltan salvo acordándose.
+  const [impresionFilter, setImpresionFilter] = useState<"todas" | "pendientes" | "impresas">("todas");
   const [assignments, setAssignments] = useState<CourseAssignment[]>([]);
   const [loadingAssignments, setLoadingAssignments] = useState(false);
   const [assignmentsLoaded, setAssignmentsLoaded] = useState(false);
@@ -121,11 +139,22 @@ export function AdminPortalPage() {
   // range regardless of what's typed here.
   const [assignmentSearch, setAssignmentSearch] = useState("");
 
-  async function loadAssignments(mode: RangeMode, tipoPago: TipoPago | "todas" = tipoPagoFilter) {
+  /**
+   * Carga las fichas del rango.
+   *
+   * La fecha ancla se pasa como argumento y no se lee del estado: quien escribe una fecha espera que
+   * la tabla cambie sola, y al llamar desde el propio `onChange` del campo el estado todavía tiene
+   * la fecha anterior. Pasándola explícitamente se carga la que la persona acaba de escribir.
+   */
+  async function loadAssignments(
+    mode: RangoPanel,
+    tipoPago: TipoPago | "todas" = tipoPagoFilter,
+    anchorDate: string = dateInput,
+  ) {
     setRangeMode(mode);
     setLoadingAssignments(true);
-    const anchor = new Date(`${dateInput}T00:00:00`);
-    const { from, to } = rangeFor(mode, anchor);
+    // "Todo" va sin fechas: el servidor devuelve el histórico completo.
+    const { from, to } = mode === "todo" ? { from: null, to: null } : rangeFor(mode, new Date(`${anchorDate}T00:00:00`));
     try {
       const results = await getAssignments(from, to, tipoPago === "todas" ? undefined : tipoPago);
       setAssignments(results);
@@ -133,6 +162,26 @@ export function AdminPortalPage() {
     } finally {
       setLoadingAssignments(false);
     }
+  }
+
+  /**
+   * Pinta en la tabla la marca que el servidor acaba de poner al generar el PDF.
+   *
+   * Se refleja aquí en vez de volver a pedir la lista entera: la marca ya quedó guardada al otro
+   * lado —eso es lo que cuenta— y recargar cuarenta fichas para cambiar una insignia haría que la
+   * tabla parpadeara cada vez que se imprime una.
+   */
+  function reflejarImpresion(id: number) {
+    const ahora = new Date().toISOString();
+    setAssignments((prev) =>
+      prev.map((x) => (x.id === id ? { ...x, impresaEn: ahora, impresaPor: session?.admin?.username ?? x.impresaPor } : x)),
+    );
+  }
+
+  /** Marca o desmarca a mano una ficha como impresa, sin recargar toda la tabla. */
+  async function toggleImpresa(a: CourseAssignment) {
+    const actualizada = await marcarFichaImpresa(a.id, !a.impresaEn);
+    setAssignments((prev) => prev.map((x) => (x.id === a.id ? { ...x, ...actualizada } : x)));
   }
 
   /**
@@ -313,6 +362,8 @@ export function AdminPortalPage() {
   // a la ficha — ver PrintOptionsModal. Sin documentos, nada cambia respecto a como ya funcionaba.
   const [printOptionsFor, setPrintOptionsFor] = useState<CourseAssignment | null>(null);
   const [printingSelection, setPrintingSelection] = useState(false);
+  // La ficha para la que se está redactando el correo de "solicitar link de pago" — ver CorreoPagoModal.
+  const [correoPara, setCorreoPara] = useState<CourseAssignment | null>(null);
 
   async function handlePrintOne(a: CourseAssignment) {
     setPrintingId(a.id);
@@ -321,6 +372,7 @@ export function AdminPortalPage() {
       const docs = await getStudentDocumentos(a.studentId);
       if (docs.length === 0) {
         await openFichaPdf(a.id);
+        reflejarImpresion(a.id);
       } else {
         setPrintOptionsFor(a);
       }
@@ -339,6 +391,8 @@ export function AdminPortalPage() {
       if (selection === "ficha") await openFichaPdf(printOptionsFor.id);
       else if (selection === "documentos") await openStudentDocumentosPdf(printOptionsFor.studentId);
       else await openFichaYDocumentosPdf(printOptionsFor.id);
+      // Imprimir solo la papelería no imprime la ficha, así que esa no queda marcada.
+      if (selection !== "documentos") reflejarImpresion(printOptionsFor.id);
       setPrintOptionsFor(null);
     } catch (e) {
       setPrintError(e instanceof ApiError ? e.message : "No se pudo generar el PDF.");
@@ -352,9 +406,16 @@ export function AdminPortalPage() {
     setPrintingId("batch");
     setPrintError(null);
     try {
-      const anchor = new Date(`${dateInput}T00:00:00`);
-      const { from, to } = rangeFor(rangeMode, anchor);
-      await openFichaBatchPdf(from, to, tipoPagoFilter === "todas" ? undefined : tipoPagoFilter);
+      const { from, to } =
+        rangeMode === "todo" ? { from: null, to: null } : rangeFor(rangeMode, new Date(`${dateInput}T00:00:00`));
+      await openFichaBatchPdf(
+        from,
+        to,
+        tipoPagoFilter === "todas" ? undefined : tipoPagoFilter,
+        impresionFilter === "pendientes",
+      );
+      // El servidor acaba de marcarlas como impresas; la tabla tiene que enterarse.
+      await loadAssignments(rangeMode);
     } catch (e) {
       setPrintError(e instanceof ApiError ? e.message : "No se pudo generar el PDF de las fichas.");
     } finally {
@@ -364,11 +425,12 @@ export function AdminPortalPage() {
 
   const rangeLabel = useMemo(() => {
     if (!rangeMode) return null;
-    return { day: "Hoy", week: "Esta semana", month: "Este mes" }[rangeMode];
+    return { day: "Hoy", week: "Esta semana", month: "Este mes", todo: "Todo el histórico" }[rangeMode];
   }, [rangeMode]);
 
   const rangeDates = useMemo(() => {
     if (!rangeMode) return null;
+    if (rangeMode === "todo") return "todas las fichas guardadas";
     const { from, to } = rangeFor(rangeMode, new Date(`${dateInput}T00:00:00`));
     return rangeText(from, to);
   }, [rangeMode, dateInput]);
@@ -383,11 +445,17 @@ export function AdminPortalPage() {
   // one ficha they're looking for among however many the date range pulled in.
   const filteredAssignments = useMemo(() => {
     const q = normalize(assignmentSearch.trim());
-    if (!q) return assignments;
-    return assignments.filter(
-      (a) => normalize(a.carnet).includes(q) || normalize(a.nombreCompleto).includes(q) || normalize(a.carrera).includes(q),
-    );
-  }, [assignments, assignmentSearch]);
+    return assignments.filter((a) => {
+      if (impresionFilter === "pendientes" && a.impresaEn) return false;
+      if (impresionFilter === "impresas" && !a.impresaEn) return false;
+      if (!q) return true;
+      return (
+        normalize(a.carnet).includes(q) || normalize(a.nombreCompleto).includes(q) || normalize(a.carrera).includes(q)
+      );
+    });
+  }, [assignments, assignmentSearch, impresionFilter]);
+
+  const pendientesCount = useMemo(() => assignments.filter((a) => !a.impresaEn).length, [assignments]);
 
   // Cifras derivadas de lo que ya está cargado — ninguna consulta nueva.
   const linkCount = useMemo(() => assignments.filter((a) => a.tipoPago === "Link").length, [assignments]);
@@ -466,11 +534,14 @@ export function AdminPortalPage() {
             <PortalButton
               tone="primary"
               icon="printer"
-              disabled={assignments.length === 0}
+              disabled={filteredAssignments.length === 0}
               loading={printingId === "batch"}
               onClick={handlePrintAll}
             >
-              Imprimir todas
+              {/* Dice lo que va a hacer. Con el filtro en "Pendientes" imprime solo esas, que es lo
+                  que hace falta cuando entran fichas nuevas sobre un lote ya impreso: si no, se
+                  reimprime todo y hay que separar el montón a mano. */}
+              {impresionFilter === "pendientes" ? "Imprimir pendientes" : "Imprimir todas"}
             </PortalButton>
           }
         >
@@ -479,10 +550,20 @@ export function AdminPortalPage() {
               <span className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-[0.14em] text-isel-ink/45">
                 Fecha ancla
               </span>
+              {/* Al cambiar la fecha se recarga sola.
+                  Antes escribir una fecha no hacía nada: había que acordarse de volver a pulsar
+                  Hoy/Semana/Mes para que la consulta saliera. Quien ponía la fecha y esperaba, veía
+                  la tabla del día anterior y concluía que no había fichas ese día. */}
               <input
                 type="date"
                 value={dateInput}
-                onChange={(e) => setDateInput(e.target.value)}
+                onChange={(e) => {
+                  const fecha = e.target.value;
+                  setDateInput(fecha);
+                  if (fecha && rangeMode && rangeMode !== "todo") {
+                    void loadAssignments(rangeMode, tipoPagoFilter, fecha);
+                  }
+                }}
                 className={`${fieldClass} w-auto tabular`}
               />
             </label>
@@ -495,9 +576,10 @@ export function AdminPortalPage() {
                 value={rangeMode}
                 onChange={(m) => loadAssignments(m)}
                 options={[
-                  { value: "day" as RangeMode, label: "Hoy" },
-                  { value: "week" as RangeMode, label: "Semana" },
-                  { value: "month" as RangeMode, label: "Mes" },
+                  { value: "day" as RangoPanel, label: "Hoy" },
+                  { value: "week" as RangoPanel, label: "Semana" },
+                  { value: "month" as RangoPanel, label: "Mes" },
+                  { value: "todo" as RangoPanel, label: "Todo" },
                 ]}
               />
             </div>
@@ -513,6 +595,21 @@ export function AdminPortalPage() {
                   { value: "todas" as const, label: "Todas" },
                   { value: "Link" as const, label: "Link" },
                   { value: "Presencial" as const, label: "Presencial" },
+                ]}
+              />
+            </div>
+
+            <div>
+              <span className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-[0.14em] text-isel-ink/45">
+                Impresión
+              </span>
+              <Segmented
+                value={impresionFilter}
+                onChange={setImpresionFilter}
+                options={[
+                  { value: "todas" as const, label: "Todas" },
+                  { value: "pendientes" as const, label: "Pendientes" },
+                  { value: "impresas" as const, label: "Impresas" },
                 ]}
               />
             </div>
@@ -551,10 +648,15 @@ export function AdminPortalPage() {
                 )}
               </div>
               <span className="tabular text-[12.5px] text-isel-ink/45">
-                {assignmentSearch
+                {assignmentSearch || impresionFilter !== "todas"
                   ? `${filteredAssignments.length} de ${assignments.length} fichas`
                   : `${assignments.length} ficha${assignments.length === 1 ? "" : "s"}`}
               </span>
+              {pendientesCount > 0 && (
+                <Chip tone="gold" icon="printer">
+                  {pendientesCount} sin imprimir
+                </Chip>
+              )}
             </div>
           )}
 
@@ -577,7 +679,7 @@ export function AdminPortalPage() {
               />
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[900px] border-collapse text-left text-[13.5px]">
+                <table className="w-full min-w-[1100px] border-collapse text-left text-[13.5px]">
                   <thead>
                     <tr className="border-b border-isel-line bg-isel-paper/60">
                       <Th>Carné</Th>
@@ -594,6 +696,12 @@ export function AdminPortalPage() {
                           pregunta —«¿este ya entregó todo?»— se hace mirando la
                           ficha, así que la respuesta va en la fila de la ficha. */}
                       <Th className="text-center">Papelería</Th>
+                      {/* Ya impresa o no.
+                          Las fichas llegan a lo largo del día: se imprime un lote, siguen entrando
+                          más, y hasta ahora la única forma de saber cuáles ya salieron a papel era
+                          acordarse. La marca la pone el servidor al generar el PDF, así que vale
+                          aunque se haya impreso desde otra computadora. */}
+                      <Th className="text-center">Impresión</Th>
                       <Th className="text-right">Acciones</Th>
                     </tr>
                   </thead>
@@ -625,8 +733,23 @@ export function AdminPortalPage() {
                             onOpen={(st) => openFicha(st, true)}
                           />
                         </Td>
+                        <Td className="text-center">
+                          <ImpresionChip assignment={a} onToggle={() => toggleImpresa(a)} />
+                        </Td>
                         <Td>
                           <div className="flex items-center justify-end gap-1">
+                            {/* Solicitar el link de pago.
+                                Era copiar a mano el nombre, el carné, la carrera, el celular y la
+                                forma de pago a un correo en blanco, una vez por alumno — y basta
+                                fallar un dígito del carné para que el link salga a nombre de otro. */}
+                            <PortalButton
+                              tone="ghost"
+                              size="sm"
+                              icon="mail"
+                              onClick={() => setCorreoPara(a)}
+                            >
+                              Correo
+                            </PortalButton>
                             <PortalButton
                               tone="ghost"
                               size="sm"
@@ -932,8 +1055,49 @@ export function AdminPortalPage() {
           onPrint={handlePrintSelection}
         />
       )}
+      {correoPara && (
+        <CorreoPagoModal
+          assignment={correoPara}
+          student={studentsById.get(correoPara.studentId) ?? null}
+          onClose={() => setCorreoPara(null)}
+        />
+      )}
       {confirmDialog}
     </main>
+  );
+}
+
+/**
+ * Si esta ficha ya se imprimió, y cuándo.
+ *
+ * La marca la estampa el servidor al generar el PDF desde el panel, de modo que vale aunque la
+ * impresión se haya hecho desde otra computadora o en otra sesión. Se puede pulsar para corregirla a
+ * mano, que es para lo único que hace falta tocarla: la impresora se atascó, el papel salió en
+ * blanco, y la ficha tiene que volver a la pila de pendientes.
+ */
+function ImpresionChip({ assignment, onToggle }: { assignment: CourseAssignment; onToggle: () => void }) {
+  const impresa = !!assignment.impresaEn;
+  const cuando = assignment.impresaEn
+    ? new Date(assignment.impresaEn).toLocaleString("es-GT", { dateStyle: "short", timeStyle: "short" })
+    : null;
+
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      title={
+        impresa
+          ? `Impresa el ${cuando}${assignment.impresaPor ? ` por ${assignment.impresaPor}` : ""}. Pulsa para marcarla como pendiente.`
+          : "Todavía no se ha impreso. Pulsa para marcarla como impresa sin generar el PDF."
+      }
+      className="rounded-full transition-transform duration-300 ease-snap hover:-translate-y-px"
+    >
+      {impresa ? (
+        <Chip tone="emerald" icon="check">{cuando}</Chip>
+      ) : (
+        <Chip tone="gold" icon="printer">Pendiente</Chip>
+      )}
+    </button>
   );
 }
 

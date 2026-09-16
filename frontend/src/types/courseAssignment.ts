@@ -42,6 +42,10 @@ export interface CourseAssignment {
   firmadoEn?: string | null;
   autorizadoPorCodigo?: string | null;
   updatedAt: string;
+  /** Cuándo se imprimió por última vez desde el panel, o null si sigue pendiente. Solo lo usa el admin. */
+  impresaEn?: string | null;
+  /** Qué cuenta del panel la imprimió. */
+  impresaPor?: string | null;
 }
 
 /** Body sent to save/update a ficha (student portal or admin edit). */

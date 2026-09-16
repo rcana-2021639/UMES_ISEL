@@ -58,7 +58,13 @@ public class CourseAssignmentsController : ControllerBase
         return (ca, null);
     }
 
-    private static CourseAssignmentDto ToDto(CourseAssignment ca) => new(
+    /// <param name="incluirFirma">
+    /// false en los listados. La firma es un PNG en base64 dentro del propio JSON: con cuarenta
+    /// fichas cargadas son varios megas que el panel descarga y no usa para nada (la tabla no la
+    /// pinta, y al abrir una ficha se vuelve a pedir entera). Quitarla del listado es la diferencia
+    /// entre que "Histórico" sea instantáneo o inviable.
+    /// </param>
+    private static CourseAssignmentDto ToDto(CourseAssignment ca, bool incluirFirma = true) => new(
         ca.Id,
         ca.StudentId,
         ca.Student?.Carnet ?? string.Empty,
@@ -78,10 +84,12 @@ public class CourseAssignmentsController : ControllerBase
         ca.CorreoContacto,
         ca.TelefonoContacto,
         ca.TipoPago,
-        ca.FirmaBase64,
+        incluirFirma ? ca.FirmaBase64 : null,
         ca.FirmadoEn,
         ca.AutorizadoPorCodigo,
-        ca.UpdatedAt
+        ca.UpdatedAt,
+        ca.ImpresaEn,
+        ca.ImpresaPor
     );
 
     private IQueryable<CourseAssignment> WithIncludes() =>
@@ -90,7 +98,14 @@ public class CourseAssignmentsController : ControllerBase
             .Include(ca => ca.CursosAsignados)
             .Include(ca => ca.CursosAdicionales);
 
-    /// <summary>GET /api/course-assignments?from=2026-08-25&to=2026-08-25&tipoPago=Link — used by Hoy/Semana/Mes, the date picker, and the payment-method filter.</summary>
+    /// <summary>
+    /// GET /api/course-assignments?from=2026-08-25&amp;to=2026-08-25&amp;tipoPago=Link — used by
+    /// Hoy/Semana/Mes, the date picker, and the payment-method filter.
+    ///
+    /// Sin <c>from</c> ni <c>to</c> devuelve el histórico completo (tope <see cref="TopeHistorico"/>),
+    /// que es lo que pide "Todo" en el panel: dentro de dos meses, cuando pidan la ficha de alguien,
+    /// se busca por su nombre y no adivinando en qué día de qué mes la llenó.
+    /// </summary>
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<CourseAssignmentDto>>> GetAll(
         [FromQuery] DateOnly? from, [FromQuery] DateOnly? to, [FromQuery] string? tipoPago)
@@ -110,8 +125,59 @@ public class CourseAssignmentsController : ControllerBase
             query = query.Where(ca => ca.TipoPago == tipoPago);
         }
 
-        var results = await query.OrderByDescending(ca => ca.Fecha).ToListAsync();
-        return Ok(results.Select(ToDto).ToList());
+        var results = await query
+            .OrderByDescending(ca => ca.Fecha)
+            .Take(TopeHistorico)
+            .ToListAsync();
+        return Ok(results.Select(ca => ToDto(ca, incluirFirma: false)).ToList());
+    }
+
+    /// <summary>
+    /// Tope de filas del listado. Solo muerde al pedir el histórico completo (los rangos por día,
+    /// semana o mes nunca se acercan). Está para que una tabla que crece cada trimestre no acabe
+    /// mandando la base entera en una sola respuesta.
+    /// </summary>
+    private const int TopeHistorico = 2000;
+
+    /// <summary>
+    /// PUT /api/course-assignments/{id}/impresa — marca o desmarca a mano.
+    ///
+    /// La marca normal la pone sola el servidor al generar el PDF desde el panel; esto es para el
+    /// caso contrario: la impresora se atascó, el PDF salió en blanco, y la ficha tiene que volver
+    /// a la pila de pendientes.
+    /// </summary>
+    [HttpPut("{id:int}/impresa")]
+    public async Task<ActionResult<CourseAssignmentDto>> MarcarImpresa(int id, MarcarImpresaRequest request)
+    {
+        var ca = await _db.CourseAssignments.FirstOrDefaultAsync(x => x.Id == id);
+        if (ca is null) return NotFound();
+
+        ca.ImpresaEn = request.Impresa ? DateTime.UtcNow : null;
+        ca.ImpresaPor = request.Impresa ? _currentUser.Display : null;
+        await _db.SaveChangesAsync();
+
+        var actualizada = await WithIncludes().AsNoTracking().FirstAsync(x => x.Id == id);
+        return Ok(ToDto(actualizada, incluirFirma: false));
+    }
+
+    /// <summary>
+    /// Deja constancia de que estas fichas ya salieron a papel.
+    ///
+    /// Se llama desde los endpoints de PDF y solo cuenta si quien imprime es un admin: el alumno que
+    /// abre su propia ficha desde "Ver ficha" no está imprimiendo nada para Secretaría, y marcársela
+    /// haría que el panel diera por impresas fichas que nadie ha sacado en papel.
+    /// </summary>
+    private async Task MarcarComoImpresasAsync(params int[] ids)
+    {
+        if (!_currentUser.IsAdmin || ids.Length == 0) return;
+        var ahora = DateTime.UtcNow;
+        var fichas = await _db.CourseAssignments.Where(ca => ids.Contains(ca.Id)).ToListAsync();
+        foreach (var ficha in fichas)
+        {
+            ficha.ImpresaEn = ahora;
+            ficha.ImpresaPor = _currentUser.Display;
+        }
+        await _db.SaveChangesAsync();
     }
 
     [HttpGet("{id:int}")]
@@ -327,6 +393,7 @@ public class CourseAssignmentsController : ControllerBase
         try
         {
             var bytes = _fichaPdfBuilder.BuildOne(ToDto(ca!));
+            await MarcarComoImpresasAsync(ca!.Id);
             return File(bytes, PdfContentType, FichaFileName(ca!.Student, "pdf"));
         }
         catch (InvalidOperationException ex)
@@ -339,22 +406,35 @@ public class CourseAssignmentsController : ControllerBase
     /// GET /api/course-assignments/ficha-batch.pdf?from=&amp;to=&amp;tipoPago= — same filters as GetAll,
     /// one combined PDF with every matching ficha's page(s) in order ("Imprimir todas" — one print job).
     /// </summary>
+    /// <param name="soloPendientes">
+    /// Deja fuera las que ya se imprimieron. Es la razón de ser de la marca de impresión: durante el
+    /// día entran fichas nuevas sobre las ya impresas, y sin esto "Imprimir todas" reimprime el lote
+    /// entero — papel de más y un montón que hay que volver a separar a mano.
+    /// </param>
     [HttpGet("ficha-batch.pdf")]
     [EnableRateLimiting(RateLimitPolicies.Pesado)]
     public async Task<IActionResult> GetFichaBatchPdf(
-        [FromQuery] DateOnly? from, [FromQuery] DateOnly? to, [FromQuery] string? tipoPago)
+        [FromQuery] DateOnly? from, [FromQuery] DateOnly? to, [FromQuery] string? tipoPago,
+        [FromQuery] bool soloPendientes = false)
     {
         var query = WithIncludes().AsNoTracking().AsQueryable();
         if (from.HasValue) query = query.Where(ca => ca.Fecha >= from.Value);
         if (to.HasValue) query = query.Where(ca => ca.Fecha <= to.Value);
         if (!string.IsNullOrWhiteSpace(tipoPago)) query = query.Where(ca => ca.TipoPago == tipoPago);
+        if (soloPendientes) query = query.Where(ca => ca.ImpresaEn == null);
 
         var results = await query.OrderBy(ca => ca.Student!.PrimerApellido).ToListAsync();
-        if (results.Count == 0) return NotFound("No hay fichas para ese rango/filtro.");
+        if (results.Count == 0)
+        {
+            return NotFound(soloPendientes
+                ? "No queda ninguna ficha sin imprimir en ese rango."
+                : "No hay fichas para ese rango/filtro.");
+        }
 
         try
         {
-            var bytes = _fichaPdfBuilder.BuildBatch(results.Select(ToDto).ToList());
+            var bytes = _fichaPdfBuilder.BuildBatch(results.Select(ca => ToDto(ca)).ToList());
+            await MarcarComoImpresasAsync(results.Select(ca => ca.Id).ToArray());
             return File(bytes, PdfContentType, "Fichas.pdf");
         }
         catch (InvalidOperationException ex)
@@ -393,6 +473,7 @@ public class CourseAssignmentsController : ControllerBase
             }
 
             var merged = pdfs.Count == 1 ? pdfs[0] : FichaPdfBuilder.MergePdfs(pdfs);
+            await MarcarComoImpresasAsync(ca!.Id);
             return File(merged, PdfContentType, FichaFileName(ca!.Student, "pdf"));
         }
         catch (InvalidOperationException ex)
