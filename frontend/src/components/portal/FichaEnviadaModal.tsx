@@ -60,15 +60,25 @@ export function FichaEnviadaModal({
   return (
     <Modal open={open} onClose={onClose} title="Ficha guardada" widthClassName="max-w-md">
       <div className="space-y-5">
-        <div className="flex items-start gap-4">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-isel-emerald/10 text-isel-emerald">
-            <Icon name="check" size={22} />
+        {/* El "sí quedó", sin ambigüedad.
+            La confirmación era una línea de texto al lado de un icono, y se leía como un aviso más
+            de la página: la gente volvía a pulsar Guardar por si acaso, o cerraba la pestaña sin
+            saber si había funcionado. Un bloque verde entero, con la palabra en grande, no se
+            confunde con nada. */}
+        <div className="rounded-xl border border-isel-emerald/30 bg-isel-emerald/[0.07] px-5 py-4 text-center">
+          <span className="mx-auto mb-2.5 flex h-12 w-12 items-center justify-center rounded-full bg-isel-emerald text-white">
+            <Icon name="check" size={26} />
           </span>
-          <p className="pt-0.5 text-[13.5px] leading-relaxed text-isel-ink">
-            La ficha de <strong className="text-isel-navy">{nombre}</strong> se envió correctamente. Esto
-            quedó registrado:
+          <p className="font-display text-[17px] font-semibold tracking-tightest text-isel-emerald">
+            Se guardó correctamente
+          </p>
+          <p className="mt-1 text-[12.5px] leading-relaxed text-isel-ink/65">
+            La ficha de <strong className="text-isel-navy">{nombre}</strong> ya quedó registrada en el
+            sistema.
           </p>
         </div>
+
+        <p className="text-[12.5px] font-semibold text-isel-ink/60">Esto fue lo que se envió:</p>
 
         <dl className="divide-y divide-isel-line overflow-hidden rounded-xl border border-isel-line">
           {rows.map((r) => (

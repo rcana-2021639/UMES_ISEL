@@ -9,6 +9,7 @@ import { SignaturePad, type SignaturePadHandle } from "@/components/portal/Signa
 import { Modal } from "@/components/ui/Modal";
 import { FichaEnviadaModal } from "@/components/portal/FichaEnviadaModal";
 import { CoursePickerModal } from "@/components/portal/CoursePickerModal";
+import { useConfirm } from "@/hooks/useConfirm";
 import { Icon } from "@/components/portal/Icon";
 import { PortalPanel } from "@/components/portal/PortalShell";
 import { StepGuide } from "@/components/portal/StepGuide";
@@ -124,7 +125,12 @@ export function CourseAssignmentForm({
   // button, which gave no clear sense of being "done" and led to the same ficha being submitted over
   // and over. The modal blocks the button underneath it, and its own primary action leaves the page.
   const [savedSummary, setSavedSummary] = useState<CourseAssignment | null>(null);
+  // Se intentó enviar sin firmar. Un modal y no un texto de error al pie: el botón de guardar está
+  // en la barra fija de abajo y el recuadro de la firma queda fuera de pantalla, así que un aviso
+  // ahí arriba no lo ve nadie.
+  const [faltaFirma, setFaltaFirma] = useState(false);
   const signatureRef = useRef<SignaturePadHandle>(null);
+  const { confirm, dialog: confirmDialog } = useConfirm();
 
   // "Cursos por asignarse" picker — a numbered list of maestrías; tapping one opens a modal to pick
   // its trimestre + sección and preview the trimestre's courses before confirming with "Listo".
@@ -329,7 +335,16 @@ export function CourseAssignmentForm({
     return null;
   }
 
-  async function handleSave() {
+  /**
+   * Lo que se pulsa. Antes de guardar de verdad se cobran dos peajes, en este orden:
+   *
+   *  1. Sin firma no se envía. La ficha firmada es el documento que se presenta en Secretaría; una
+   *     sin firma no sirve, y se estaba guardando igual, en silencio, para descubrirlo al imprimirla.
+   *  2. Sin forma de pago se pregunta. No es un campo obligatorio —hay quien de verdad no lo sabe
+   *     todavía— pero la mayoría de las que llegan en blanco es porque nadie leyó la línea, y
+   *     entonces hay que perseguir a la persona por correo para saber cómo va a pagar.
+   */
+  async function handleSaveClick() {
     if (carrera === null || trimestre === null) {
       setError("Selecciona una maestría y un trimestre antes de guardar.");
       return;
@@ -341,10 +356,34 @@ export function CourseAssignmentForm({
       );
       return;
     }
+
+    const firma = signatureRef.current?.getSignature() ?? assignment?.firmaBase64 ?? null;
+    if (!firma) {
+      setFaltaFirma(true);
+      return;
+    }
+
+    if (!tipoPago) {
+      const seguir = await confirm({
+        title: "No indicaste la forma de pago",
+        message:
+          "Vas a enviar la ficha sin decir si vas a pagar con link de pago o de forma presencial. Puedes hacerlo, pero Coordinación tendrá que escribirte para preguntártelo. ¿Quieres enviarla así?",
+        confirmLabel: "Sí, enviar sin indicarlo",
+      });
+      if (!seguir) {
+        document.getElementById("paso-firma")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+    }
+
+    await guardar(firma);
+  }
+
+  async function guardar(firma: string | null) {
+    if (carrera === null || trimestre === null) return;
     setSaving(true);
     setError(null);
     try {
-      const firma = signatureRef.current?.getSignature() ?? assignment?.firmaBase64 ?? null;
 
       const cursosAsignados = (mainCourses ?? []).map((c, i) => ({
         numero: i + 1,
@@ -712,16 +751,62 @@ export function CourseAssignmentForm({
             onChange={(v) => setPendientesMaterias(v === "si")}
             disabled={readOnly}
           />
-          <ChoiceRow
-            label="Tipo de pago"
-            options={[
-              { value: "Link", label: "Link de pago" },
-              { value: "Presencial", label: "Presencial" },
-            ]}
-            value={tipoPago === "" ? null : tipoPago}
-            onChange={(v) => setTipoPago(v as TipoPago)}
-            disabled={readOnly}
-          />
+        </div>
+
+        {/* La forma de pago, fuera de la lista de "sí/no".
+            Estaba como una fila más entre las dos de trimestres pendientes, con el mismo peso
+            visual, y la gente pasaba de largo: llegaban fichas en blanco a diario y había que
+            escribirle a cada persona para preguntarle cómo iba a pagar. No es obligatoria —hay
+            quien de verdad no lo sabe todavía— así que no se bloquea el envío: se hace imposible
+            no verla, y al guardar sin marcarla se pregunta una vez. */}
+        <div
+          className={`mt-6 rounded-xl border-2 px-5 py-5 transition-colors duration-300 ease-crisp ${
+            tipoPago ? "border-isel-emerald/40 bg-isel-emerald/[0.05]" : "border-isel-gold2/55 bg-isel-gold2/[0.07]"
+          }`}
+        >
+          <div className="mb-1.5 flex items-center gap-2">
+            <Icon name={tipoPago ? "check" : "card"} size={17} className={tipoPago ? "text-isel-emerald" : "text-isel-gold2"} />
+            <p className="text-[14.5px] font-semibold text-isel-navy">¿Cómo va a realizar su pago?</p>
+          </div>
+          <p className="mb-4 text-[12.5px] leading-relaxed text-isel-ink/60">
+            {tipoPago
+              ? "Queda registrado en su ficha. Si se equivocó, puede cambiarlo antes de guardar."
+              : "Elija una de las dos opciones. Si no lo indica, Coordinación tendrá que escribirle para preguntárselo."}
+          </p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {([
+              { value: "Link", label: "Link de pago", hint: "Le envían un enlace para pagar en línea", icon: "globe" },
+              { value: "Presencial", label: "Presencial", hint: "Paga directamente en caja", icon: "card" },
+            ] as const).map((op) => {
+              const elegido = tipoPago === op.value;
+              return (
+                <button
+                  key={op.value}
+                  type="button"
+                  disabled={readOnly}
+                  aria-pressed={elegido}
+                  onClick={() => setTipoPago(op.value)}
+                  className={`flex items-start gap-3 rounded-xl border-2 px-4 py-3.5 text-left transition-all duration-300 ease-crisp disabled:cursor-default disabled:opacity-60 ${
+                    elegido
+                      ? "border-isel-emerald bg-white shadow-card-hover"
+                      : "border-isel-line bg-white/70 hover:enabled:border-isel-emerald/45 hover:enabled:bg-white"
+                  }`}
+                >
+                  <span
+                    className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors duration-300 ease-crisp ${
+                      elegido ? "border-isel-emerald bg-isel-emerald text-white" : "border-isel-ink/25"
+                    }`}
+                  >
+                    {elegido && <Icon name="check" size={11} />}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[13.5px] font-semibold text-isel-navy">{op.label}</span>
+                    <span className="mt-0.5 block text-[12px] leading-snug text-isel-ink/55">{op.hint}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <div className="mt-8">
@@ -768,6 +853,22 @@ export function CourseAssignmentForm({
         </div>
       </PortalPanel>
 
+      {/* Ya hay una ficha guardada para esta maestría y este trimestre.
+          Importa decirlo porque el formulario abre por defecto en la última ficha que la persona
+          guardó, con todo relleno. Al trimestre siguiente eso se lee como "ya está hecho": se pulsa
+          Guardar y lo que se hace no es una asignación nueva, sino pisar la del trimestre pasado —
+          la ficha se guarda por maestría y trimestre, así que mientras el trimestre no cambie es
+          siempre la misma. Cambiando el trimestre en el paso 02 se crea una nueva y la anterior
+          sigue donde estaba. */}
+      {assignment && !readOnly && (
+        <Alert kind="info">
+          Ya tiene una ficha guardada para <strong>{assignment.carrera}</strong>, trimestre{" "}
+          <strong>{assignment.trimestre}</strong>. Si guarda ahora, esa ficha se reemplaza. Para asignarse
+          a otro trimestre, vuelva al paso 02, elija su maestría y seleccione el trimestre nuevo: la ficha
+          anterior se conserva.
+        </Alert>
+      )}
+
       {error && !readOnly && <Alert kind="error">{error}</Alert>}
 
       {/* ------------------------------------------------- barra de envío */}
@@ -804,7 +905,7 @@ export function CourseAssignmentForm({
             Solo lectura
           </span>
         ) : (
-          <PortalButton tone="accent" icon="save" onClick={handleSave} loading={saving} className="shrink-0">
+          <PortalButton tone="accent" icon="save" onClick={handleSaveClick} loading={saving} className="shrink-0">
             {saving ? "Guardando" : "Guardar asignación"}
           </PortalButton>
         )}
@@ -830,6 +931,48 @@ export function CourseAssignmentForm({
           nota="No hace falta volver a guardar. Si necesitas corregir algo, edita el formulario y guarda de nuevo."
         />
       )}
+
+      {/* Falta la firma.
+          El botón de guardar vive en la barra fija del fondo y el recuadro de la firma suele quedar
+          fuera de pantalla, así que un texto de error al pie no lo lee nadie: hace falta algo que
+          tape la página y que, al cerrarse, deje a la persona mirando el recuadro que le falta. */}
+      <Modal
+        open={faltaFirma}
+        onClose={() => setFaltaFirma(false)}
+        title="Falta su firma"
+        widthClassName="max-w-md"
+      >
+        <div className="space-y-5">
+          <div className="flex items-start gap-4">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-isel-alert/10 text-isel-alert">
+              <Icon name="pen" size={22} />
+            </span>
+            <p className="pt-0.5 text-[13.5px] leading-relaxed text-isel-ink">
+              No se puede enviar la ficha sin firmar. La firma es lo que hace válido el documento que
+              presenta en Secretaría.
+            </p>
+          </div>
+          <p className="text-[12.5px] leading-relaxed text-isel-ink/55">
+            Al cerrar esta ventana lo llevamos al recuadro de la firma. Puede firmar con el dedo desde
+            un teléfono o con el ratón desde una computadora, y borrarla para repetirla si no queda bien.
+          </p>
+          <div className="flex justify-end border-t border-isel-line pt-4">
+            <PortalButton
+              tone="primary"
+              icon="arrowRight"
+              iconRight
+              onClick={() => {
+                setFaltaFirma(false);
+                document.getElementById("paso-firma")?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
+            >
+              Ir a firmar
+            </PortalButton>
+          </div>
+        </div>
+      </Modal>
+
+      {confirmDialog}
     </div>
   );
 }
