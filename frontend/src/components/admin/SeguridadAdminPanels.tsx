@@ -327,17 +327,26 @@ function BitacoraPanel() {
   const [eventos, setEventos] = useState<SecurityEvent[] | null>(null);
   const [soloAlertas, setSoloAlertas] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Lo que se teclea, y lo que de verdad se ha consultado. Van separados porque la consulta va al
+  // servidor: se espera a que la persona deje de escribir en vez de pedir la bitácora por letra.
+  const [busqueda, setBusqueda] = useState("");
+  const [consulta, setConsulta] = useState("");
+
+  useEffect(() => {
+    const id = window.setTimeout(() => setConsulta(busqueda), 350);
+    return () => window.clearTimeout(id);
+  }, [busqueda]);
 
   useEffect(() => {
     let vivo = true;
     setEventos(null);
-    getBitacora(soloAlertas, 200)
+    getBitacora(soloAlertas, 200, consulta)
       .then((e) => vivo && setEventos(e))
       .catch((e) => vivo && setError(e instanceof ApiError ? e.message : "No se pudo cargar la bitácora."));
     return () => {
       vivo = false;
     };
-  }, [soloAlertas]);
+  }, [soloAlertas, consulta]);
 
   return (
     <PortalPanel
@@ -362,11 +371,54 @@ function BitacoraPanel() {
         </div>
       )}
 
+      {/* Buscar por carné.
+          "¿Entró este alumno?" era una pregunta que se contestaba recorriendo la lista a ojo, y la
+          lista solo enseña los últimos 200 sucesos: si había entrado la semana pasada, no estaba.
+          Este campo pregunta al servidor, así que mira la bitácora entera. */}
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <div className="relative min-w-[240px] flex-1">
+          <Icon
+            name="search"
+            size={16}
+            className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-isel-ink/30"
+          />
+          <input
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar por carné, usuario o detalle…"
+            className={`${fieldClass} pl-10 pr-9`}
+          />
+          {busqueda && (
+            <button
+              type="button"
+              onClick={() => setBusqueda("")}
+              aria-label="Limpiar búsqueda"
+              className="absolute right-2.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-isel-ink/35 transition-colors duration-200 hover:bg-isel-navy/[0.07] hover:text-isel-navy"
+            >
+              <Icon name="close" size={14} />
+            </button>
+          )}
+        </div>
+        {consulta.trim() && eventos && (
+          <span className="tabular text-[12.5px] text-isel-ink/45">
+            {eventos.length} {eventos.length === 1 ? "suceso" : "sucesos"} de «{consulta.trim()}»
+          </span>
+        )}
+      </div>
+
       <div className="max-h-[28rem] overflow-auto rounded-xl border border-isel-line">
         {!eventos ? (
           <Loading label="Cargando la bitácora" />
         ) : eventos.length === 0 ? (
-          <EmptyState icon="lock" title="Todavía no hay nada registrado" hint="Aquí van a ir apareciendo los accesos y los cambios." />
+          consulta.trim() ? (
+            <EmptyState
+              icon="search"
+              title={`No hay ningún suceso de «${consulta.trim()}»`}
+              hint="Se buscó en toda la bitácora, no solo en lo que se ve. Revisa el carné, o quita el filtro de «Solo alertas»."
+            />
+          ) : (
+            <EmptyState icon="lock" title="Todavía no hay nada registrado" hint="Aquí van a ir apareciendo los accesos y los cambios." />
+          )
         ) : (
           <table className="w-full min-w-[720px] border-collapse text-left text-[13px]">
             <thead className="sticky top-0 z-10">

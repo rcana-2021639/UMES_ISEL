@@ -58,8 +58,16 @@ export interface BackupInfo {
 
 export const getResumen = (): Promise<Resumen> => http.get("/api/admin/resumen");
 
-export const getBitacora = (soloAlertas = false, limite = 200): Promise<SecurityEvent[]> =>
-  http.get(`/api/admin/bitacora?soloAlertas=${soloAlertas}&limite=${limite}`);
+/**
+ * @param q Carné, usuario o texto del detalle. Filtra en el servidor, no en el navegador: la
+ * pregunta que contesta la bitácora —«¿entró este alumno?»— suele tener la respuesta más atrás de
+ * los últimos 200 sucesos que se pintan, y filtrando aquí se quedaría fuera.
+ */
+export const getBitacora = (soloAlertas = false, limite = 200, q = ""): Promise<SecurityEvent[]> => {
+  const params = new URLSearchParams({ soloAlertas: String(soloAlertas), limite: String(limite) });
+  if (q.trim()) params.set("q", q.trim());
+  return http.get(`/api/admin/bitacora?${params.toString()}`);
+};
 
 export const getAdminUsers = (): Promise<AdminUser[]> => http.get("/api/admin/usuarios");
 

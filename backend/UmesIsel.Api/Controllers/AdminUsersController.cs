@@ -172,10 +172,22 @@ public class AdminUsersController : ControllerBase
     /// </summary>
     [HttpGet("/api/admin/bitacora")]
     public async Task<ActionResult<IReadOnlyList<SecurityEventDto>>> Bitacora(
-        [FromQuery] bool soloAlertas = false, [FromQuery] int limite = 200)
+        [FromQuery] bool soloAlertas = false, [FromQuery] int limite = 200, [FromQuery] string? q = null)
     {
         var query = _db.SecurityEvents.AsNoTracking().AsQueryable();
         if (soloAlertas) query = query.Where(e => e.EsAlerta);
+
+        // La búsqueda se hace aquí y no en el navegador a propósito: la pregunta que contesta esta
+        // pantalla es "¿entró este alumno?", y la respuesta puede estar más atrás de los últimos 200
+        // sucesos que se pintan. Filtrando en la consulta se mira la bitácora entera. El actor se
+        // guarda como "alumno:2026101534", así que teclear el carné suelto lo encuentra igual.
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var termino = q.Trim();
+            query = query.Where(e =>
+                EF.Functions.Like(e.Actor, $"%{termino}%") ||
+                (e.Detalle != null && EF.Functions.Like(e.Detalle, $"%{termino}%")));
+        }
 
         var eventos = await query
             .OrderByDescending(e => e.OcurridoEn)
