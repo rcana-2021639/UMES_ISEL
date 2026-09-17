@@ -89,6 +89,8 @@ static string ResolveSqlitePath(string connectionString, string contentRoot)
 }
 
 // Fills a copy of the official ficha .xlsx template per student — see Services/FichaXlsxBuilder.cs.
+// Firma del administrador + fecha manuscrita para las fichas impresas — ver Services/FirmaAdminRenderer.cs.
+builder.Services.AddSingleton<FirmaAdminRenderer>();
 builder.Services.AddSingleton<FichaXlsxBuilder>();
 // Converts that filled .xlsx to a ready-to-print PDF via LibreOffice headless — see Services/FichaPdfBuilder.cs.
 builder.Services.AddSingleton<FichaPdfBuilder>();

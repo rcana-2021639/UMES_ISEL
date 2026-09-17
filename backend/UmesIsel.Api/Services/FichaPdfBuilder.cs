@@ -35,7 +35,8 @@ public class FichaPdfBuilder
     }
 
     /// <summary>One ficha → one PDF.</summary>
-    public byte[] BuildOne(CourseAssignmentDto ca) => ConvertXlsxToPdf(_xlsxBuilder.Build(ca));
+    /// <param name="firmaAdmin">Pega la firma del administrador con la fecha de hoy — solo al imprimir desde el panel. Ver FichaXlsxBuilder.Build.</param>
+    public byte[] BuildOne(CourseAssignmentDto ca, bool firmaAdmin = false) => ConvertXlsxToPdf(_xlsxBuilder.Build(ca, firmaAdmin));
 
     /// <summary>
     /// Converts the blank template once, discarding the result, purely to "warm up" the shared
@@ -60,9 +61,9 @@ public class FichaPdfBuilder
     /// Several fichas → a single combined PDF (each ficha's page(s) appended in order), so "Imprimir
     /// todas" is one print job instead of a folder of separate files.
     /// </summary>
-    public byte[] BuildBatch(IReadOnlyList<CourseAssignmentDto> assignments)
+    public byte[] BuildBatch(IReadOnlyList<CourseAssignmentDto> assignments, bool firmaAdmin = false)
     {
-        var pdfs = assignments.Select(ca => ConvertXlsxToPdf(_xlsxBuilder.Build(ca))).ToList();
+        var pdfs = assignments.Select(ca => ConvertXlsxToPdf(_xlsxBuilder.Build(ca, firmaAdmin))).ToList();
         return pdfs.Count == 1 ? pdfs[0] : MergePdfs(pdfs);
     }
 

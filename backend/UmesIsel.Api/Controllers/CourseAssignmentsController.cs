@@ -330,7 +330,7 @@ public class CourseAssignmentsController : ControllerBase
         var (ca, error) = await CargarPropiaAsync(id);
         if (error is not null) return error;
 
-        var bytes = _fichaBuilder.Build(ToDto(ca!));
+        var bytes = _fichaBuilder.Build(ToDto(ca!), firmaAdmin: _currentUser.IsAdmin);
         return File(bytes, XlsxContentType, FichaFileName(ca!.Student));
     }
 
@@ -357,7 +357,7 @@ public class CourseAssignmentsController : ControllerBase
             var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var ca in results)
             {
-                var bytes = _fichaBuilder.Build(ToDto(ca));
+                var bytes = _fichaBuilder.Build(ToDto(ca), firmaAdmin: true);
                 var name = FichaFileName(ca.Student);
                 var dedupedName = name;
                 var suffix = 2;
@@ -392,7 +392,7 @@ public class CourseAssignmentsController : ControllerBase
 
         try
         {
-            var bytes = _fichaPdfBuilder.BuildOne(ToDto(ca!));
+            var bytes = _fichaPdfBuilder.BuildOne(ToDto(ca!), firmaAdmin: _currentUser.IsAdmin);
             await MarcarComoImpresasAsync(ca!.Id);
             return File(bytes, PdfContentType, FichaFileName(ca!.Student, "pdf"));
         }
@@ -433,7 +433,7 @@ public class CourseAssignmentsController : ControllerBase
 
         try
         {
-            var bytes = _fichaPdfBuilder.BuildBatch(results.Select(ca => ToDto(ca)).ToList());
+            var bytes = _fichaPdfBuilder.BuildBatch(results.Select(ca => ToDto(ca)).ToList(), firmaAdmin: true);
             await MarcarComoImpresasAsync(results.Select(ca => ca.Id).ToArray());
             return File(bytes, PdfContentType, "Fichas.pdf");
         }
@@ -459,7 +459,7 @@ public class CourseAssignmentsController : ControllerBase
 
         try
         {
-            var pdfs = new List<byte[]> { _fichaPdfBuilder.BuildOne(ToDto(ca!)) };
+            var pdfs = new List<byte[]> { _fichaPdfBuilder.BuildOne(ToDto(ca!), firmaAdmin: _currentUser.IsAdmin) };
             var docs = await _db.StudentDocuments.AsNoTracking()
                 .Where(d => d.StudentId == ca!.StudentId)
                 .OrderBy(d => d.Tipo)

@@ -28,13 +28,22 @@ namespace UmesIsel.Api.Services;
 public class FichaXlsxBuilder
 {
     private readonly string _templatePath;
+    private readonly FirmaAdminRenderer _firmaAdmin;
 
-    public FichaXlsxBuilder(IWebHostEnvironment env)
+    public FichaXlsxBuilder(IWebHostEnvironment env, FirmaAdminRenderer firmaAdmin)
     {
         _templatePath = Path.Combine(env.ContentRootPath, "Resources", "FichaTemplate.xlsx");
+        _firmaAdmin = firmaAdmin;
     }
 
-    public byte[] Build(CourseAssignmentDto ca)
+    public byte[] Build(CourseAssignmentDto ca) => Build(ca, firmaAdmin: false);
+
+    /// <param name="firmaAdmin">
+    /// Pega al pie la firma del administrador con la fecha del día. Solo cuando imprime el panel:
+    /// el alumno que abre su propia ficha no debe verla firmada por nadie, porque la revisión es
+    /// justamente lo que ocurre al imprimirla en Secretaría. Ver FirmaAdminRenderer.
+    /// </param>
+    public byte[] Build(CourseAssignmentDto ca, bool firmaAdmin)
     {
         var templateBytes = File.ReadAllBytes(_templatePath);
         using var output = new MemoryStream();
@@ -58,9 +67,82 @@ public class FichaXlsxBuilder
             {
                 InsertSignatureImage(archive, ca.FirmaBase64);
             }
+
+            if (firmaAdmin && _firmaAdmin.Disponible)
+            {
+                InsertAdminSignature(archive, _firmaAdmin.Render(FechaDeHoyEnGuatemala()));
+            }
         }
 
         return output.ToArray();
+    }
+
+    // La fecha junto a la firma es la del día en que se imprime, en hora de Guatemala: el servidor
+    // corre en UTC y por la tarde-noche ya va en el día siguiente.
+    private static DateOnly FechaDeHoyEnGuatemala()
+    {
+        try
+        {
+            var tz = TimeZoneInfo.FindSystemTimeZoneById("America/Guatemala");
+            return DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz));
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return DateOnly.FromDateTime(DateTime.Now);
+        }
+    }
+
+    // ---- Firma del administrador ----------------------------------------------------------------
+    /// <summary>
+    /// Pega la firma+fecha al pie de la hoja, a la derecha, en el blanco que queda debajo de la NOTA.
+    /// Misma mecánica que la firma del alumno (imagen en xl/media + relación + ancla en el drawing),
+    /// con su propio id y nombre de archivo para no pisarla.
+    /// </summary>
+    private static void InsertAdminSignature(ZipArchive archive, byte[] png)
+    {
+        const string mediaEntryName = "xl/media/imageFirmaAdmin.png";
+        archive.GetEntry(mediaEntryName)?.Delete();
+        var mediaEntry = archive.CreateEntry(mediaEntryName, CompressionLevel.Optimal);
+        using (var s = mediaEntry.Open())
+        {
+            s.Write(png, 0, png.Length);
+        }
+
+        const string relId = "rIdFirmaAdmin";
+        var relsXml = ReadEntry(archive, "xl/drawings/_rels/drawing1.xml.rels");
+        if (!relsXml.Contains(relId))
+        {
+            relsXml = relsXml.Replace(
+                "</Relationships>",
+                $@"<Relationship Id=""{relId}"" Type=""http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"" Target=""../media/imageFirmaAdmin.png""/></Relationships>");
+        }
+        WriteEntry(archive, "xl/drawings/_rels/drawing1.xml.rels", relsXml);
+
+        // Altura fija de ~0.5in; el ancho sale de la proporción del PNG. Se ancla a la fila 38
+        // (índice 37), la primera vacía bajo la NOTA, y sobresale hacia el margen inferior de la
+        // hoja, que en esta plantilla queda libre. Se empuja hacia la derecha arrancando en la
+        // columna I (índice 8) con un desplazamiento, para que quede en el tercio derecho sin
+        // pegarse al borde.
+        const long altoEmu = 640_000; // ~0.7in
+        var (w, h) = ReadPngDimensions(png);
+        long extCy = altoEmu;
+        long extCx = w > 0 && h > 0 ? (long)(altoEmu * ((double)w / h)) : altoEmu * 3;
+
+        var anchor =
+            "<xdr:oneCellAnchor>" +
+            "<xdr:from><xdr:col>7</xdr:col><xdr:colOff>150000</xdr:colOff><xdr:row>37</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>" +
+            $@"<xdr:ext cx=""{extCx}"" cy=""{extCy}""/>" +
+            "<xdr:pic>" +
+            @"<xdr:nvPicPr><xdr:cNvPr id=""9002"" name=""FirmaAdmin""/><xdr:cNvPicPr><a:picLocks xmlns:a=""http://schemas.openxmlformats.org/drawingml/2006/main"" noChangeAspect=""1""/></xdr:cNvPicPr></xdr:nvPicPr>" +
+            $@"<xdr:blipFill><a:blip xmlns:a=""http://schemas.openxmlformats.org/drawingml/2006/main"" xmlns:r=""http://schemas.openxmlformats.org/officeDocument/2006/relationships"" r:embed=""{relId}""/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>" +
+            $@"<xdr:spPr><a:xfrm xmlns:a=""http://schemas.openxmlformats.org/drawingml/2006/main""><a:off x=""0"" y=""0""/><a:ext cx=""{extCx}"" cy=""{extCy}""/></a:xfrm><a:prstGeom xmlns:a=""http://schemas.openxmlformats.org/drawingml/2006/main"" prst=""rect""><a:avLst/></a:prstGeom></xdr:spPr>" +
+            "</xdr:pic>" +
+            "<xdr:clientData/>" +
+            "</xdr:oneCellAnchor>";
+
+        var drawingXml = ReadEntry(archive, "xl/drawings/drawing1.xml");
+        drawingXml = drawingXml.Replace("</xdr:wsDr>", anchor + "</xdr:wsDr>");
+        WriteEntry(archive, "xl/drawings/drawing1.xml", drawingXml);
     }
 
     /// <summary>The raw template, completely unfilled — only used by FichaPdfBuilder.WarmUp() to

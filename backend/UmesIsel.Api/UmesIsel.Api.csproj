@@ -74,6 +74,22 @@
     <Content Include="Resources\SolicitudTituloTemplate.docx">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- Firma del administrador que da fe de haber revisado cada ficha de asignación impresa,
+         y la tipografía manuscrita (Caveat, licencia OFL — ver Caveat-OFL.txt) con la que se
+         dibuja la fecha de impresión al lado. Ver FichaXlsxBuilder.InsertAdminSignature. -->
+    <Content Include="Resources\FirmaAdmin.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Caveat-Regular.ttf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <!-- Dibujar texto sobre una imagen (la fecha manuscrita). Se queda en la línea 1.0.0-beta
+       a propósito: es la última que acompaña a ImageSharp 2.x; la 2.x exige ImageSharp 3, que
+       cambió a licencia comercial — ver la nota de más arriba. -->
+  <ItemGroup>
+    <PackageReference Include="SixLabors.ImageSharp.Drawing" Version="1.0.0-beta15" />
   </ItemGroup>
 
 </Project>
