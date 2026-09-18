@@ -1,4 +1,3 @@
-using System.Globalization;
 using PdfSharpCore.Drawing;
 using PdfSharpCore.Fonts;
 using PdfSharpCore.Pdf;
@@ -185,8 +184,13 @@ public class CartaEntregaPdfBuilder
         return lineas;
     }
 
-    private static string NombreMes(int mes) =>
-        CultureInfo.GetCultureInfo("es-GT").DateTimeFormat.GetMonthName(mes).ToLowerInvariant();
+    // A mano y no con CultureInfo: el contenedor corre con la globalización en modo invariante
+    // (sin datos de idiomas), y pedir el nombre del mes en español ahí revienta.
+    private static string NombreMes(int mes) => new[]
+    {
+        "enero", "febrero", "marzo", "abril", "mayo", "junio",
+        "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+    }[mes - 1];
 
     /// <summary>
     /// PdfSharpCore no trae fuentes: hay que darle una. Se toma la primera que exista de una lista
