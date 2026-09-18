@@ -63,8 +63,13 @@ export const getResumen = (): Promise<Resumen> => http.get("/api/admin/resumen")
  * pregunta que contesta la bitácora —«¿entró este alumno?»— suele tener la respuesta más atrás de
  * los últimos 200 sucesos que se pintan, y filtrando aquí se quedaría fuera.
  */
-export const getBitacora = (soloAlertas = false, limite = 200, q = ""): Promise<SecurityEvent[]> => {
-  const params = new URLSearchParams({ soloAlertas: String(soloAlertas), limite: String(limite) });
+export const getBitacora = (
+  soloAlertas = false,
+  limite = 200,
+  q = "",
+  soloCambios = false,
+): Promise<SecurityEvent[]> => {
+  const params = new URLSearchParams({ soloAlertas: String(soloAlertas), limite: String(limite), soloCambios: String(soloCambios) });
   if (q.trim()) params.set("q", q.trim());
   return http.get(`/api/admin/bitacora?${params.toString()}`);
 };

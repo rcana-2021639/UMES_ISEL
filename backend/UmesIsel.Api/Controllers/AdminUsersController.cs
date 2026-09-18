@@ -170,12 +170,26 @@ public class AdminUsersController : ControllerBase
     /// Es donde se ve un ataque de fuerza bruta en curso: una ráfaga de
     /// "login.*.fallido" desde la misma dirección.
     /// </summary>
+    /// <summary>
+    /// Tipos de suceso que son de acceso (entrar/salir, ver una ficha) y no de gestión. La pestaña
+    /// "Cambios del admin" excluye estos: lo que la responde es "¿qué se creó, editó o borró?", no
+    /// "¿quién entró?" — esa pregunta ya la contesta "Todo"/"Solo alertas".
+    /// </summary>
+    private static readonly HashSet<string> TiposDeAcceso = new()
+    {
+        SecurityEventTypes.LoginAdminOk, SecurityEventTypes.LoginAdminFallido, SecurityEventTypes.LoginAdminBloqueado,
+        SecurityEventTypes.LoginAlumnoOk, SecurityEventTypes.LoginAlumnoFallido,
+        SecurityEventTypes.AccesoInscripcion, SecurityEventTypes.AccesoTitulo, SecurityEventTypes.AccesoTituloFallido,
+    };
+
     [HttpGet("/api/admin/bitacora")]
     public async Task<ActionResult<IReadOnlyList<SecurityEventDto>>> Bitacora(
-        [FromQuery] bool soloAlertas = false, [FromQuery] int limite = 200, [FromQuery] string? q = null)
+        [FromQuery] bool soloAlertas = false, [FromQuery] int limite = 200, [FromQuery] string? q = null,
+        [FromQuery] bool soloCambios = false)
     {
         var query = _db.SecurityEvents.AsNoTracking().AsQueryable();
         if (soloAlertas) query = query.Where(e => e.EsAlerta);
+        if (soloCambios) query = query.Where(e => !TiposDeAcceso.Contains(e.Tipo));
 
         // La búsqueda se hace aquí y no en el navegador a propósito: la pregunta que contesta esta
         // pantalla es "¿entró este alumno?", y la respuesta puede estar más atrás de los últimos 200

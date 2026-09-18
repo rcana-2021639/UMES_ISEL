@@ -69,7 +69,7 @@ public class AuthController : ControllerBase
         // Se comprueban las dos cosas a la vez y se responde igual en todos los
         // casos: un carné inexistente y un correo equivocado son la misma
         // respuesta, para no confirmar qué carnés están dados de alta.
-        if (student is null || !CorreoCoincide(student.CorreoInstitucional, correo))
+        if (student is null || !CorreoDeAccesoCoincide(student, correo))
         {
             await _audit.LogAsync(SecurityEventTypes.LoginAlumnoFallido, $"carné {Sanitizar(carnet)}", actor: "anónimo", esAlerta: true);
             return Unauthorized(CredencialesInvalidas);
@@ -88,6 +88,22 @@ public class AuthController : ControllerBase
     /// antes de la arroba. No tolera un dominio distinto: el correo personal no
     /// sirve para entrar, porque es el que sí anda escrito en cualquier lado.
     /// </summary>
+    /// <summary>
+    /// Compara contra el institucional; si el alumno no tiene uno cargado en el padrón, cae al
+    /// personal en su lugar, y solo entonces.
+    ///
+    /// El padrón que manda Coordinación trimestre a trimestre no siempre trae el institucional de
+    /// todos — hay filas donde esa celda llega vacía y solo hay un correo personal. Antes eso
+    /// significaba que ese alumno JAMÁS podía entrar, sin ningún aviso de por qué: el campo
+    /// "correo institucional" en su registro estaba en blanco y no había nada contra qué comparar.
+    /// El personal solo se acepta cuando no existe alternativa — si el institucional SÍ está
+    /// cargado, sigue siendo el único que sirve, tal como se decidió (ver CHANGELOG del portal).
+    /// </summary>
+    private static bool CorreoDeAccesoCoincide(Student student, string escrito) =>
+        !string.IsNullOrWhiteSpace(student.CorreoInstitucional)
+            ? CorreoCoincide(student.CorreoInstitucional, escrito)
+            : CorreoCoincide(student.CorreoPersonal, escrito);
+
     private static bool CorreoCoincide(string? registrado, string escrito)
     {
         if (string.IsNullOrWhiteSpace(registrado)) return false;

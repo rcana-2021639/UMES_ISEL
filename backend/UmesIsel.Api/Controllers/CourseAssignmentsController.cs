@@ -314,6 +314,16 @@ public class CourseAssignmentsController : ControllerBase
 
         await _db.SaveChangesAsync();
 
+        // Solo cuando guarda un admin, y solo si estaba editando una ya existente: un alumno
+        // guardando la suya no es un "cambio del admin" que auditar, y la primera vez que se crea
+        // una ficha ya queda registrada aparte al imprimirla o no hace falta —lo que sí hay que
+        // poder responder es "¿quién tocó la ficha de este alumno después de que él la envió?".
+        if (_currentUser.IsAdmin && existing is not null)
+        {
+            await _audit.LogAsync(SecurityEventTypes.FichaModificada,
+                $"ficha de asignación de {student.Carnet} ({request.Carrera}, trimestre {request.Trimestre})");
+        }
+
         var saved = await WithIncludes().AsNoTracking().FirstAsync(x => x.Id == ca.Id);
         return Ok(ToDto(saved));
     }

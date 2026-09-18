@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using UmesIsel.Api.Models.Dtos;
+using UmesIsel.Api.Models.Entities;
 using UmesIsel.Api.Security;
 using UmesIsel.Api.Services;
 
@@ -22,8 +23,13 @@ namespace UmesIsel.Api.Controllers;
 public class PensumController : ControllerBase
 {
     private readonly PensumService _pensum;
+    private readonly AuditService _audit;
 
-    public PensumController(PensumService pensum) => _pensum = pensum;
+    public PensumController(PensumService pensum, AuditService audit)
+    {
+        _pensum = pensum;
+        _audit = audit;
+    }
 
     private ActionResult Fail(PensumError error) => StatusCode(error.Status, error.Message);
 
@@ -48,7 +54,9 @@ public class PensumController : ControllerBase
     public async Task<ActionResult<PensumCarreraDto>> CrearCarrera(CarreraUpsertRequest request)
     {
         var (_, error) = await _pensum.CrearCarreraAsync(request);
-        return error is not null ? Fail(error) : Ok(await _pensum.GetPensumAsync());
+        if (error is not null) return Fail(error);
+        await _audit.LogAsync(SecurityEventTypes.PensumModificado, $"carrera creada: {request.Nombre}");
+        return Ok(await _pensum.GetPensumAsync());
     }
 
     /// <summary>
@@ -61,7 +69,9 @@ public class PensumController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<PensumCarreraDto>>> ActualizarCarrera(int id, CarreraUpsertRequest request)
     {
         var (_, error) = await _pensum.ActualizarCarreraAsync(id, request);
-        return error is not null ? Fail(error) : Ok(await _pensum.GetPensumAsync());
+        if (error is not null) return Fail(error);
+        await _audit.LogAsync(SecurityEventTypes.PensumModificado, $"carrera #{id} modificada: {request.Nombre}");
+        return Ok(await _pensum.GetPensumAsync());
     }
 
     /// <summary>DELETE /api/pensum/carreras/{id} — solo si nadie la usa; si la usan, responde 409 y sugiere archivarla.</summary>
@@ -70,7 +80,9 @@ public class PensumController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<PensumCarreraDto>>> EliminarCarrera(int id)
     {
         var error = await _pensum.EliminarCarreraAsync(id);
-        return error is not null ? Fail(error) : Ok(await _pensum.GetPensumAsync());
+        if (error is not null) return Fail(error);
+        await _audit.LogAsync(SecurityEventTypes.RegistroEliminado, $"carrera del pénsum #{id}", esAlerta: true);
+        return Ok(await _pensum.GetPensumAsync());
     }
 
     [HttpPut("carreras/orden")]
@@ -86,7 +98,10 @@ public class PensumController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<PensumCarreraDto>>> CrearCurso(int carreraId, CursoUpsertRequest request)
     {
         var (_, error) = await _pensum.CrearCursoAsync(carreraId, request);
-        return error is not null ? Fail(error) : Ok(await _pensum.GetPensumAsync());
+        if (error is not null) return Fail(error);
+        await _audit.LogAsync(SecurityEventTypes.PensumModificado,
+            $"curso creado en carrera #{carreraId}, trimestre {request.Trimestre}: {request.Nombre}");
+        return Ok(await _pensum.GetPensumAsync());
     }
 
     [HttpPut("cursos/{cursoId:int}")]
@@ -94,7 +109,9 @@ public class PensumController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<PensumCarreraDto>>> ActualizarCurso(int cursoId, CursoUpsertRequest request)
     {
         var (_, error) = await _pensum.ActualizarCursoAsync(cursoId, request);
-        return error is not null ? Fail(error) : Ok(await _pensum.GetPensumAsync());
+        if (error is not null) return Fail(error);
+        await _audit.LogAsync(SecurityEventTypes.PensumModificado, $"curso #{cursoId} modificado: {request.Nombre}");
+        return Ok(await _pensum.GetPensumAsync());
     }
 
     [HttpDelete("cursos/{cursoId:int}")]
@@ -102,7 +119,9 @@ public class PensumController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<PensumCarreraDto>>> EliminarCurso(int cursoId)
     {
         var error = await _pensum.EliminarCursoAsync(cursoId);
-        return error is not null ? Fail(error) : Ok(await _pensum.GetPensumAsync());
+        if (error is not null) return Fail(error);
+        await _audit.LogAsync(SecurityEventTypes.RegistroEliminado, $"curso #{cursoId} del pénsum", esAlerta: true);
+        return Ok(await _pensum.GetPensumAsync());
     }
 
     [HttpDelete("carreras/{carreraId:int}/trimestres/{trimestre:int}")]
@@ -110,6 +129,9 @@ public class PensumController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<PensumCarreraDto>>> EliminarTrimestre(int carreraId, int trimestre)
     {
         var error = await _pensum.EliminarTrimestreAsync(carreraId, trimestre);
-        return error is not null ? Fail(error) : Ok(await _pensum.GetPensumAsync());
+        if (error is not null) return Fail(error);
+        await _audit.LogAsync(SecurityEventTypes.RegistroEliminado,
+            $"trimestre {trimestre} completo de la carrera #{carreraId}", esAlerta: true);
+        return Ok(await _pensum.GetPensumAsync());
     }
 }

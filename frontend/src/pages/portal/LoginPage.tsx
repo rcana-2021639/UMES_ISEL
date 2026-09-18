@@ -4,6 +4,7 @@ import { useReducedMotion } from "framer-motion";
 import { useAutoFocus } from "@/hooks/useAutoFocus";
 import { loginAdmin, loginEstudiante } from "@/lib/auth";
 import { ApiError } from "@/lib/http";
+import { describirErrorLogin, LoginErrorModal, type LoginErrorInfo } from "@/components/portal/LoginErrorModal";
 import { ImageSlot } from "@/components/ui/ImageSlot";
 import { Icon } from "@/components/portal/Icon";
 import { Alert, PortalButton, Segmented, fieldClass } from "@/components/portal/kit";
@@ -53,6 +54,10 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
 
   const [error, setError] = useState<string | null>(null);
+  // El aviso centrado: antes un intento fallido solo limpiaba la contraseña y dejaba un texto
+  // pequeño al pie que, en el teléfono o con el foco en el teclado, nadie llegaba a leer — se
+  // sentía como que "la página se reinició sola". Ver LoginErrorModal.
+  const [errorModal, setErrorModal] = useState<LoginErrorInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [focused, setFocused] = useState(false);
   const [entered, setEntered] = useState(false);
@@ -89,6 +94,7 @@ export function LoginPage() {
       // usuario o la contraseña) y ya viene redactado para leerse; se muestra
       // tal cual en vez de inventar aquí uno que diga de más.
       setError(err instanceof ApiError ? err.message : "No se pudo conectar con el servidor. Revisa tu conexión.");
+      setErrorModal(describirErrorLogin(err, modo));
     } finally {
       setLoading(false);
     }
@@ -332,6 +338,8 @@ export function LoginPage() {
           </div>
         </div>
       </section>
+
+      <LoginErrorModal info={errorModal} onClose={() => setErrorModal(null)} />
     </main>
   );
 }

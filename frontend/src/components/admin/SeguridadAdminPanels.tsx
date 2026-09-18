@@ -40,6 +40,13 @@ const ETIQUETAS: Record<string, string> = {
   "pensum.modificado": "Se modificó el pénsum",
   "respaldo.creado": "Respaldo creado",
   "respaldo.descargado": "Respaldo descargado",
+  "estudiante.creado": "Se agregó un alumno",
+  "estudiante.modificado": "Se editó un alumno",
+  "estudiante.papeleria": "Se cambió el estado de papelería",
+  "ficha.modificada": "Se editó una ficha de asignación",
+  "inscripcion.modificada": "Se editó una inscripción",
+  "inscripcion.migrada": "Un aspirante pasó al padrón",
+  "solicitud.titulo.modificada": "Se editó una solicitud de título",
 };
 
 /**
@@ -323,9 +330,14 @@ function PasswordTemporalModal({ datos, onClose }: { datos: { usuario: string; p
 
 /* ---------------------------------------------------------------- bitácora */
 
+type VistaBitacora = "todo" | "alertas" | "cambios";
+
 function BitacoraPanel() {
   const [eventos, setEventos] = useState<SecurityEvent[] | null>(null);
-  const [soloAlertas, setSoloAlertas] = useState(false);
+  // "cambios" es el historial de lo que el admin agregó, editó o borró — deliberadamente aparte de
+  // "Todo"/"Alertas", que responden una pregunta distinta ("¿quién entró?"). Antes esa pregunta —
+  // "¿esto se borró o nunca estuvo?"— no tenía dónde contestarse.
+  const [vista, setVista] = useState<VistaBitacora>("todo");
   const [error, setError] = useState<string | null>(null);
   // Lo que se teclea, y lo que de verdad se ha consultado. Van separados porque la consulta va al
   // servidor: se espera a que la persona deje de escribir en vez de pedir la bitácora por letra.
@@ -340,27 +352,33 @@ function BitacoraPanel() {
   useEffect(() => {
     let vivo = true;
     setEventos(null);
-    getBitacora(soloAlertas, 200, consulta)
+    getBitacora(vista === "alertas", 200, consulta, vista === "cambios")
       .then((e) => vivo && setEventos(e))
       .catch((e) => vivo && setError(e instanceof ApiError ? e.message : "No se pudo cargar la bitácora."));
     return () => {
       vivo = false;
     };
-  }, [soloAlertas, consulta]);
+  }, [vista, consulta]);
+
+  const descripcion =
+    vista === "cambios"
+      ? "Todo lo que el administrador agregó, editó o borró: alumnos, fichas, pénsum, inscripciones. Con fecha, hora y quién lo hizo, para que nunca quede la duda de si algo se borró o nunca estuvo."
+      : "Quién entró, qué se borró y qué se exportó. Una ráfaga de accesos fallidos desde la misma dirección es alguien probando contraseñas.";
 
   return (
     <PortalPanel
       step="02"
       accent="#B23A2B"
       title="Bitácora de seguridad"
-      description="Quién entró, qué se borró y qué se exportó. Una ráfaga de accesos fallidos desde la misma dirección es alguien probando contraseñas."
+      description={descripcion}
       actions={
         <Segmented
-          value={soloAlertas ? "alertas" : "todo"}
-          onChange={(v) => setSoloAlertas(v === "alertas")}
+          value={vista}
+          onChange={setVista}
           options={[
             { value: "todo" as const, label: "Todo" },
             { value: "alertas" as const, label: "Solo alertas" },
+            { value: "cambios" as const, label: "Cambios del admin" },
           ]}
         />
       }
@@ -416,6 +434,8 @@ function BitacoraPanel() {
               title={`No hay ningún suceso de «${consulta.trim()}»`}
               hint="Se buscó en toda la bitácora, no solo en lo que se ve. Revisa el carné, o quita el filtro de «Solo alertas»."
             />
+          ) : vista === "cambios" ? (
+            <EmptyState icon="lock" title="Todavía no hay cambios registrados" hint="Aquí va a ir apareciendo cada vez que agregues, edites o borres algo desde el panel." />
           ) : (
             <EmptyState icon="lock" title="Todavía no hay nada registrado" hint="Aquí van a ir apareciendo los accesos y los cambios." />
           )

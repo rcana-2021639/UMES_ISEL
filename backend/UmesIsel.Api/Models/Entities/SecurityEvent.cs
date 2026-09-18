@@ -22,6 +22,16 @@ public static class SecurityEventTypes
     public const string PensumModificado = "pensum.modificado";
     public const string RespaldoCreado = "respaldo.creado";
     public const string RespaldoDescargado = "respaldo.descargado";
+
+    // Historial de cambios del admin — quién agregó, editó o movió qué, además de qué se borró
+    // (RegistroEliminado, de arriba, ya cubre los borrados de cualquier tipo de registro).
+    public const string EstudianteCreado = "estudiante.creado";
+    public const string EstudianteModificado = "estudiante.modificado";
+    public const string PapeleriaModificada = "estudiante.papeleria";
+    public const string FichaModificada = "ficha.modificada";
+    public const string InscripcionModificada = "inscripcion.modificada";
+    public const string InscripcionMigrada = "inscripcion.migrada";
+    public const string SolicitudTituloModificada = "solicitud.titulo.modificada";
 }
 
 /// <summary>

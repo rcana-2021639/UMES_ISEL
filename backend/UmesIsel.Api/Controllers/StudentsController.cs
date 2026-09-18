@@ -139,6 +139,8 @@ public class StudentsController : ControllerBase
         student.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
+        await _audit.LogAsync(SecurityEventTypes.PapeleriaModificada,
+            $"alumno {student.Carnet}: papelería marcada como {(request.EnOrden ? "al día" : "pendiente")}");
         return Ok(ToDto(student, await CountDocumentos(id), await ExpedienteDe(id)));
     }
 
@@ -179,6 +181,7 @@ public class StudentsController : ControllerBase
         _db.Students.Add(student);
         await _db.SaveChangesAsync();
 
+        await _audit.LogAsync(SecurityEventTypes.EstudianteCreado, $"alumno {student.Carnet} ({student.NombreCompleto})");
         return CreatedAtAction(nameof(GetById), new { id = student.Id }, ToDto(student));
     }
 
@@ -193,6 +196,8 @@ public class StudentsController : ControllerBase
         {
             return Conflict("Ese carné ya pertenece a otro alumno.");
         }
+
+        var cambios = DescribirCambios(student, request);
 
         student.Carnet = request.Carnet.Trim();
         student.PrimerApellido = request.PrimerApellido.Trim();
@@ -209,7 +214,40 @@ public class StudentsController : ControllerBase
         student.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
+
+        if (cambios.Count > 0)
+        {
+            await _audit.LogAsync(SecurityEventTypes.EstudianteModificado,
+                $"alumno {student.Carnet}: {string.Join("; ", cambios)}");
+        }
         return Ok(ToDto(student, await CountDocumentos(student.Id), await ExpedienteDe(student.Id)));
+    }
+
+    /// <summary>
+    /// Qué campos va a cambiar esta edición, en frases cortas tipo "carrera: X → Y" — para que la
+    /// bitácora diga qué se tocó y no solo que "se editó al alumno". Se calcula ANTES de aplicar el
+    /// cambio, comparando contra <paramref name="request"/>.
+    /// </summary>
+    private static List<string> DescribirCambios(Student actual, StudentUpsertRequest request)
+    {
+        var cambios = new List<string>();
+        void Comparar(string campo, string? antes, string? despues)
+        {
+            var a = (antes ?? string.Empty).Trim();
+            var d = (despues ?? string.Empty).Trim();
+            if (a != d) cambios.Add($"{campo}: «{(a.Length == 0 ? "vacío" : a)}» → «{(d.Length == 0 ? "vacío" : d)}»");
+        }
+
+        Comparar("carné", actual.Carnet, request.Carnet);
+        Comparar("nombre", actual.NombreCompleto,
+            BuildNombreCompleto(request.PrimerApellido, request.SegundoApellido, request.PrimerNombre, request.SegundoNombre));
+        Comparar("carrera", actual.Carrera, request.Carrera);
+        Comparar("sección", actual.Seccion, request.Seccion);
+        Comparar("trimestre", actual.Trimestre?.ToString(), request.Trimestre?.ToString());
+        Comparar("correo institucional", actual.CorreoInstitucional, request.CorreoInstitucional);
+        Comparar("correo personal", actual.CorreoPersonal, request.CorreoPersonal);
+        Comparar("celular", actual.Celular, request.Celular);
+        return cambios;
     }
 
     /// <summary>

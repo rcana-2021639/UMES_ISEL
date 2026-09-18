@@ -505,6 +505,8 @@ public class InscripcionesController : ControllerBase
         applicant.UpdatedAt = now;
 
         await _db.SaveChangesAsync();
+        await _audit.LogAsync(SecurityEventTypes.InscripcionMigrada,
+            $"aspirante #{applicant.Id} pasó al padrón como {student.Carnet} ({student.NombreCompleto})");
         return Ok(ToStudentDto(student, applicant.Id));
     }
 
@@ -514,8 +516,10 @@ public class InscripcionesController : ControllerBase
         var applicant = await _db.Applicants.FirstOrDefaultAsync(a => a.Id == id);
         if (applicant is null) return NotFound();
 
+        var etiqueta = applicant.Dpi ?? applicant.Pasaporte ?? $"#{applicant.Id}";
         _db.Applicants.Remove(applicant);
         await _db.SaveChangesAsync();
+        await _audit.LogAsync(SecurityEventTypes.RegistroEliminado, $"aspirante {etiqueta}", esAlerta: true);
         return NoContent();
     }
 

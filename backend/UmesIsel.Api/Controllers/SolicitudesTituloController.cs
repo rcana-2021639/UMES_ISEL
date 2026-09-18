@@ -140,7 +140,7 @@ public class SolicitudesTituloController : ControllerBase
 
         // Misma respuesta para "ese carné no existe" y "ese correo no es el suyo":
         // distinguirlas convertiría esta pantalla en un buscador de carnés válidos.
-        if (student is null || !CorreoInstitucionalCoincide(student.CorreoInstitucional, correo))
+        if (student is null || !CorreoDeAccesoCoincide(student, correo))
         {
             await _audit.LogAsync(SecurityEventTypes.AccesoTituloFallido,
                 $"carné {new string((carnet ?? string.Empty).Where(c => !char.IsControl(c)).Take(40).ToArray())}",
@@ -192,6 +192,15 @@ public class SolicitudesTituloController : ControllerBase
     /// mayúsculas, espacios y escribir solo la parte anterior a la arroba, pero
     /// no acepta otro dominio — el correo personal no sirve para entrar.
     /// </summary>
+    /// <summary>
+    /// Compara contra el institucional; si el alumno no tiene uno cargado en el padrón, cae al
+    /// personal — mismo criterio que AuthController.CorreoDeAccesoCoincide, ver el porqué ahí.
+    /// </summary>
+    private static bool CorreoDeAccesoCoincide(Student student, string escrito) =>
+        !string.IsNullOrWhiteSpace(student.CorreoInstitucional)
+            ? CorreoInstitucionalCoincide(student.CorreoInstitucional, escrito)
+            : CorreoInstitucionalCoincide(student.CorreoPersonal, escrito);
+
     private static bool CorreoInstitucionalCoincide(string? registrado, string escrito)
     {
         if (string.IsNullOrWhiteSpace(registrado)) return false;
@@ -323,6 +332,14 @@ public class SolicitudesTituloController : ControllerBase
         }
 
         await _db.SaveChangesAsync();
+
+        // Solo cuando la edita un admin: el propio alumno llenando su solicitud es el uso normal
+        // del formulario, no un "cambio del admin" que auditar.
+        if (_currentUser.IsAdmin)
+        {
+            await _audit.LogAsync(SecurityEventTypes.SolicitudTituloModificada,
+                $"solicitud de título #{id} ({solicitud.Nombres} {solicitud.Apellidos})");
+        }
         return Ok(ToDto(solicitud));
     }
 
@@ -343,11 +360,13 @@ public class SolicitudesTituloController : ControllerBase
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var solicitud = await _db.SolicitudesTitulo.FirstOrDefaultAsync(s => s.Id == id);
+        var solicitud = await _db.SolicitudesTitulo.Include(s => s.Student).FirstOrDefaultAsync(s => s.Id == id);
         if (solicitud is null) return NotFound();
 
+        var etiqueta = solicitud.Student?.Carnet ?? $"#{id}";
         _db.SolicitudesTitulo.Remove(solicitud);
         await _db.SaveChangesAsync();
+        await _audit.LogAsync(SecurityEventTypes.RegistroEliminado, $"solicitud de título de {etiqueta}", esAlerta: true);
         return NoContent();
     }
 
