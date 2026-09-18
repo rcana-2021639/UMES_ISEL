@@ -27,6 +27,13 @@ FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 # la solicitud de título) y las fuentes: sin ellas LibreOffice sustituye la
 # tipografía del formato oficial y el documento sale descuadrado.
 #
+# fonts-liberation cubre Arial/Times/Courier, pero la plantilla de preinscripción
+# usa Calibri (cuerpo) y Cambria (título) — sin su sustituto métrico, LibreOffice
+# cae a DejaVu Sans, que es más ancho: el título "FICHA DE PREINSCRIPCIÓN PARA
+# NUEVO INGRESO" se parte en una línea de más y queda encimado con el renglón de
+# la dirección justo debajo. fonts-crosextra-carlito/caladea son los sustitutos
+# métricos de Calibri/Cambria (mismo ancho de letra) y evitan el descuadre.
+#
 # Todo va en UNA capa con la limpieza incluida: en pasos separados, los archivos
 # borrados seguirían pesando dentro de la imagen.
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -34,6 +41,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libreoffice-writer \
         fonts-dejavu \
         fonts-liberation \
+        fonts-crosextra-carlito \
+        fonts-crosextra-caladea \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

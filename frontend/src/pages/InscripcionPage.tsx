@@ -8,6 +8,7 @@ import { DocumentosForm } from "@/components/inscripcion/DocumentosForm";
 import type { FichaHandle } from "@/components/inscripcion/fichaHandle";
 import { PortalBand, PortalPanel, PortalTopBar, StepRail, StepStrip, type RailStep } from "@/components/portal/PortalShell";
 import { Icon } from "@/components/portal/Icon";
+import { Modal } from "@/components/ui/Modal";
 import { Alert, Chip, Loading, PortalButton } from "@/components/portal/kit";
 import { useConfirm } from "@/hooks/useConfirm";
 import { getApplicant } from "@/lib/inscripcionesApi";
@@ -346,6 +347,10 @@ function CierrePanel({
   const { confirm, dialog } = useConfirm();
   const [guardando, setGuardando] = useState(false);
   const [problema, setProblema] = useState<string | null>(null);
+  /** Se muestra justo antes de salir, para que quede claro que TODO lo pendiente ya se mandó —
+      antes el botón cerraba la sesión sin decir nada y quien lo pulsaba se iba sin saber si de
+      verdad había quedado guardado. */
+  const [terminado, setTerminado] = useState(false);
 
   const requeridos: DocumentoTipo[] =
     (applicant.compromiso?.esExtranjero ?? applicant.esExtranjero)
@@ -413,7 +418,7 @@ function CierrePanel({
       if (!ok) return;
     }
 
-    onFinish();
+    setTerminado(true);
   }
 
   return (
@@ -478,6 +483,51 @@ function CierrePanel({
           </PortalButton>
         </div>
       </PortalPanel>
+
+      <Modal open={terminado} onClose={onFinish} title="Inscripción guardada" widthClassName="max-w-md">
+        <div className="space-y-5">
+          <div className="rounded-xl border border-isel-emerald/30 bg-isel-emerald/[0.07] px-5 py-4 text-center">
+            <span className="mx-auto mb-2.5 flex h-12 w-12 items-center justify-center rounded-full bg-isel-emerald text-white">
+              <Icon name="check" size={26} />
+            </span>
+            <p className="font-display text-[17px] font-semibold tracking-tightest text-isel-emerald">
+              Se guardó todo correctamente
+            </p>
+            <p className="mt-1 text-[12.5px] leading-relaxed text-isel-ink/65">
+              Lo que había escrito en cada ficha ya quedó registrado en el sistema.
+            </p>
+          </div>
+
+          <dl className="divide-y divide-isel-line overflow-hidden rounded-xl border border-isel-line">
+            {partes.map((p) => (
+              <div key={p.label} className="flex items-center justify-between gap-4 bg-white px-4 py-2.5">
+                <dt className="text-[12.5px] text-isel-ink/55">{p.label}</dt>
+                <dd>
+                  {p.ok ? (
+                    <Chip tone="emerald" icon="check">Guardado</Chip>
+                  ) : p.opcional ? (
+                    <Chip tone="neutral" icon="file">Opcional</Chip>
+                  ) : (
+                    <Chip tone="gold" icon="alert">Pendiente</Chip>
+                  )}
+                </dd>
+              </div>
+            ))}
+          </dl>
+
+          <p className="text-[12px] leading-relaxed text-isel-ink/45">
+            Puede volver a entrar con su mismo DPI o pasaporte cuando quiera, para revisar o completar
+            lo que haga falta.
+          </p>
+
+          <div className="flex justify-end border-t border-isel-line pt-4">
+            <PortalButton tone="primary" icon="arrowRight" iconRight onClick={onFinish}>
+              Salir
+            </PortalButton>
+          </div>
+        </div>
+      </Modal>
+
       {dialog}
     </>
   );
