@@ -472,6 +472,53 @@ public class CourseAssignmentsController : ControllerBase
     }
 
     /// <summary>
+    /// GET /api/course-assignments/carta-entrega.pdf?from=&amp;to=&amp;tipoPago=&amp;periodo= — la carta con la
+    /// que se entrega a Secretaría General el lote de fichas YA IMPRESAS del rango cargado en el panel
+    /// (las que están en verde). Ver CartaEntregaPdfBuilder.
+    /// </summary>
+    [HttpGet("carta-entrega.pdf")]
+    [EnableRateLimiting(RateLimitPolicies.Pesado)]
+    public async Task<IActionResult> GetCartaEntregaPdf(
+        [FromQuery] DateOnly? from, [FromQuery] DateOnly? to, [FromQuery] string? tipoPago, [FromQuery] string? periodo)
+    {
+        var query = WithIncludes().AsNoTracking().Where(ca => ca.ImpresaEn != null);
+        if (from.HasValue) query = query.Where(ca => ca.Fecha >= from.Value);
+        if (to.HasValue) query = query.Where(ca => ca.Fecha <= to.Value);
+        if (!string.IsNullOrWhiteSpace(tipoPago)) query = query.Where(ca => ca.TipoPago == tipoPago);
+
+        var results = await query
+            .OrderBy(ca => ca.Student!.PrimerApellido).ThenBy(ca => ca.Student!.PrimerNombre)
+            .ToListAsync();
+        if (results.Count == 0) return NotFound("No hay fichas impresas en ese rango: la carta solo lista las que ya salieron a papel.");
+
+        var periodoTexto = string.IsNullOrWhiteSpace(periodo) ? PeriodoPorDefecto() : periodo.Trim();
+        var bytes = _cartaEntrega.Build(results.Select(ca => ToDto(ca, incluirFirma: false)).ToList(), periodoTexto, HoyEnGuatemala());
+        await _audit.LogAsync(SecurityEventTypes.DatosExportados, $"carta de entrega a Secretaría General: {results.Count} fichas ({periodoTexto})");
+        return File(bytes, PdfContentType, "Carta de entrega de fichas.pdf");
+    }
+
+    private static DateOnly HoyEnGuatemala()
+    {
+        try
+        {
+            var tz = TimeZoneInfo.FindSystemTimeZoneById("America/Guatemala");
+            return DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz));
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return DateOnly.FromDateTime(DateTime.UtcNow.AddHours(-6));
+        }
+    }
+
+    /// <summary>"cuarto trimestre 2026" — el trimestre del calendario en que se está; el panel deja corregirlo.</summary>
+    private static string PeriodoPorDefecto()
+    {
+        var hoy = HoyEnGuatemala();
+        var ordinal = new[] { "primer", "segundo", "tercer", "cuarto" }[(hoy.Month - 1) / 3];
+        return $"{ordinal} trimestre {hoy.Year}";
+    }
+
+    /// <summary>
     /// GET /api/course-assignments/{id}/ficha-y-documentos.pdf — la ficha + la "papelería al día" del
     /// alumno (StudentDocument), combinadas en un solo PDF. Lo usa el selector de impresión del admin
     /// cuando el alumno tiene documentos extra subidos y elige imprimir ambas cosas; si no tiene
