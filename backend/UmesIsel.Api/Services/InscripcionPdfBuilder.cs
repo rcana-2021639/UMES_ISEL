@@ -36,7 +36,7 @@ public class InscripcionPdfBuilder
     }
 
     public byte[] BuildPreinscripcion(PreinscripcionDto p) =>
-        _pdfConverter.ConvertToPdf(_preinscripcionBuilder.Build(p), "ficha.docx");
+        _pdfConverter.ConvertToPdf(_preinscripcionBuilder.Build(p), "ficha.docx", fuentesNuevas: true);
 
     public byte[] BuildAsignacion(AsignacionNuevoIngresoDto a, string? nombreCompletoAspirante) =>
         _pdfConverter.ConvertXlsxToPdf(_asignacionXlsxBuilder.Build(ToCourseAssignmentDto(a, nombreCompletoAspirante)));

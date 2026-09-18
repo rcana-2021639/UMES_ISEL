@@ -75,6 +75,21 @@ public class FichaPdfBuilder
     // an acceptable cost for routinely-faster prints.
     private static readonly string SharedProfileDir = Path.Combine(Path.GetTempPath(), "isel-libreoffice-profile");
 
+    /// <summary>
+    /// Perfil aparte para las conversiones con las fuentes Carlito/Caladea (solo la ficha de
+    /// preinscripción). Con el mismo perfil, un soffice ya en marcha puede atender la conversión
+    /// de otro, y el documento saldría con las fuentes del proceso equivocado.
+    /// </summary>
+    private static readonly string FuentesNuevasProfileDir = Path.Combine(Path.GetTempPath(), "isel-libreoffice-profile-preinscripcion");
+
+    /// <summary>
+    /// fontconfig que oculta las fuentes Carlito/Caladea (lo crea el Dockerfile). Se instalaron para
+    /// que el título de la preinscripción no saliera encimado, pero al estar visibles para todo
+    /// LibreOffice también cambiaron la ficha de asignación, que ya salía bien. Con este archivo, todo
+    /// lo que no sea la preinscripción se sigue convirtiendo con exactamente las fuentes de antes.
+    /// </summary>
+    private const string FontConfigSinCrosextra = "/etc/fonts-sin-crosextra.conf";
+
     /// <summary>internal (no private) a propósito: reutilizado por <see cref="InscripcionPdfBuilder"/> — ver ConvertToPdf.</summary>
     internal byte[] ConvertXlsxToPdf(byte[] xlsxBytes) => ConvertToPdf(xlsxBytes, "ficha.xlsx");
 
@@ -85,7 +100,8 @@ public class FichaPdfBuilder
     /// arreglo de formato son .docx (los FORMATO reales que dio el usuario), no .xlsx — ver
     /// <see cref="DocxCellSurgery"/> y los builders de Preinscripción/Carta de compromiso.
     /// </summary>
-    internal byte[] ConvertToPdf(byte[] fileBytes, string inputFileName)
+    /// <param name="fuentesNuevas">Solo la ficha de preinscripción: convierte con Carlito/Caladea visibles. Ver <see cref="FontConfigSinCrosextra"/>.</param>
+    internal byte[] ConvertToPdf(byte[] fileBytes, string inputFileName, bool fuentesNuevas = false)
     {
         // Techo GLOBAL de conversiones simultáneas. El limitador de peticiones
         // (RateLimitPolicies.Pesado) ya frena a cada cliente por separado, pero reparte por
@@ -101,7 +117,7 @@ public class FichaPdfBuilder
         }
         try
         {
-            return ConvertToPdfCore(fileBytes, inputFileName);
+            return ConvertToPdfCore(fileBytes, inputFileName, fuentesNuevas);
         }
         finally
         {
@@ -119,12 +135,13 @@ public class FichaPdfBuilder
     // decirle a la persona que reintente que dejar la petición colgada hasta que el navegador corte.
     private static readonly TimeSpan ConversionQueueTimeout = TimeSpan.FromSeconds(120);
 
-    private byte[] ConvertToPdfCore(byte[] fileBytes, string inputFileName)
+    private byte[] ConvertToPdfCore(byte[] fileBytes, string inputFileName, bool fuentesNuevas)
     {
         var soffice = FindSoffice();
         var workDir = Path.Combine(Path.GetTempPath(), "isel-ficha-" + Guid.NewGuid().ToString("N"));
+        var profileDir = fuentesNuevas ? FuentesNuevasProfileDir : SharedProfileDir;
         Directory.CreateDirectory(workDir);
-        Directory.CreateDirectory(SharedProfileDir);
+        Directory.CreateDirectory(profileDir);
         try
         {
             var sourcePath = Path.Combine(workDir, inputFileName);
@@ -138,13 +155,18 @@ public class FichaPdfBuilder
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
             };
+            // Fuera del contenedor (desarrollo en Windows) el archivo no existe y se convierte como siempre.
+            if (!fuentesNuevas && File.Exists(FontConfigSinCrosextra))
+            {
+                psi.Environment["FONTCONFIG_FILE"] = FontConfigSinCrosextra;
+            }
             psi.ArgumentList.Add("--headless");
             psi.ArgumentList.Add("--norestore");
             psi.ArgumentList.Add("--nologo");
             psi.ArgumentList.Add("--nofirststartwizard");
             psi.ArgumentList.Add("--nolockcheck");
             psi.ArgumentList.Add("--nodefault");
-            psi.ArgumentList.Add($"-env:UserInstallation=file:///{SharedProfileDir.Replace('\\', '/')}");
+            psi.ArgumentList.Add($"-env:UserInstallation=file:///{profileDir.Replace('\\', '/')}");
             psi.ArgumentList.Add("--convert-to");
             psi.ArgumentList.Add("pdf");
             psi.ArgumentList.Add("--outdir");

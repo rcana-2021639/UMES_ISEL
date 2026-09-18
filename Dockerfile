@@ -45,6 +45,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         fonts-crosextra-caladea \
     && rm -rf /var/lib/apt/lists/*
 
+# Las fuentes Carlito/Caladea son SOLO para la ficha de preinscripción. Al instalarlas, la ficha de
+# asignación (.xlsx) —que ya salía bien con las fuentes de antes— también cambió de tipografía y se
+# veía más compacta. Este fontconfig oculta las crosextra, y es el que usa el convertidor para todo
+# menos la preinscripción (ver FichaPdfBuilder.ConvertToPdf), de modo que el resto de los documentos
+# se siguen viendo exactamente igual que antes.
+RUN printf '%s\n' \
+        '<?xml version="1.0"?>' \
+        '<!DOCTYPE fontconfig SYSTEM "fonts.dtd">' \
+        '<fontconfig>' \
+        '  <include ignore_missing="yes">/etc/fonts/fonts.conf</include>' \
+        '  <selectfont><rejectfont><glob>/usr/share/fonts/truetype/crosextra/*</glob></rejectfont></selectfont>' \
+        '</fontconfig>' \
+        > /etc/fonts-sin-crosextra.conf
+
 WORKDIR /app
 COPY --from=build /app/publish .
 
