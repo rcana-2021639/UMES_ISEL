@@ -29,6 +29,10 @@ export function marcarFichaImpresa(id: number, impresa: boolean): Promise<Course
   return http.put<CourseAssignment>(`/api/course-assignments/${id}/impresa`, { impresa });
 }
 
+export function marcarCorreoEnviado(id: number, enviado: boolean): Promise<CourseAssignment> {
+  return http.put<CourseAssignment>(`/api/course-assignments/${id}/correo-enviado`, { enviado });
+}
+
 export async function getAssignmentByStudent(carnet: string, trimestre?: number): Promise<CourseAssignment | null> {
   const params = trimestre ? `?trimestre=${trimestre}` : "";
   try {
@@ -65,4 +69,19 @@ export function openFichaBatchPdf(
   if (soloPendientes) params.set("soloPendientes", "true");
   const query = params.toString();
   return openPdf(`/api/course-assignments/ficha-batch.pdf${query ? `?${query}` : ""}`);
+}
+
+/** La carta de entrega a Secretaría General con las fichas YA impresas del rango — ver CartaEntregaPdfBuilder. */
+export function openCartaEntregaPdf(
+  from: Date | null,
+  to: Date | null,
+  tipoPago: TipoPago | undefined,
+  periodo: string,
+): Promise<void> {
+  const params = new URLSearchParams();
+  if (from) params.set("from", toDateParam(from));
+  if (to) params.set("to", toDateParam(to));
+  if (tipoPago) params.set("tipoPago", tipoPago);
+  if (periodo.trim()) params.set("periodo", periodo.trim());
+  return openPdf(`/api/course-assignments/carta-entrega.pdf?${params.toString()}`);
 }

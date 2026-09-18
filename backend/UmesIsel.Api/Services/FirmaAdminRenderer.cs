@@ -35,12 +35,31 @@ public class FirmaAdminRenderer
         _fontPath = Path.Combine(env.ContentRootPath, "Resources", "Caveat-Regular.ttf");
         _firma = new Lazy<Image<Rgba32>>(CargarFirma);
         _fontFamily = new Lazy<FontFamily>(() => new FontCollection().Add(_fontPath));
+        _soloFirma = new Lazy<byte[]>(() =>
+        {
+            // Sobre blanco, sin canal alfa: PdfSharpCore pinta los PNG con transparencia como un
+            // bloque negro, y la carta va sobre papel blanco de todos modos.
+            var firma = _firma.Value;
+            using var lienzo = new Image<Rgba32>(firma.Width, firma.Height, new Rgba32(255, 255, 255, 255));
+            lienzo.Mutate(c => c.DrawImage(firma, new Point(0, 0), 1f));
+            using var ms = new MemoryStream();
+            lienzo.SaveAsPng(ms);
+            return ms.ToArray();
+        });
     }
 
     public bool Disponible => File.Exists(_firmaPath) && File.Exists(_fontPath);
 
     /// <summary>PNG con fondo transparente: firma a la izquierda, fecha manuscrita a su derecha, abajo.</summary>
     public byte[] Render(DateOnly fecha) => _cache.GetOrAdd(fecha, Componer);
+
+    /// <summary>
+    /// Solo la firma, sin fecha: la carta de entrega de fichas la lleva sobre la línea de "quien
+    /// entrega", donde una fecha manuscrita al lado no tiene sentido — la carta ya va fechada arriba.
+    /// </summary>
+    public byte[] RenderSoloFirma() => _soloFirma.Value;
+
+    private readonly Lazy<byte[]> _soloFirma;
 
     /// <summary>
     /// La firma tal como se entregó viene en vertical (el nombre escrito de arriba abajo); se gira

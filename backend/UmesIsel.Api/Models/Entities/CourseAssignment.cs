@@ -65,6 +65,13 @@ public class CourseAssignment
     [MaxLength(120)]
     public string? ImpresaPor { get; set; }
 
+    /// <summary>
+    /// Cuándo se mandó el correo pidiendo el link de pago de esta ficha — lo marca el admin desde el
+    /// panel, ya sea al abrir el borrador en Outlook o a mano si el correo ya salió. Sin esta marca
+    /// no había forma de saber a quién ya se le pidió el link y a quién no.
+    /// </summary>
+    public DateTime? CorreoEnviadoEn { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

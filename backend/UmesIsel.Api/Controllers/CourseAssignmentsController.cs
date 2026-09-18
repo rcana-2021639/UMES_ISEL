@@ -34,14 +34,17 @@ public class CourseAssignmentsController : ControllerBase
     private readonly FichaPdfBuilder _fichaPdfBuilder;
     private readonly CurrentUser _currentUser;
     private readonly AuditService _audit;
+    private readonly CartaEntregaPdfBuilder _cartaEntrega;
 
     public CourseAssignmentsController(
         IselDbContext db,
         FichaXlsxBuilder fichaBuilder,
         FichaPdfBuilder fichaPdfBuilder,
         CurrentUser currentUser,
-        AuditService audit)
+        AuditService audit,
+        CartaEntregaPdfBuilder cartaEntrega)
     {
+        _cartaEntrega = cartaEntrega;
         _db = db;
         _fichaBuilder = fichaBuilder;
         _fichaPdfBuilder = fichaPdfBuilder;
@@ -89,7 +92,8 @@ public class CourseAssignmentsController : ControllerBase
         ca.AutorizadoPorCodigo,
         ca.UpdatedAt,
         ca.ImpresaEn,
-        ca.ImpresaPor
+        ca.ImpresaPor,
+        ca.CorreoEnviadoEn
     );
 
     private IQueryable<CourseAssignment> WithIncludes() =>
@@ -154,6 +158,20 @@ public class CourseAssignmentsController : ControllerBase
 
         ca.ImpresaEn = request.Impresa ? DateTime.UtcNow : null;
         ca.ImpresaPor = request.Impresa ? _currentUser.Display : null;
+        await _db.SaveChangesAsync();
+
+        var actualizada = await WithIncludes().AsNoTracking().FirstAsync(x => x.Id == id);
+        return Ok(ToDto(actualizada, incluirFirma: false));
+    }
+
+    /// <summary>PUT /api/course-assignments/{id}/correo-enviado — ya se pidió (o no) el link de pago de esta ficha.</summary>
+    [HttpPut("{id:int}/correo-enviado")]
+    public async Task<ActionResult<CourseAssignmentDto>> MarcarCorreoEnviado(int id, MarcarCorreoEnviadoRequest request)
+    {
+        var ca = await _db.CourseAssignments.FirstOrDefaultAsync(x => x.Id == id);
+        if (ca is null) return NotFound();
+
+        ca.CorreoEnviadoEn = request.Enviado ? DateTime.UtcNow : null;
         await _db.SaveChangesAsync();
 
         var actualizada = await WithIncludes().AsNoTracking().FirstAsync(x => x.Id == id);

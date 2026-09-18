@@ -46,6 +46,8 @@ export interface CourseAssignment {
   impresaEn?: string | null;
   /** Qué cuenta del panel la imprimió. */
   impresaPor?: string | null;
+  /** Cuándo se pidió el link de pago por correo para esta ficha, o null si aún no. Solo lo usa el admin. */
+  correoEnviadoEn?: string | null;
 }
 
 /** Body sent to save/update a ficha (student portal or admin edit). */

@@ -7,8 +7,9 @@ import {
   toDateParam,
   deleteAssignment,
   marcarFichaImpresa,
+  marcarCorreoEnviado,
   openFichaPdf,
-  openFichaBatchPdf,
+  openCartaEntregaPdf,
 } from "@/lib/assignmentsApi";
 import { ApiError } from "@/lib/http";
 import { getStudents, deleteStudent } from "@/lib/studentsApi";
@@ -99,6 +100,13 @@ export function normalize(s: string): string {
     .toLowerCase();
 }
 
+/** "cuarto trimestre 2026": el trimestre del calendario en curso; el admin lo corrige si el periodo académico es otro. */
+function periodoPorDefecto(): string {
+  const hoy = new Date();
+  const ordinal = ["primer", "segundo", "tercer", "cuarto"][Math.floor(hoy.getMonth() / 3)];
+  return `${ordinal} trimestre ${hoy.getFullYear()}`;
+}
+
 export function AdminPortalPage() {
   const { logout } = useSession();
   const navigate = useNavigate();
@@ -182,6 +190,13 @@ export function AdminPortalPage() {
   async function toggleImpresa(a: CourseAssignment) {
     const actualizada = await marcarFichaImpresa(a.id, !a.impresaEn);
     setAssignments((prev) => prev.map((x) => (x.id === a.id ? { ...x, ...actualizada } : x)));
+  }
+
+  /** La marca de "ya se pidió el link de pago por correo" — ver CorreoPagoModal. */
+  async function marcarCorreo(a: CourseAssignment, enviado: boolean) {
+    const actualizada = await marcarCorreoEnviado(a.id, enviado);
+    setAssignments((prev) => prev.map((x) => (x.id === a.id ? { ...x, ...actualizada } : x)));
+    setCorreoPara((actual) => (actual && actual.id === a.id ? { ...actual, ...actualizada } : actual));
   }
 
   /**
@@ -401,23 +416,39 @@ export function AdminPortalPage() {
     }
   }
 
-  async function handlePrintAll() {
+  /**
+   * La carta de entrega a Secretaría General.
+   *
+   * Sustituye a "Imprimir todas": las fichas se imprimen una por una (así cada una queda marcada
+   * con quién y cuándo), y lo que hacía falta al final era la carta con la que se entrega el
+   * montón — la tabla con nombre, carné, maestría y trimestre de cada ficha ya impresa, que se
+   * armaba a mano en Word. Solo lista las que están en verde en la tabla.
+   */
+  const [cartaAbierta, setCartaAbierta] = useState(false);
+  const [periodoCarta, setPeriodoCarta] = useState(() => {
+    try {
+      return localStorage.getItem("isel.cartaEntrega.periodo") ?? periodoPorDefecto();
+    } catch {
+      return periodoPorDefecto();
+    }
+  });
+
+  async function handleCartaEntrega() {
     if (!rangeMode) return;
     setPrintingId("batch");
     setPrintError(null);
     try {
+      localStorage.setItem("isel.cartaEntrega.periodo", periodoCarta);
+    } catch {
+      /* sin localStorage solo se pierde el recuerdo del periodo */
+    }
+    try {
       const { from, to } =
         rangeMode === "todo" ? { from: null, to: null } : rangeFor(rangeMode, new Date(`${dateInput}T00:00:00`));
-      await openFichaBatchPdf(
-        from,
-        to,
-        tipoPagoFilter === "todas" ? undefined : tipoPagoFilter,
-        impresionFilter === "pendientes",
-      );
-      // El servidor acaba de marcarlas como impresas; la tabla tiene que enterarse.
-      await loadAssignments(rangeMode);
+      await openCartaEntregaPdf(from, to, tipoPagoFilter === "todas" ? undefined : tipoPagoFilter, periodoCarta);
+      setCartaAbierta(false);
     } catch (e) {
-      setPrintError(e instanceof ApiError ? e.message : "No se pudo generar el PDF de las fichas.");
+      setPrintError(e instanceof ApiError ? e.message : "No se pudo generar la carta de entrega.");
     } finally {
       setPrintingId(null);
     }
@@ -456,6 +487,7 @@ export function AdminPortalPage() {
   }, [assignments, assignmentSearch, impresionFilter]);
 
   const pendientesCount = useMemo(() => assignments.filter((a) => !a.impresaEn).length, [assignments]);
+  const impresasCount = assignments.length - pendientesCount;
 
   // Cifras derivadas de lo que ya está cargado — ninguna consulta nueva.
   const linkCount = useMemo(() => assignments.filter((a) => a.tipoPago === "Link").length, [assignments]);
@@ -529,19 +561,17 @@ export function AdminPortalPage() {
           step="01"
           accent="#B8791F"
           title="Impresión de asignaciones"
-          description="Elige una fecha ancla y el rango que quieres revisar. La impresión masiva usa el rango cargado, no el texto que busques."
+          description="Elige una fecha ancla y el rango que quieres revisar. La carta de entrega lista las fichas ya impresas del rango cargado, no el texto que busques."
           actions={
             <PortalButton
               tone="primary"
-              icon="printer"
-              disabled={filteredAssignments.length === 0}
+              icon="file"
+              disabled={impresasCount === 0}
               loading={printingId === "batch"}
-              onClick={handlePrintAll}
+              onClick={() => setCartaAbierta(true)}
+              title={impresasCount === 0 ? "Todavía no hay fichas impresas en este rango." : undefined}
             >
-              {/* Dice lo que va a hacer. Con el filtro en "Pendientes" imprime solo esas, que es lo
-                  que hace falta cuando entran fichas nuevas sobre un lote ya impreso: si no, se
-                  reimprime todo y hay que separar el montón a mano. */}
-              {impresionFilter === "pendientes" ? "Imprimir pendientes" : "Imprimir todas"}
+              Carta de entrega{impresasCount > 0 ? ` (${impresasCount})` : ""}
             </PortalButton>
           }
         >
@@ -745,8 +775,18 @@ export function AdminPortalPage() {
                             <PortalButton
                               tone="ghost"
                               size="sm"
-                              icon="mail"
+                              icon={a.correoEnviadoEn ? "check" : "mail"}
                               onClick={() => setCorreoPara(a)}
+                              title={
+                                a.correoEnviadoEn
+                                  ? `Link de pago pedido el ${new Date(a.correoEnviadoEn).toLocaleString("es-GT", { dateStyle: "short", timeStyle: "short" })}`
+                                  : "Pedir el link de pago por correo"
+                              }
+                              className={
+                                a.correoEnviadoEn
+                                  ? "!border-isel-emerald/40 !bg-isel-emerald/10 !text-isel-emerald2 hover:!bg-isel-emerald/15"
+                                  : ""
+                              }
                             >
                               Correo
                             </PortalButton>
@@ -1060,8 +1100,30 @@ export function AdminPortalPage() {
           assignment={correoPara}
           student={studentsById.get(correoPara.studentId) ?? null}
           onClose={() => setCorreoPara(null)}
+          onMarcarEnviado={(enviado) => marcarCorreo(correoPara, enviado)}
         />
       )}
+      <Modal open={cartaAbierta} onClose={() => setCartaAbierta(false)} title="Carta de entrega a Secretaría General" widthClassName="max-w-md">
+        <div className="space-y-4">
+          <p className="text-[13px] leading-relaxed text-isel-ink/70">
+            Se genera la carta con la tabla de las <strong className="text-isel-navy">{impresasCount}</strong> fichas ya
+            impresas de {rangeLabel?.toLowerCase()}, con su firma sobre la línea de quien entrega.
+          </p>
+          <label className="block">
+            <span className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-[0.14em] text-isel-ink/45">
+              Periodo, tal como debe leerse en la carta
+            </span>
+            <input className={fieldClass} value={periodoCarta} onChange={(e) => setPeriodoCarta(e.target.value)} />
+          </label>
+          {printError && <Alert kind="error">{printError}</Alert>}
+          <div className="flex justify-end gap-3 border-t border-isel-line pt-4">
+            <PortalButton tone="ghost" onClick={() => setCartaAbierta(false)}>Cancelar</PortalButton>
+            <PortalButton tone="primary" icon="file" loading={printingId === "batch"} onClick={handleCartaEntrega}>
+              Generar carta
+            </PortalButton>
+          </div>
+        </div>
+      </Modal>
       {confirmDialog}
     </main>
   );

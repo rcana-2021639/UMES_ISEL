@@ -94,6 +94,8 @@ builder.Services.AddSingleton<FirmaAdminRenderer>();
 builder.Services.AddSingleton<FichaXlsxBuilder>();
 // Converts that filled .xlsx to a ready-to-print PDF via LibreOffice headless — see Services/FichaPdfBuilder.cs.
 builder.Services.AddSingleton<FichaPdfBuilder>();
+// Carta de entrega de fichas a Secretaría General — ver Services/CartaEntregaPdfBuilder.cs.
+builder.Services.AddSingleton<CartaEntregaPdfBuilder>();
 
 // Módulo de Inscripción (aspirantes de nuevo ingreso) — ver Services/InscripcionPdfBuilder.cs.
 builder.Services.AddSingleton<PreinscripcionDocxBuilder>();
