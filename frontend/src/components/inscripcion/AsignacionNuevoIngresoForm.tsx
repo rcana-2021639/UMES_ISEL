@@ -181,7 +181,15 @@ export const AsignacionNuevoIngresoForm = forwardRef<FichaHandle, AsignacionNuev
     getTrimestres(carrera).then((list) => {
       if (!active) return;
       setTrimestres(list);
-      setTrimestre((current) => (current && list.includes(current) ? current : (list[0] ?? null)));
+      // Solo se elige un trimestre por defecto cuando todavía no hay ninguno puesto — NUNCA se
+      // reemplaza uno que ya está seleccionado, ni siquiera si esta lista (recién llegada del
+      // servidor) no lo trae. Antes se descartaba en cuanto no aparecía en `list`, y esa lista
+      // puede no traerlo por cosas tan normales como que el pénsum de esa maestría se corrigió
+      // después de que se imprimiera la ficha (carnés de distinto año con pénsum distinto, por
+      // ejemplo): al reabrir esa ficha para editarla, el trimestre real se sustituía en silencio
+      // por el primero de la lista nueva, la ficha guardada para ESE trimestre dejaba de encontrarse
+      // y su firma desaparecía del formulario sin que nadie la hubiera borrado.
+      setTrimestre((current) => (current !== null ? current : (list[0] ?? null)));
     });
     return () => {
       active = false;

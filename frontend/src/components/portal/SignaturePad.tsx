@@ -47,6 +47,21 @@ export const SignaturePad = forwardRef<SignaturePadHandle, SignaturePadProps>(fu
   const lastPoint = useRef<{ x: number; y: number } | null>(null);
   const hasStroke = useRef(false);
   const [isEmpty, setIsEmpty] = useState(true);
+  /**
+   * Lo que hay que ver dibujado ahora mismo — una firma cargada (initialValue) o la última que se
+   * trazó a mano —, guardado aparte del propio canvas.
+   *
+   * Es la pieza que faltaba: al reabrir una ficha para editarla, initialValue llega y su imagen
+   * carga de forma asíncrona (`img.onload`); si en ese instante el canvas todavía mide 0×0 —el
+   * modal apenas se está montando, o el panel de edición se acaba de abrir—, el trazo se dibuja
+   * sobre un lienzo sin tamaño real y no queda nada pintado. Momentos después el ResizeObserver de
+   * abajo SÍ le da su tamaño correcto, pero volvía a rellenarlo con una foto tomada del canvas EN
+   * ESE MOMENTO (`canvas.toDataURL()`) — que ya estaba en blanco. Resultado: la firma guardada
+   * desaparecía sin que nadie la hubiera borrado, y "Guardar" terminaba mandando una firma vacía.
+   * Guardando la fuente real en esta referencia, el redimensionado siempre puede volver a pintar
+   * desde ella en vez de fotografiar un canvas que pudo quedar en blanco por el tamaño equivocado.
+   */
+  const contenidoActual = useRef<string | null>(initialValue ?? null);
 
   /**
    * Ajusta el lienzo a su caja CSS, a la resolución de la pantalla, conservando lo dibujado.
@@ -67,7 +82,9 @@ export const SignaturePad = forwardRef<SignaturePadHandle, SignaturePadProps>(fu
     if (ancho === 0 || alto === 0) return; // todavía sin maquetar: se reintenta cuando crezca
     if (canvas.width === ancho && canvas.height === alto) return;
 
-    const previo = hasStroke.current && canvas.width > 1 && canvas.height > 1 ? canvas.toDataURL("image/png") : null;
+    // Se repinta desde `contenidoActual` (la fuente que sí sobrevive a un canvas que estuvo en
+    // 0×0), no desde una foto del canvas en vivo — ver el comentario junto a esa referencia.
+    const previo = contenidoActual.current;
     canvas.width = ancho;
     canvas.height = alto;
     const ctx = setupContext(canvas);
@@ -94,14 +111,20 @@ export const SignaturePad = forwardRef<SignaturePadHandle, SignaturePadProps>(fu
       const img = new Image();
       img.onload = () => {
         if (!ctx) return;
-        // La firma guardada se pinta en píxeles del lienzo, no en píxeles CSS: por eso se aparta la
-        // escala mientras dura el dibujo y se devuelve con `restore` — que ya la trae puesta. (Antes
-        // se volvía a escalar después de restaurarla, y en pantallas de mucha densidad el lienzo
-        // acababa al cuadrado: los trazos nuevos caían lejos del cursor.)
-        ctx.save();
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        ctx.restore();
+        // Si el canvas todavía no tenía su tamaño real cuando esta imagen terminó de cargar, ya lo
+        // tiene ahora: `ajustarLienzo` de arriba corrió primero en este mismo efecto y, si en ese
+        // momento medía 0×0, no hizo nada — el redimensionado real llega después, vía
+        // ResizeObserver, y ese sí repinta desde `contenidoActual` (ver ese comentario).
+        if (canvas.width > 1 && canvas.height > 1) {
+          // La firma guardada se pinta en píxeles del lienzo, no en píxeles CSS: por eso se aparta la
+          // escala mientras dura el dibujo y se devuelve con `restore` — que ya la trae puesta. (Antes
+          // se volvía a escalar después de restaurarla, y en pantallas de mucha densidad el lienzo
+          // acababa al cuadrado: los trazos nuevos caían lejos del cursor.)
+          ctx.save();
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          ctx.restore();
+        }
         hasStroke.current = true;
         setIsEmpty(false);
       };
@@ -124,6 +147,7 @@ export const SignaturePad = forwardRef<SignaturePadHandle, SignaturePadProps>(fu
       const ctx = canvas.getContext("2d");
       ctx?.clearRect(0, 0, canvas.width, canvas.height);
       hasStroke.current = false;
+      contenidoActual.current = null;
       setIsEmpty(true);
       onChange?.(false);
     },
@@ -165,8 +189,16 @@ export const SignaturePad = forwardRef<SignaturePadHandle, SignaturePadProps>(fu
     drawing.current = false;
     lastPoint.current = null;
     // Al soltar, no solo al primer trazo: quien escucha guarda el lienzo tal como quedó, así una
-    // firma de varios trazos no se queda con la foto del primero.
-    if (estabaTrazando && hasStroke.current) onChange?.(true);
+    // firma de varios trazos no se queda con la foto del primero. También es el punto en el que
+    // `contenidoActual` se actualiza: de aquí en adelante, un redimensionado del lienzo debe
+    // repintar lo que la persona acaba de trazar, no la firma con la que se abrió el formulario.
+    if (estabaTrazando && hasStroke.current) {
+      const canvas = canvasRef.current;
+      if (canvas && canvas.width > 1 && canvas.height > 1) {
+        contenidoActual.current = canvas.toDataURL("image/png");
+      }
+      onChange?.(true);
+    }
   };
 
   return (
