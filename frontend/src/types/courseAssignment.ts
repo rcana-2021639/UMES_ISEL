@@ -52,6 +52,8 @@ export interface CourseAssignment {
 
 /** Body sent to save/update a ficha (student portal or admin edit). */
 export interface CourseAssignmentUpsertInput {
+  /** La ficha que se está corrigiendo, si ya existía: así cambiar de maestría edita esa misma y no crea otra. */
+  id?: number | null;
   carnet: string;
   carrera: string;
   trimestre: number;

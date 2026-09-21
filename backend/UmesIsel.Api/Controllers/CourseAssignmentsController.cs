@@ -263,6 +263,25 @@ public class CourseAssignmentsController : ControllerBase
             .Include(ca => ca.CursosAdicionales)
             .FirstOrDefaultAsync(ca => ca.StudentId == student.Id && ca.Carrera == request.Carrera && ca.Trimestre == request.Trimestre);
 
+        // Se está corrigiendo una ficha concreta (ver CourseAssignmentUpsertRequest.Id): manda ella,
+        // aunque la maestría o el trimestre hayan cambiado. Si ya hubiera OTRA ficha del alumno en
+        // el destino, no se pisa en silencio ni se duplica: se avisa para que la borren primero.
+        if (request.Id is int idEditada)
+        {
+            var editada = await _db.CourseAssignments
+                .Include(ca => ca.CursosAsignados)
+                .Include(ca => ca.CursosAdicionales)
+                .FirstOrDefaultAsync(ca => ca.Id == idEditada && ca.StudentId == student.Id);
+            if (editada is null) return NotFound("La ficha que se intenta corregir ya no existe.");
+            if (existing is not null && existing.Id != editada.Id)
+            {
+                return Conflict("Este alumno ya tiene otra ficha guardada para esa maestría y trimestre. Bórrala primero, o edita esa en su lugar.");
+            }
+            editada.Carrera = request.Carrera;
+            editada.Trimestre = request.Trimestre;
+            existing = editada;
+        }
+
         var now = DateTime.UtcNow;
         CourseAssignment ca;
 

@@ -103,6 +103,18 @@ export function CourseAssignmentForm({
   const [trimestre, setTrimestre] = useState<number | null>(null);
   const [mainCourses, setMainCourses] = useState<Course[] | null>(null);
   const [assignment, setAssignment] = useState<CourseAssignment | null>(null);
+  /**
+   * La ficha con la que se ABRIÓ el formulario (la que existía al entrar), aunque después se cambie
+   * de maestría o trimestre.
+   *
+   * Sin esto, corregir la maestría de una ficha ya guardada era destructivo: al cambiarla, el
+   * formulario buscaba "la ficha de la maestría nueva", no encontraba ninguna y lo dejaba todo en
+   * blanco — firma, forma de pago, correo, cursos adicionales— como si se empezara de cero. Y al
+   * guardar, el servidor creaba OTRA ficha y dejaba la equivocada al lado. Ahora, mientras no haya
+   * otra ficha guardada para la combinación nueva, se sigue editando esta misma: se conserva lo que
+   * tenía y se guarda con su id, para que el servidor la corrija en vez de duplicarla.
+   */
+  const fichaAbierta = useRef<CourseAssignment | null>(null);
   const [loadingAssignment, setLoadingAssignment] = useState(false);
   // True only until we've checked whether this student already has ANY saved ficha.
   const [checkingExisting, setCheckingExisting] = useState(true);
@@ -204,7 +216,9 @@ export function CourseAssignmentForm({
     getAssignmentByStudent(student.carnet, trimestre).then((ca) => {
       if (!active) return;
       const matching = ca && ca.carrera === carrera ? ca : null;
-      setAssignment(matching);
+      if (matching && fichaAbierta.current === null) fichaAbierta.current = matching;
+      // Sin ficha en la combinación nueva: se sigue editando la que estaba abierta (ver fichaAbierta).
+      setAssignment(matching ?? fichaAbierta.current);
       setLoadingAssignment(false);
     });
     return () => {
@@ -412,6 +426,7 @@ export function CourseAssignmentForm({
         .filter((r): r is NonNullable<typeof r> => r !== null);
 
       const saved = await saveAssignment({
+        id: assignment?.id ?? null,
         carnet: student.carnet,
         carrera,
         trimestre,

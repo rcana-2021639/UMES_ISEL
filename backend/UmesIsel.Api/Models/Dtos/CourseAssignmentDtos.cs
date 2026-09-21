@@ -63,5 +63,12 @@ public record CourseAssignmentUpsertRequest(
     string? TelefonoContacto,
     string? TipoPago,
     string? FirmaBase64,
-    string? AutorizadoPorCodigo
+    string? AutorizadoPorCodigo,
+    /// <summary>
+    /// La ficha que se está EDITANDO, si es una ya guardada. Con él, cambiar la maestría o el
+    /// trimestre corrige esa misma ficha; sin él (una ficha nueva) se busca por alumno + maestría +
+    /// trimestre como siempre. Antes no había forma de distinguir "corrijo esta" de "creo otra", y
+    /// corregir la maestría de una ficha ya impresa dejaba la equivocada guardada al lado de la nueva.
+    /// </summary>
+    int? Id = null
 );
