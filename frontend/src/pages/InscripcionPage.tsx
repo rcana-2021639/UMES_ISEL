@@ -150,6 +150,7 @@ export function InscripcionPage() {
               initial={applicant.asignacion}
               nombreSugerido={applicant.preinscripcion?.nombreCompleto ?? applicant.nombreCompleto}
               carreraSugerida={applicant.preinscripcion?.carrera}
+              cohorteId={applicant.preinscripcion?.cohorteId}
               correoSugerido={applicant.preinscripcion?.correoElectronico}
               telefonoSugerido={applicant.preinscripcion?.telefonoCelular}
               onSaved={(asn) =>

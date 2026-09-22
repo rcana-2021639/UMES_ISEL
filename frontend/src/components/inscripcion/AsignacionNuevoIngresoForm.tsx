@@ -46,6 +46,8 @@ interface AsignacionNuevoIngresoFormProps {
    * si algo cambió, los tres campos siguen siendo editables.
    */
   carreraSugerida?: string | null;
+  /** La cohorte elegida en la preinscripción: decide qué versión del pénsum se le ofrece. */
+  cohorteId?: number | null;
   correoSugerido?: string | null;
   telefonoSugerido?: string | null;
   onSaved: (a: AsignacionNuevoIngreso) => void;
@@ -54,7 +56,7 @@ interface AsignacionNuevoIngresoFormProps {
 
 export const AsignacionNuevoIngresoForm = forwardRef<FichaHandle, AsignacionNuevoIngresoFormProps>(
   function AsignacionNuevoIngresoForm(
-    { applicantId, initial, nombreSugerido, carreraSugerida, correoSugerido, telefonoSugerido, onSaved, readOnly = false },
+    { applicantId, initial, nombreSugerido, carreraSugerida, cohorteId, correoSugerido, telefonoSugerido, onSaved, readOnly = false },
     ref,
   ) {
   const [allCourses, setAllCourses] = useState<Course[]>([]);
@@ -103,8 +105,8 @@ export const AsignacionNuevoIngresoForm = forwardRef<FichaHandle, AsignacionNuev
   const [draftSeccion, setDraftSeccion] = useState("");
 
   useEffect(() => {
-    getCourses().then(setAllCourses);
-  }, []);
+    getCourses(undefined, undefined, cohorteId).then(setAllCourses);
+  }, [cohorteId]);
 
   // Re-hidrata todo cuando cambia la ficha ya guardada de este aspirante (p.ej. al recargar el wizard).
   useEffect(() => {
@@ -178,7 +180,7 @@ export const AsignacionNuevoIngresoForm = forwardRef<FichaHandle, AsignacionNuev
       return;
     }
     let active = true;
-    getTrimestres(carrera).then((list) => {
+    getTrimestres(carrera, cohorteId).then((list) => {
       if (!active) return;
       setTrimestres(list);
       // Solo se elige un trimestre por defecto cuando todavía no hay ninguno puesto — NUNCA se
@@ -195,7 +197,7 @@ export const AsignacionNuevoIngresoForm = forwardRef<FichaHandle, AsignacionNuev
       active = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [carrera]);
+  }, [carrera, cohorteId]);
 
   useEffect(() => {
     if (carrera === null || trimestre === null) {
@@ -203,17 +205,17 @@ export const AsignacionNuevoIngresoForm = forwardRef<FichaHandle, AsignacionNuev
       return;
     }
     let active = true;
-    getCourses(carrera, trimestre).then((list) => active && setMainCourses(list));
+    getCourses(carrera, trimestre, cohorteId).then((list) => active && setMainCourses(list));
     return () => {
       active = false;
     };
-  }, [carrera, trimestre]);
+  }, [carrera, trimestre, cohorteId]);
 
   useEffect(() => {
     if (!pickerOpen || !draftCarrera) return;
     let active = true;
     setDraftTrimestres(null);
-    getTrimestres(draftCarrera).then((list) => {
+    getTrimestres(draftCarrera, cohorteId).then((list) => {
       if (!active) return;
       setDraftTrimestres(list);
       setDraftTrimestre((current) => (current && list.includes(current) ? current : (list[0] ?? null)));
@@ -221,7 +223,7 @@ export const AsignacionNuevoIngresoForm = forwardRef<FichaHandle, AsignacionNuev
     return () => {
       active = false;
     };
-  }, [pickerOpen, draftCarrera]);
+  }, [pickerOpen, draftCarrera, cohorteId]);
 
   useEffect(() => {
     if (!pickerOpen || !draftCarrera || draftTrimestre === null) {
@@ -229,11 +231,11 @@ export const AsignacionNuevoIngresoForm = forwardRef<FichaHandle, AsignacionNuev
       return;
     }
     let active = true;
-    getCourses(draftCarrera, draftTrimestre).then((list) => active && setDraftCourses(list));
+    getCourses(draftCarrera, draftTrimestre, cohorteId).then((list) => active && setDraftCourses(list));
     return () => {
       active = false;
     };
-  }, [pickerOpen, draftCarrera, draftTrimestre]);
+  }, [pickerOpen, draftCarrera, draftTrimestre, cohorteId]);
 
   function openPicker(c: string) {
     setDraftCarrera(c);

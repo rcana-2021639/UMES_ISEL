@@ -13,6 +13,7 @@ public class IselDbContext : DbContext
     public DbSet<AdditionalCourseRow> AdditionalCourseRows => Set<AdditionalCourseRow>();
     public DbSet<Course> Courses => Set<Course>();
     public DbSet<Carrera> Carreras => Set<Carrera>();
+    public DbSet<Cohorte> Cohortes => Set<Cohorte>();
 
     public DbSet<AdminUser> AdminUsers => Set<AdminUser>();
     public DbSet<SecurityEvent> SecurityEvents => Set<SecurityEvent>();
@@ -59,11 +60,26 @@ public class IselDbContext : DbContext
             e.HasIndex(c => c.Nombre).IsUnique();
         });
 
+        // Una cohorte por año + número de ingreso: no puede haber dos "Cohorte 2027".
+        modelBuilder.Entity<Cohorte>(e =>
+        {
+            e.HasIndex(c => new { c.Anio, c.Periodo }).IsUnique();
+        });
+
         // El pénsum no puede tener el mismo curso dos veces en el mismo trimestre
-        // de la misma carrera: sale duplicado en la ficha impresa.
+        // de la misma versión de una carrera: sale duplicado en la ficha impresa.
+        // La versión (CohorteId) entra en la clave porque dos versiones del mismo
+        // pénsum comparten casi todos sus cursos. Una cohorte que da inicio a una
+        // versión del pénsum no se puede borrar (Restrict): se perdería la versión.
         modelBuilder.Entity<Course>(e =>
         {
-            e.HasIndex(c => new { c.Carrera, c.Trimestre, c.Nombre }).IsUnique();
+            e.HasIndex(c => new { c.Carrera, c.CohorteId, c.Trimestre, c.Nombre }).IsUnique();
+            e.HasOne(c => c.Cohorte).WithMany().HasForeignKey(c => c.CohorteId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Student>(e =>
+        {
+            e.HasOne(s => s.Cohorte).WithMany().HasForeignKey(s => s.CohorteId).OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<CourseAssignment>(e =>
@@ -106,6 +122,7 @@ public class IselDbContext : DbContext
         modelBuilder.Entity<Preinscripcion>(e =>
         {
             e.HasIndex(p => p.ApplicantId).IsUnique();
+            e.HasOne(p => p.Cohorte).WithMany().HasForeignKey(p => p.CohorteId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(p => p.Applicant)
                 .WithOne(a => a.Preinscripcion)
                 .HasForeignKey<Preinscripcion>(p => p.ApplicantId)

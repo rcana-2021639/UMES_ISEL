@@ -75,6 +75,13 @@ public class Preinscripcion
     [MaxLength(200)]
     public string Carrera { get; set; } = string.Empty;
 
+    /// <summary>
+    /// La cohorte a la que se postula: el programa es el mismo, lo que se elige aquí es
+    /// CUÁNDO empieza. Viaja al padrón cuando se le asigna carné.
+    /// </summary>
+    public int? CohorteId { get; set; }
+    public Cohorte? Cohorte { get; set; }
+
     [MaxLength(60)]
     public string? Jornada { get; set; }
 

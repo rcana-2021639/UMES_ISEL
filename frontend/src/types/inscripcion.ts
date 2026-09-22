@@ -33,6 +33,9 @@ export interface Preinscripcion {
   saludDescripcion?: string | null;
   firmaBase64?: string | null;
   firmadoEn?: string | null;
+  /** La cohorte a la que se postula — cuándo empieza, independiente de la carrera. */
+  cohorteId?: number | null;
+  cohorteNombre?: string | null;
 }
 
 export type PreinscripcionInput = Omit<Preinscripcion, "firmadoEn">;
@@ -137,6 +140,7 @@ export interface ApplicantListItem {
   documentosSubidos: number;
   documentosRequeridos: number;
   fecha: string; // yyyy-MM-dd
+  cohorte?: string | null;
 }
 
 export interface MigrarAspiranteInput {

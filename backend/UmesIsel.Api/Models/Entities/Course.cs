@@ -18,6 +18,16 @@ public class Course
 
     public int Trimestre { get; set; }
 
+    /// <summary>
+    /// Desde qué cohorte está vigente este curso — es decir, a qué VERSIÓN del pénsum
+    /// pertenece. null = la versión original de la carrera, vigente desde siempre.
+    /// Cuando el plan de estudios cambia para los que entran en 2027, no se crea otra
+    /// carrera: se agrega una versión con CohorteId = cohorte 2027, y cada alumno ve la
+    /// versión que le toca por su cohorte (ver <c>PensumService.ResolverVersion</c>).
+    /// </summary>
+    public int? CohorteId { get; set; }
+    public Cohorte? Cohorte { get; set; }
+
     [MaxLength(200)]
     public string Nombre { get; set; } = string.Empty;
 

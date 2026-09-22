@@ -20,6 +20,19 @@ export interface PensumUso {
   total: number;
 }
 
+/**
+ * Una versión del pénsum: los cursos vigentes a partir de una cohorte. `cohorteId` null = la
+ * versión original. A cada alumno le toca la versión más reciente que empezó en su cohorte o antes.
+ */
+export interface PensumVersion {
+  cohorteId: number | null;
+  nombre: string;
+  trimestres: PensumTrimestre[];
+  totalCursos: number;
+  /** Cuántos alumnos del padrón reciben esta versión por su cohorte. */
+  alumnos: number;
+}
+
 export interface PensumCarrera {
   id: number;
   nombre: string;
@@ -27,9 +40,13 @@ export interface PensumCarrera {
   esPrograma: boolean;
   activa: boolean;
   orden: number;
+  /** La versión vigente hoy (la más reciente). */
   trimestres: PensumTrimestre[];
+  /** Todos los cursos, de todas las versiones. */
   totalCursos: number;
   uso: PensumUso;
+  /** De la más antigua a la más reciente. */
+  versiones: PensumVersion[];
 }
 
 /** La forma ligera que consumen los selectores de carrera de los tres trámites. */
@@ -51,6 +68,8 @@ export interface CarreraPayload {
 export interface CursoPayload {
   trimestre: number;
   nombre: string;
+  /** Versión del pénsum en la que va el curso nuevo (null = la original). */
+  cohorteId?: number | null;
 }
 
 /**
@@ -88,5 +107,14 @@ export const actualizarCurso = (cursoId: number, body: CursoPayload): Promise<Pe
 export const eliminarCurso = (cursoId: number): Promise<PensumCarrera[]> =>
   http.del<PensumCarrera[]>(`/api/pensum/cursos/${cursoId}`);
 
-export const eliminarTrimestre = (carreraId: number, trimestre: number): Promise<PensumCarrera[]> =>
-  http.del<PensumCarrera[]>(`/api/pensum/carreras/${carreraId}/trimestres/${trimestre}`);
+export const eliminarTrimestre = (carreraId: number, trimestre: number, cohorteId: number | null): Promise<PensumCarrera[]> =>
+  http.del<PensumCarrera[]>(
+    `/api/pensum/carreras/${carreraId}/trimestres/${trimestre}${cohorteId ? `?cohorteId=${cohorteId}` : ""}`,
+  );
+
+/** Nueva versión del pénsum desde una cohorte; arranca como copia de la que esa cohorte recibía. */
+export const crearVersion = (carreraId: number, cohorteId: number): Promise<PensumCarrera[]> =>
+  http.post(`/api/pensum/carreras/${carreraId}/versiones`, { cohorteId });
+
+export const eliminarVersion = (carreraId: number, cohorteId: number | null): Promise<PensumCarrera[]> =>
+  http.del<PensumCarrera[]>(`/api/pensum/carreras/${carreraId}/versiones${cohorteId ? `?cohorteId=${cohorteId}` : ""}`);

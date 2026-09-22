@@ -22,6 +22,9 @@ export interface Student {
    * su carta de compromiso y los documentos que subió al inscribirse.
    */
   expedienteInscripcionId?: number | null;
+  /** La cohorte con la que entró (año de ingreso): decide qué versión del pénsum le toca. */
+  cohorteId?: number | null;
+  cohorteNombre?: string | null;
 }
 
 /** Every field the admin's "Agregar / editar alumno" form must collect. */
@@ -37,4 +40,6 @@ export interface StudentUpsertInput {
   correoInstitucional?: string | null;
   correoPersonal?: string | null;
   celular?: string | null;
+  /** Vacía = se deduce del año del carné. */
+  cohorteId?: number | null;
 }

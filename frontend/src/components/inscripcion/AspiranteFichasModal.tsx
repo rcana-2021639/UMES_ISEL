@@ -89,6 +89,7 @@ export function AspiranteFichasModal({
               applicantId={applicant.id}
               initial={applicant.asignacion}
               nombreSugerido={applicant.preinscripcion?.nombreCompleto ?? applicant.nombreCompleto}
+              cohorteId={applicant.preinscripcion?.cohorteId}
               readOnly={!editing}
               onSaved={(asn) => onUpdated({ ...applicant, asignacion: asn })}
             />

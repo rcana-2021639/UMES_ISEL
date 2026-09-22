@@ -7,6 +7,7 @@ import { Alert, Field, PortalButton, fieldClass } from "@/components/portal/kit"
 import { ChoiceRow } from "@/components/portal/CourseAssignmentForm";
 import { FichaEnviadaModal } from "@/components/portal/FichaEnviadaModal";
 import { getCarreras } from "@/lib/coursesApi";
+import { fechaLarga, getCohortes, type Cohorte } from "@/lib/cohortesApi";
 import { openPreinscripcionPdf, savePreinscripcion } from "@/lib/inscripcionesApi";
 import { ApiError } from "@/lib/http";
 import type { Preinscripcion, PreinscripcionInput, PuebloPertenencia } from "@/types/inscripcion";
@@ -84,6 +85,8 @@ export const PreinscripcionForm = forwardRef<FichaHandle, PreinscripcionFormProp
   // null mientras carga; [] si la API no responde — entonces el campo vuelve a
   // ser de texto libre en vez de dejar al aspirante sin poder escribir nada.
   const [carreras, setCarreras] = useState<string[] | null>(null);
+  // Las cohortes abiertas a inscripción: el programa se elige arriba, y aquí CUÁNDO se empieza.
+  const [cohortes, setCohortes] = useState<Cohorte[] | null>(null);
   const signatureRef = useRef<SignaturePadHandle>(null);
   /** La ficha recién guardada, para el modal de confirmación — null si no hay nada que mostrar. */
   const [savedSummary, setSavedSummary] = useState<Preinscripcion | null>(null);
@@ -99,6 +102,9 @@ export const PreinscripcionForm = forwardRef<FichaHandle, PreinscripcionFormProp
     getCarreras()
       .then((list) => active && setCarreras(list))
       .catch(() => active && setCarreras([]));
+    getCohortes(true)
+      .then((list) => active && setCohortes(list))
+      .catch(() => active && setCohortes([]));
     return () => {
       active = false;
     };
@@ -118,6 +124,11 @@ export const PreinscripcionForm = forwardRef<FichaHandle, PreinscripcionFormProp
   async function guardar(): Promise<string | null> {
     if (!form.nombreCompleto.trim() || !form.carrera.trim()) {
       const motivo = "Nombre completo y carrera son obligatorios.";
+      setError(motivo);
+      return motivo;
+    }
+    if (cohortes && cohortes.length > 0 && !form.cohorteId) {
+      const motivo = "Seleccione la cohorte en la que va a iniciar sus estudios.";
       setError(motivo);
       return motivo;
     }
@@ -169,7 +180,7 @@ export const PreinscripcionForm = forwardRef<FichaHandle, PreinscripcionFormProp
         steps={[
           "Escriba sus nombres y apellidos completos, tal como aparecen en su DPI o pasaporte, sin abreviaturas.",
           "Complete los campos siguientes. Los campos señalados con asterisco (*) son obligatorios.",
-          "Seleccione en la lista la maestría de su interés.",
+          "Seleccione en la lista la maestría de su interés y la cohorte en la que iniciará sus estudios.",
           "Registre su firma en el recuadro y presione el botón para guardar la información.",
         ]}
         outcome="Al guardar, su registro como aspirante queda confirmado. Si interrumpe el proceso, puede ingresar nuevamente con el mismo DPI y continuar donde lo dejó."
@@ -203,6 +214,40 @@ export const PreinscripcionForm = forwardRef<FichaHandle, PreinscripcionFormProp
             )}
           </Field>
         </div>
+
+        {/* La cohorte: la maestría es la misma cada año; lo que se elige aquí es cuándo se
+            empieza. De ella depende la versión del pénsum que se le asigna. */}
+        {(cohortes === null || cohortes.length > 0 || form.cohorteId) && (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field
+              label="Cohorte de ingreso *"
+              hint={
+                cohortes === null
+                  ? "Cargando las cohortes abiertas…"
+                  : "El período en el que usted iniciará sus estudios. La maestría elegida arriba es la misma para todas las cohortes."
+              }
+            >
+              <select
+                className={fieldClass}
+                disabled={readOnly || cohortes === null}
+                value={form.cohorteId ?? ""}
+                onChange={(e) => set("cohorteId", e.target.value ? Number(e.target.value) : null)}
+              >
+                <option value="">Seleccione la cohorte…</option>
+                {/* Una cohorte ya cerrada que el aspirante eligió antes sigue siendo suya. */}
+                {form.cohorteId && cohortes && !cohortes.some((c) => c.id === form.cohorteId) && (
+                  <option value={form.cohorteId}>{form.cohorteNombre ?? "Cohorte elegida"}</option>
+                )}
+                {(cohortes ?? []).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nombre}
+                    {c.fechaInicio ? ` — inicia el ${fechaLarga(c.fechaInicio)}` : ""}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Field label="DPI">
@@ -395,6 +440,7 @@ export const PreinscripcionForm = forwardRef<FichaHandle, PreinscripcionFormProp
           nombre={savedSummary.nombreCompleto}
           rows={[
             { label: "Carrera / maestría", value: savedSummary.carrera },
+            ...(savedSummary.cohorteNombre ? [{ label: "Cohorte de ingreso", value: savedSummary.cohorteNombre }] : []),
             { label: "DPI", value: savedSummary.dpi || savedSummary.noPasaporte || "No especificado" },
             { label: "Correo electrónico", value: savedSummary.correoElectronico || "No especificado" },
             { label: "Teléfono celular", value: savedSummary.telefonoCelular || "No especificado" },

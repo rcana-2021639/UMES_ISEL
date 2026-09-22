@@ -22,7 +22,10 @@ public record StudentDto(
     /// un administrador. Es lo que permite volver a abrir su preinscripción, su carta de compromiso
     /// y los documentos que subió, que al migrar dejan de aparecer en el listado de inscripciones.
     /// </summary>
-    int? ExpedienteInscripcionId
+    int? ExpedienteInscripcionId,
+    /// <summary>La cohorte con la que entró; decide qué versión del pénsum de su carrera le toca.</summary>
+    int? CohorteId = null,
+    string? CohorteNombre = null
 );
 
 /// <summary>PUT /api/students/{id}/papeleria-en-orden — respuesta a "¿Tiene su papelería al día?".</summary>
@@ -40,5 +43,7 @@ public record StudentUpsertRequest(
     int? Trimestre,
     string? CorreoInstitucional,
     string? CorreoPersonal,
-    string? Celular
+    string? Celular,
+    /// <summary>Si viene vacía, se deduce del año del carné.</summary>
+    int? CohorteId = null
 );

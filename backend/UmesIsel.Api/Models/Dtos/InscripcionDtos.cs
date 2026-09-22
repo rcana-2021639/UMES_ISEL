@@ -39,7 +39,10 @@ public record PreinscripcionDto(
     bool TieneProblemaSalud,
     string? SaludDescripcion,
     string? FirmaBase64,
-    DateTime? FirmadoEn
+    DateTime? FirmadoEn,
+    /// <summary>La cohorte a la que se postula (cuándo empieza), independiente de la carrera.</summary>
+    int? CohorteId = null,
+    string? CohorteNombre = null
 );
 
 /// <summary>Mismo cuerpo que <see cref="PreinscripcionDto"/> salvo el sello de firma (se calcula al guardar).</summary>
@@ -71,7 +74,8 @@ public record PreinscripcionUpsertRequest(
     string? AlergiaDescripcion,
     bool TieneProblemaSalud,
     string? SaludDescripcion,
-    string? FirmaBase64
+    string? FirmaBase64,
+    int? CohorteId = null
 );
 
 public record AsignacionNuevoIngresoDto(
@@ -166,7 +170,8 @@ public record ApplicantListItemDto(
     bool FichaCompleta,
     int DocumentosSubidos,
     int DocumentosRequeridos,
-    DateOnly Fecha
+    DateOnly Fecha,
+    string? Cohorte = null
 );
 
 /// <summary>POST /api/inscripciones/{id}/migrar — el carné/sección que solo el otro departamento puede dar.</summary>

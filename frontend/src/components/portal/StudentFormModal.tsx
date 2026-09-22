@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import type { Student, StudentUpsertInput } from "@/types/student";
 import { createStudent, updateStudent } from "@/lib/studentsApi";
+import { getCohortes, type Cohorte } from "@/lib/cohortesApi";
 import { ApiError } from "@/lib/http";
 import { useConfirm } from "@/hooks/useConfirm";
 import { Alert, Field, PortalButton, fieldClass } from "@/components/portal/kit";
@@ -19,6 +20,7 @@ function blank(): StudentUpsertInput {
     correoInstitucional: "",
     correoPersonal: "",
     celular: "",
+    cohorteId: null,
   };
 }
 
@@ -36,6 +38,14 @@ export function StudentFormModal({ open, onClose, student, onSaved }: StudentFor
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { confirm, dialog: confirmDialog } = useConfirm();
+  const [cohortes, setCohortes] = useState<Cohorte[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    getCohortes()
+      .then(setCohortes)
+      .catch(() => setCohortes([]));
+  }, [open]);
 
   useEffect(() => {
     if (open) {
@@ -53,6 +63,7 @@ export function StudentFormModal({ open, onClose, student, onSaved }: StudentFor
               correoInstitucional: student.correoInstitucional ?? "",
               correoPersonal: student.correoPersonal ?? "",
               celular: student.celular ?? "",
+              cohorteId: student.cohorteId ?? null,
             }
           : blank(),
       );
@@ -96,13 +107,29 @@ export function StudentFormModal({ open, onClose, student, onSaved }: StudentFor
   return (
     <Modal open={open} onClose={onClose} title={student ? "Editar alumno" : "Agregar alumno"} widthClassName="max-w-2xl">
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
           <Field label="Carné *">
             <input className={fieldClass} value={form.carnet} onChange={(e) => set("carnet", e.target.value)} />
           </Field>
-          <Field label="Carrera *">
-            <input className={fieldClass} value={form.carrera} onChange={(e) => set("carrera", e.target.value)} />
+          <Field label="Cohorte" hint="Decide qué versión del pénsum le toca.">
+            <select
+              className={fieldClass}
+              value={form.cohorteId ?? ""}
+              onChange={(e) => set("cohorteId", e.target.value ? Number(e.target.value) : null)}
+            >
+              <option value="">Según el año del carné</option>
+              {cohortes.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nombre}
+                </option>
+              ))}
+            </select>
           </Field>
+          <div className="sm:col-span-2">
+            <Field label="Carrera *">
+              <input className={fieldClass} value={form.carrera} onChange={(e) => set("carrera", e.target.value)} />
+            </Field>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

@@ -113,19 +113,20 @@ public class AdminToolsController : ControllerBase
     [EnableRateLimiting(RateLimitPolicies.Pesado)]
     public async Task<IActionResult> ExportarAlumnos([FromQuery] string? carrera)
     {
-        var query = _db.Students.AsNoTracking().AsQueryable();
+        var query = _db.Students.AsNoTracking().Include(s => s.Cohorte).AsQueryable();
         if (!string.IsNullOrWhiteSpace(carrera)) query = query.Where(s => s.Carrera == carrera);
 
         var alumnos = await query.OrderBy(s => s.Carrera).ThenBy(s => s.PrimerApellido).ThenBy(s => s.PrimerNombre).ToListAsync();
 
         var csv = TabularService.BuildCsv(
             new[] { "Carne", "Nombre Completo", "Primer Apellido", "Segundo Apellido", "Primer Nombre", "Segundo Nombre",
-                    "Carrera", "Seccion", "Trimestre", "Correo institucional", "Correo personal", "No. Celular", "Papeleria al dia" },
+                    "Carrera", "Seccion", "Trimestre", "Correo institucional", "Correo personal", "No. Celular", "Papeleria al dia", "Cohorte" },
             alumnos.Select(s => new[]
             {
                 s.Carnet, s.NombreCompleto, s.PrimerApellido, s.SegundoApellido, s.PrimerNombre, s.SegundoNombre,
                 s.Carrera, s.Seccion, s.Trimestre?.ToString(), s.CorreoInstitucional, s.CorreoPersonal, s.Celular,
                 s.PapeleriaEnOrden ? "Si" : "No",
+                s.Cohorte?.Nombre,
             }));
 
         await _audit.LogAsync(SecurityEventTypes.DatosExportados, $"{alumnos.Count} alumnos", esAlerta: true);
@@ -285,6 +286,35 @@ public class AdminToolsController : ControllerBase
 
         var problemas = new List<ImportProblemaDto>();
         var existentes = await _db.Students.ToDictionaryAsync(s => s.Carnet, StringComparer.OrdinalIgnoreCase);
+
+        // La cohorte sale del año del carné (sus cuatro primeros dígitos). Si ese año
+        // todavía no tiene cohorte, se crea aquí mismo, cerrada a inscripciones.
+        var cohortesPorAnio = await _db.Cohortes.Where(x => x.Periodo == 1).ToDictionaryAsync(x => x.Anio);
+        Cohorte? CohorteDe(string carne)
+        {
+            if (carne.Length < 4 || !int.TryParse(carne[..4], out var anio) || anio < 2000 || anio > 2099) return null;
+            if (!cohortesPorAnio.TryGetValue(anio, out var cohorte))
+            {
+                cohorte = new Cohorte { Anio = anio, Periodo = 1, Nombre = Cohorte.NombrePorDefecto(anio, 1) };
+                _db.Cohortes.Add(cohorte);
+                cohortesPorAnio[anio] = cohorte;
+            }
+            return cohorte;
+        }
+
+        // El Excel del trimestre todavía puede traer la carrera con el año pegado
+        // ("... (CARNÉ 2025)"), de cuando cada pénsum era una carrera aparte. Ahora
+        // el año lo pone la cohorte: se guarda la carrera sin ese sufijo.
+        var carrerasConocidas = (await _db.Carreras.Select(x => x.Nombre).ToListAsync())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        string? NormalizarCarrera(string? nombre)
+        {
+            if (nombre is null || carrerasConocidas.Contains(nombre)) return nombre;
+            var sinAnio = System.Text.RegularExpressions.Regex.Replace(
+                nombre, @"\s*\(\s*CARN[EÉ]T?\s*\d{4}\s*\)\s*$", "",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            return carrerasConocidas.Contains(sinAnio) ? carrerasConocidas.First(x => x.Equals(sinAnio, StringComparison.OrdinalIgnoreCase)) : nombre;
+        }
         var vistos = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         int nuevos = 0, actualizados = 0, omitidos = 0;
         var ahora = DateTime.UtcNow;
@@ -310,7 +340,7 @@ public class AdminToolsController : ControllerBase
             }
 
             var nombre = Campo(fila, "nombre");
-            var carrera = Campo(fila, "carrera");
+            var carrera = NormalizarCarrera(Campo(fila, "carrera"));
 
             if (existentes.TryGetValue(carnet, out var alumno))
             {
@@ -323,6 +353,7 @@ public class AdminToolsController : ControllerBase
                 if (Campo(fila, "institucional") is { } ci) alumno.CorreoInstitucional = ci;
                 if (Campo(fila, "personal") is { } cp) alumno.CorreoPersonal = cp;
                 if (Campo(fila, "celular") is { } cel) alumno.Celular = cel;
+                if (alumno.CohorteId is null && alumno.Cohorte is null) alumno.Cohorte = CohorteDe(carnet);
                 alumno.UpdatedAt = ahora;
                 actualizados++;
             }
@@ -336,7 +367,7 @@ public class AdminToolsController : ControllerBase
                     continue;
                 }
 
-                var nuevo = new Student { Carnet = carnet, Carrera = carrera, CreatedAt = ahora, UpdatedAt = ahora };
+                var nuevo = new Student { Carnet = carnet, Carrera = carrera, Cohorte = CohorteDe(carnet), CreatedAt = ahora, UpdatedAt = ahora };
                 AplicarNombre(nuevo, nombre);
                 nuevo.Seccion = Campo(fila, "seccion");
                 nuevo.Trimestre = int.TryParse(Campo(fila, "trimestre"), out var t) ? t : null;

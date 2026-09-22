@@ -64,7 +64,7 @@ public class AuthController : ControllerBase
             return BadRequest("Escribe tu carné y tu correo institucional.");
         }
 
-        var student = await _db.Students.AsNoTracking().FirstOrDefaultAsync(s => s.Carnet == carnet);
+        var student = await _db.Students.AsNoTracking().Include(s => s.Cohorte).FirstOrDefaultAsync(s => s.Carnet == carnet);
 
         // Se comprueban las dos cosas a la vez y se responde igual en todos los
         // casos: un carné inexistente y un correo equivocado son la misma
@@ -220,7 +220,7 @@ public class AuthController : ControllerBase
 
         if (_currentUser.IsStudent)
         {
-            var student = await _db.Students.AsNoTracking().FirstOrDefaultAsync(s => s.Id == _currentUser.SubjectId);
+            var student = await _db.Students.AsNoTracking().Include(s => s.Cohorte).FirstOrDefaultAsync(s => s.Id == _currentUser.SubjectId);
             if (student is null) return Unauthorized(CredencialesInvalidas);
             var documentos = await _db.StudentDocuments.CountAsync(d => d.StudentId == student.Id);
             return Ok(new LoginResponse("student", string.Empty, DateTimeOffset.MinValue, ToStudentDto(student, documentos), null));
@@ -266,7 +266,7 @@ public class AuthController : ControllerBase
     private static StudentDto ToStudentDto(Student s, int documentosSubidos) => new(
         s.Id, s.Carnet, s.PrimerApellido, s.SegundoApellido, s.PrimerNombre, s.SegundoNombre,
         s.NombreCompleto, s.Carrera, s.Seccion, s.Trimestre, s.CorreoInstitucional, s.CorreoPersonal,
-        s.Celular, s.PapeleriaEnOrden, documentosSubidos, null);
+        s.Celular, s.PapeleriaEnOrden, documentosSubidos, null, s.CohorteId, s.Cohorte?.Nombre);
 
     /// <summary>Deja solo lo imprimible antes de escribirlo en la bitácora, para que nadie inyecte saltos de línea en el registro.</summary>
     private static string Sanitizar(string value) =>

@@ -41,9 +41,21 @@ public class PensumService
             .OrderBy(c => c.Trimestre).ThenBy(c => c.Id)
             .ToListAsync();
 
+        var cohortes = await _db.Cohortes.AsNoTracking().ToDictionaryAsync(c => c.Id);
+        var claves = cohortes.ToDictionary(kv => kv.Key, kv => kv.Value.Clave);
+
         var porCarrera = cursos
             .GroupBy(c => c.Carrera, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+
+        // Qué cohorte tiene cada alumno de cada carrera, para contar cuántos reciben
+        // cada versión del pénsum (sin cohorte = se le deduce del carné, y si ni así,
+        // la versión vigente).
+        var alumnosPorCarrera = (await _db.Students.AsNoTracking()
+                .Select(s => new { s.Carrera, s.CohorteId })
+                .ToListAsync())
+            .GroupBy(s => s.Carrera, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.CohorteId).ToList(), StringComparer.OrdinalIgnoreCase);
 
         // Los cuatro conteos de uso en cuatro consultas agrupadas, no una por
         // carrera: con veinte carreras eso serían ochenta viajes a la base.
@@ -55,13 +67,19 @@ public class PensumService
         return carreras.Select(c =>
         {
             var propios = porCarrera.GetValueOrDefault(c.Nombre) ?? new List<Course>();
-            var trimestres = propios
-                .GroupBy(x => x.Trimestre)
-                .OrderBy(g => g.Key)
-                .Select(g => new PensumTrimestreDto(
-                    g.Key,
-                    g.Select(x => new PensumCursoDto(x.Id, x.Trimestre, x.Nombre)).ToList()))
-                .ToList();
+            var versionIds = VersionesDe(propios, claves);
+            var cohortesAlumnos = alumnosPorCarrera.GetValueOrDefault(c.Nombre) ?? new List<int?>();
+
+            var versiones = versionIds.Select(v =>
+            {
+                var cursosVersion = propios.Where(x => x.CohorteId == v).ToList();
+                var nombre = v is int id && cohortes.TryGetValue(id, out var co)
+                    ? $"Desde la {co.Nombre}"
+                    : "Pénsum original";
+                return new PensumVersionDto(
+                    v, nombre, AgruparTrimestres(cursosVersion), cursosVersion.Count,
+                    cohortesAlumnos.Count(ca => ResolverVersion(versionIds, ca, claves) == v));
+            }).ToList();
 
             var nAlumnos = alumnos.GetValueOrDefault(c.Nombre);
             var nFichas = fichas.GetValueOrDefault(c.Nombre);
@@ -69,9 +87,167 @@ public class PensumService
 
             return new PensumCarreraDto(
                 c.Id, c.Nombre, c.Tipo, c.EsPrograma, c.Activa, c.Orden,
-                trimestres, propios.Count,
-                new PensumUsoDto(nAlumnos, nFichas, nAspirantes, nAlumnos + nFichas + nAspirantes));
+                versiones.LastOrDefault()?.Trimestres ?? new List<PensumTrimestreDto>(), propios.Count,
+                new PensumUsoDto(nAlumnos, nFichas, nAspirantes, nAlumnos + nFichas + nAspirantes),
+                versiones);
         }).ToList();
+    }
+
+    private static List<PensumTrimestreDto> AgruparTrimestres(IEnumerable<Course> cursos) => cursos
+        .GroupBy(x => x.Trimestre)
+        .OrderBy(g => g.Key)
+        .Select(g => new PensumTrimestreDto(
+            g.Key,
+            g.OrderBy(x => x.Id).Select(x => new PensumCursoDto(x.Id, x.Trimestre, x.Nombre)).ToList()))
+        .ToList();
+
+    // ------------------------------------------------ versiones por cohorte
+
+    /// <summary>Clave cronológica de una versión: la original (null) va antes que cualquier cohorte.</summary>
+    private static int ClaveVersion(int? cohorteId, IReadOnlyDictionary<int, int> claves) =>
+        cohorteId is int id && claves.TryGetValue(id, out var k) ? k : int.MinValue;
+
+    /// <summary>Las versiones que tiene el pénsum de una carrera, de la más antigua a la más reciente.</summary>
+    public static List<int?> VersionesDe(IEnumerable<Course> cursosDeLaCarrera, IReadOnlyDictionary<int, int> claves) =>
+        cursosDeLaCarrera.Select(c => c.CohorteId).Distinct()
+            .OrderBy(v => ClaveVersion(v, claves))
+            .ToList();
+
+    /// <summary>
+    /// Qué versión del pénsum le toca a alguien de la cohorte <paramref name="cohorteId"/>:
+    /// la más reciente que empezó en su cohorte o antes. Si su cohorte es anterior a todas,
+    /// la más antigua; si no se sabe su cohorte, la vigente hoy (la más reciente).
+    ///
+    /// Es la regla que evita tener "Maestría X 2025" y "Maestría X 2026" como carreras
+    /// distintas: la carrera es una sola y la cohorte decide el plan de estudios.
+    /// </summary>
+    public static int? ResolverVersion(IReadOnlyList<int?> versiones, int? cohorteId, IReadOnlyDictionary<int, int> claves)
+    {
+        if (versiones.Count == 0) return null;
+        if (cohorteId is not int id || !claves.TryGetValue(id, out var objetivo))
+        {
+            return versiones[^1];
+        }
+        var candidatas = versiones.Where(v => ClaveVersion(v, claves) <= objetivo).ToList();
+        return candidatas.Count > 0 ? candidatas[^1] : versiones[0];
+    }
+
+    /// <summary>
+    /// Los cursos que le corresponden a alguien de <paramref name="cohorteId"/>: de cada
+    /// carrera (o solo de <paramref name="carrera"/>), la versión que le toca. Es lo que
+    /// alimenta la ficha de asignación y el catálogo de cursos adicionales.
+    /// </summary>
+    public async Task<List<Course>> CursosVigentesAsync(string? carrera, int? cohorteId, bool excluirArchivadas)
+    {
+        var query = _db.Courses.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(carrera))
+        {
+            query = query.Where(c => c.Carrera == carrera);
+        }
+        else if (excluirArchivadas)
+        {
+            var archivadas = _db.Carreras.AsNoTracking().Where(x => !x.Activa).Select(x => x.Nombre);
+            query = query.Where(c => !archivadas.Contains(c.Carrera));
+        }
+
+        var cursos = await query.ToListAsync();
+        var claves = await ClavesAsync();
+
+        return cursos
+            .GroupBy(c => c.Carrera, StringComparer.OrdinalIgnoreCase)
+            .SelectMany(g =>
+            {
+                var version = ResolverVersion(VersionesDe(g, claves), cohorteId, claves);
+                return g.Where(c => c.CohorteId == version);
+            })
+            .ToList();
+    }
+
+    private Task<Dictionary<int, int>> ClavesAsync() =>
+        _db.Cohortes.AsNoTracking().ToDictionaryAsync(c => c.Id, c => c.Anio * 10 + c.Periodo);
+
+    /// <summary>
+    /// Nueva versión del pénsum de una carrera, vigente desde <see cref="NuevaVersionRequest.CohorteId"/>.
+    /// Arranca como copia de la versión que esa cohorte recibía hasta ahora — casi siempre
+    /// un plan nuevo cambia pocos cursos, y así solo se editan esos.
+    /// </summary>
+    public async Task<PensumError?> CrearVersionAsync(int carreraId, NuevaVersionRequest request)
+    {
+        var carrera = await _db.Carreras.AsNoTracking().FirstOrDefaultAsync(c => c.Id == carreraId);
+        if (carrera is null) return new PensumError(404, "Esa carrera ya no existe.");
+
+        var cohorte = await _db.Cohortes.AsNoTracking().FirstOrDefaultAsync(c => c.Id == request.CohorteId);
+        if (cohorte is null) return new PensumError(404, "Esa cohorte ya no existe.");
+
+        var cursos = await _db.Courses.AsNoTracking().Where(c => c.Carrera == carrera.Nombre).ToListAsync();
+        if (cursos.Count == 0)
+        {
+            return new PensumError(400, "Esta carrera todavía no tiene pénsum: agrégale cursos antes de crear otra versión.");
+        }
+        if (cursos.Any(c => c.CohorteId == cohorte.Id))
+        {
+            return new PensumError(409, $"Ya existe una versión del pénsum desde la {cohorte.Nombre}.");
+        }
+
+        var claves = await ClavesAsync();
+        var base_ = ResolverVersion(VersionesDe(cursos, claves), cohorte.Id, claves);
+        var now = DateTime.UtcNow;
+        foreach (var curso in cursos.Where(c => c.CohorteId == base_).OrderBy(c => c.Id))
+        {
+            _db.Courses.Add(new Course
+            {
+                Carrera = carrera.Nombre,
+                CohorteId = cohorte.Id,
+                Trimestre = curso.Trimestre,
+                Nombre = curso.Nombre,
+                CreatedAt = now,
+            });
+        }
+        await _db.SaveChangesAsync();
+        return null;
+    }
+
+    /// <summary>
+    /// Quita una versión entera. No se permite dejar la carrera sin pénsum: si es la
+    /// única, se niega. Quienes la recibían pasan a recibir la versión anterior.
+    /// </summary>
+    public async Task<PensumError?> EliminarVersionAsync(int carreraId, int? cohorteId)
+    {
+        var carrera = await _db.Carreras.AsNoTracking().FirstOrDefaultAsync(c => c.Id == carreraId);
+        if (carrera is null) return new PensumError(404, "Esa carrera ya no existe.");
+
+        var versiones = await _db.Courses.AsNoTracking()
+            .Where(c => c.Carrera == carrera.Nombre)
+            .Select(c => c.CohorteId).Distinct().ToListAsync();
+        if (!versiones.Contains(cohorteId)) return new PensumError(404, "Esa versión del pénsum ya no existe.");
+        if (versiones.Count == 1)
+        {
+            return new PensumError(409, "Es la única versión del pénsum de esta carrera; no se puede quitar.");
+        }
+
+        await _db.Courses.Where(c => c.Carrera == carrera.Nombre && c.CohorteId == cohorteId).ExecuteDeleteAsync();
+        return null;
+    }
+
+    /// <summary>
+    /// La cohorte que le corresponde a un carné por su año (los cuatro primeros dígitos).
+    /// Si esa cohorte todavía no existe, se crea cerrada a inscripciones: el padrón manda,
+    /// y un alumno con carné 2024 es de la cohorte 2024 aunque nadie la haya dado de alta.
+    /// Devuelve null si el carné no empieza con un año razonable.
+    /// </summary>
+    public static async Task<int?> CohortePorCarneAsync(IselDbContext db, string? carnet)
+    {
+        if (carnet is null || carnet.Length < 4 || !int.TryParse(carnet[..4], out var anio) || anio < 2000 || anio > 2099)
+        {
+            return null;
+        }
+        var existente = await db.Cohortes.FirstOrDefaultAsync(c => c.Anio == anio && c.Periodo == 1);
+        if (existente is not null) return existente.Id;
+
+        var nueva = new Cohorte { Anio = anio, Periodo = 1, Nombre = Cohorte.NombrePorDefecto(anio, 1) };
+        db.Cohortes.Add(nueva);
+        await db.SaveChangesAsync();
+        return nueva.Id;
     }
 
     private static async Task<Dictionary<string, int>> CountByCarreraAsync(IQueryable<string> source)
@@ -270,15 +446,22 @@ public class PensumService
         var error = ValidarCurso(request);
         if (error is not null) return (null, error);
 
-        var nombre = Norm(request.Nombre);
-        if (await _db.Courses.AnyAsync(c => c.Carrera == carrera.Nombre && c.Trimestre == request.Trimestre && c.Nombre == nombre))
+        if (request.CohorteId is int cid && !await _db.Cohortes.AnyAsync(c => c.Id == cid))
         {
-            return (null, new PensumError(409, $"«{nombre}» ya está en el trimestre {request.Trimestre} de esta carrera."));
+            return (null, new PensumError(404, "Esa cohorte ya no existe."));
+        }
+
+        var nombre = Norm(request.Nombre);
+        if (await _db.Courses.AnyAsync(c => c.Carrera == carrera.Nombre && c.CohorteId == request.CohorteId
+                                            && c.Trimestre == request.Trimestre && c.Nombre == nombre))
+        {
+            return (null, new PensumError(409, $"«{nombre}» ya está en el trimestre {request.Trimestre} de esta versión del pénsum."));
         }
 
         var curso = new Course
         {
             Carrera = carrera.Nombre,
+            CohorteId = request.CohorteId,
             Trimestre = request.Trimestre,
             Nombre = nombre,
             CreatedAt = DateTime.UtcNow,
@@ -301,10 +484,11 @@ public class PensumService
 
         var nombre = Norm(request.Nombre);
         var duplicado = await _db.Courses.AnyAsync(c =>
-            c.Id != cursoId && c.Carrera == curso.Carrera && c.Trimestre == request.Trimestre && c.Nombre == nombre);
+            c.Id != cursoId && c.Carrera == curso.Carrera && c.CohorteId == curso.CohorteId
+            && c.Trimestre == request.Trimestre && c.Nombre == nombre);
         if (duplicado)
         {
-            return (null, new PensumError(409, $"«{nombre}» ya está en el trimestre {request.Trimestre} de esta carrera."));
+            return (null, new PensumError(409, $"«{nombre}» ya está en el trimestre {request.Trimestre} de esta versión del pénsum."));
         }
 
         curso.Trimestre = request.Trimestre;
@@ -326,14 +510,16 @@ public class PensumService
     }
 
     /// <summary>Borra un trimestre entero de una carrera (todos sus cursos de golpe).</summary>
-    public async Task<PensumError?> EliminarTrimestreAsync(int carreraId, int trimestre)
+    public async Task<PensumError?> EliminarTrimestreAsync(int carreraId, int trimestre, int? cohorteId)
     {
         var carrera = await _db.Carreras.AsNoTracking().FirstOrDefaultAsync(c => c.Id == carreraId);
         if (carrera is null)
         {
             return new PensumError(404, "Esa carrera ya no existe.");
         }
-        await _db.Courses.Where(c => c.Carrera == carrera.Nombre && c.Trimestre == trimestre).ExecuteDeleteAsync();
+        await _db.Courses
+            .Where(c => c.Carrera == carrera.Nombre && c.CohorteId == cohorteId && c.Trimestre == trimestre)
+            .ExecuteDeleteAsync();
         return null;
     }
 

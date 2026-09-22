@@ -38,7 +38,7 @@ public class StudentsController : ControllerBase
     private static StudentDto ToDto(Student s, int documentosSubidos = 0, int? expedienteId = null) => new(
         s.Id, s.Carnet, s.PrimerApellido, s.SegundoApellido, s.PrimerNombre, s.SegundoNombre,
         s.NombreCompleto, s.Carrera, s.Seccion, s.Trimestre, s.CorreoInstitucional, s.CorreoPersonal, s.Celular,
-        s.PapeleriaEnOrden, documentosSubidos, expedienteId);
+        s.PapeleriaEnOrden, documentosSubidos, expedienteId, s.CohorteId, s.Cohorte?.Nombre);
 
     private async Task<int> CountDocumentos(int studentId) =>
         await _db.StudentDocuments.CountAsync(d => d.StudentId == studentId);
@@ -59,9 +59,14 @@ public class StudentsController : ControllerBase
 
     /// <summary>GET /api/students?carnet=&carrera= — list, optionally filtered (used by the admin table's search).</summary>
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<StudentDto>>> GetAll([FromQuery] string? carnet, [FromQuery] string? carrera)
+    public async Task<ActionResult<IReadOnlyList<StudentDto>>> GetAll(
+        [FromQuery] string? carnet, [FromQuery] string? carrera, [FromQuery] int? cohorteId)
     {
-        var query = _db.Students.AsNoTracking().AsQueryable();
+        var query = _db.Students.AsNoTracking().Include(s => s.Cohorte).AsQueryable();
+        if (cohorteId.HasValue)
+        {
+            query = query.Where(s => s.CohorteId == cohorteId.Value);
+        }
 
         if (!string.IsNullOrWhiteSpace(carnet))
         {
@@ -109,7 +114,7 @@ public class StudentsController : ControllerBase
     [RequireOwnerOrAdmin(SessionRole.Student, "id")]
     public async Task<ActionResult<StudentDto>> GetById(int id)
     {
-        var student = await _db.Students.AsNoTracking().FirstOrDefaultAsync(s => s.Id == id);
+        var student = await _db.Students.AsNoTracking().Include(s => s.Cohorte).FirstOrDefaultAsync(s => s.Id == id);
         return student is null ? NotFound() : Ok(ToDto(student, await CountDocumentos(id), await ExpedienteDe(id)));
     }
 
@@ -122,7 +127,7 @@ public class StudentsController : ControllerBase
     [RequireSession]
     public async Task<ActionResult<StudentDto>> GetByCarnet(string carnet)
     {
-        var student = await _db.Students.AsNoTracking().FirstOrDefaultAsync(s => s.Carnet == carnet);
+        var student = await _db.Students.AsNoTracking().Include(s => s.Cohorte).FirstOrDefaultAsync(s => s.Carnet == carnet);
         if (student is null) return NotFound();
         if (!_currentUser.IsAdminOr(SessionRole.Student, student.Id)) return this.NoEsTuyo();
         return Ok(ToDto(student, await CountDocumentos(student.Id), await ExpedienteDe(student.Id)));
@@ -132,7 +137,7 @@ public class StudentsController : ControllerBase
     [HttpPut("{id:int}/papeleria-en-orden")]
     public async Task<ActionResult<StudentDto>> SetPapeleriaEnOrden(int id, PapeleriaEnOrdenRequest request)
     {
-        var student = await _db.Students.FirstOrDefaultAsync(s => s.Id == id);
+        var student = await _db.Students.Include(s => s.Cohorte).FirstOrDefaultAsync(s => s.Id == id);
         if (student is null) return NotFound();
 
         student.PapeleriaEnOrden = request.EnOrden;
@@ -159,9 +164,12 @@ public class StudentsController : ControllerBase
             return Conflict("Ya existe un alumno con ese carné.");
         }
 
+        var cohorteId = await CohorteValidaAsync(request.CohorteId) ?? await PensumService.CohortePorCarneAsync(_db, request.Carnet.Trim());
+
         var now = DateTime.UtcNow;
         var student = new Student
         {
+            CohorteId = cohorteId,
             Carnet = request.Carnet.Trim(),
             PrimerApellido = request.PrimerApellido.Trim(),
             SegundoApellido = request.SegundoApellido?.Trim(),
@@ -180,6 +188,7 @@ public class StudentsController : ControllerBase
 
         _db.Students.Add(student);
         await _db.SaveChangesAsync();
+        await _db.Entry(student).Reference(s => s.Cohorte).LoadAsync();
 
         await _audit.LogAsync(SecurityEventTypes.EstudianteCreado, $"alumno {student.Carnet} ({student.NombreCompleto})");
         return CreatedAtAction(nameof(GetById), new { id = student.Id }, ToDto(student));
@@ -188,7 +197,7 @@ public class StudentsController : ControllerBase
     [HttpPut("{id:int}")]
     public async Task<ActionResult<StudentDto>> Update(int id, StudentUpsertRequest request)
     {
-        var student = await _db.Students.FirstOrDefaultAsync(s => s.Id == id);
+        var student = await _db.Students.Include(s => s.Cohorte).FirstOrDefaultAsync(s => s.Id == id);
         if (student is null) return NotFound();
 
         var carnetTaken = await _db.Students.AnyAsync(s => s.Carnet == request.Carnet && s.Id != id);
@@ -197,7 +206,16 @@ public class StudentsController : ControllerBase
             return Conflict("Ese carné ya pertenece a otro alumno.");
         }
 
+        var cohorteNueva = await CohorteValidaAsync(request.CohorteId)
+                           ?? student.CohorteId
+                           ?? await PensumService.CohortePorCarneAsync(_db, request.Carnet.Trim());
         var cambios = DescribirCambios(student, request);
+        if (cohorteNueva != student.CohorteId)
+        {
+            var antes = student.Cohorte?.Nombre ?? "sin cohorte";
+            var despues = await _db.Cohortes.Where(c => c.Id == cohorteNueva).Select(c => c.Nombre).FirstOrDefaultAsync() ?? "sin cohorte";
+            cambios.Add($"cohorte: «{antes}» → «{despues}»");
+        }
 
         student.Carnet = request.Carnet.Trim();
         student.PrimerApellido = request.PrimerApellido.Trim();
@@ -211,9 +229,11 @@ public class StudentsController : ControllerBase
         student.CorreoInstitucional = request.CorreoInstitucional?.Trim();
         student.CorreoPersonal = request.CorreoPersonal?.Trim();
         student.Celular = request.Celular?.Trim();
+        student.CohorteId = cohorteNueva;
         student.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
+        await _db.Entry(student).Reference(s => s.Cohorte).LoadAsync();
 
         if (cambios.Count > 0)
         {
@@ -222,6 +242,10 @@ public class StudentsController : ControllerBase
         }
         return Ok(ToDto(student, await CountDocumentos(student.Id), await ExpedienteDe(student.Id)));
     }
+
+    /// <summary>La cohorte pedida, si existe; null si no se pidió ninguna o ya no existe.</summary>
+    private async Task<int?> CohorteValidaAsync(int? cohorteId) =>
+        cohorteId is int id && await _db.Cohortes.AnyAsync(c => c.Id == id) ? id : null;
 
     /// <summary>
     /// Qué campos va a cambiar esta edición, en frases cortas tipo "carrera: X → Y" — para que la

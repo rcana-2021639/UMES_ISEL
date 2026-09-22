@@ -37,6 +37,13 @@ public class Student
 
     public int? Trimestre { get; set; }
 
+    /// <summary>
+    /// La cohorte con la que entró (año de ingreso). Decide qué versión del pénsum de su
+    /// carrera le toca. Si falta, se deduce de los cuatro primeros dígitos del carné.
+    /// </summary>
+    public int? CohorteId { get; set; }
+    public Cohorte? Cohorte { get; set; }
+
     [MaxLength(150)]
     public string? CorreoInstitucional { get; set; }
 

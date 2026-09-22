@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using UmesIsel.Api.Data;
 using UmesIsel.Api.Models.Dtos;
+using UmesIsel.Api.Services;
 
 namespace UmesIsel.Api.Controllers;
 
@@ -10,18 +11,28 @@ namespace UmesIsel.Api.Controllers;
 /// lectura desde aquí: quien lo edita es el panel de admin, pestaña "Pénsum"
 /// (ver <see cref="PensumController"/>), y lo que se guarde ahí sale por estos
 /// mismos endpoints sin ningún paso intermedio.
+///
+/// Los dos endpoints reciben la cohorte de quien llena la ficha: el pénsum de una
+/// carrera puede tener varias versiones (una por cada cambio de plan), y a cada
+/// quien le toca la de su cohorte — ver <see cref="PensumService.ResolverVersion"/>.
+/// Sin cohorte, sale la versión vigente hoy.
 /// </summary>
 [ApiController]
 [Route("api/courses")]
 public class CoursesController : ControllerBase
 {
     private readonly IselDbContext _db;
+    private readonly PensumService _pensum;
 
-    public CoursesController(IselDbContext db) => _db = db;
+    public CoursesController(IselDbContext db, PensumService pensum)
+    {
+        _db = db;
+        _pensum = pensum;
+    }
 
     /// <summary>
-    /// GET /api/courses?carrera=X&amp;trimestre=3 — omite las dos para el catálogo
-    /// completo entre carreras ("cursos adicionales").
+    /// GET /api/courses?carrera=X&amp;trimestre=3&amp;cohorteId=5 — omite carrera y
+    /// trimestre para el catálogo completo entre carreras ("cursos adicionales").
     ///
     /// Sin filtro de carrera se saltan las carreras archivadas: el catálogo es
     /// para elegir, y una carrera archivada ya no se ofrece. Si se pide una
@@ -30,29 +41,19 @@ public class CoursesController : ControllerBase
     /// y sin esto su ficha saldría sin un solo curso.
     /// </summary>
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<CourseDto>>> GetAll([FromQuery] string? carrera, [FromQuery] int? trimestre)
+    public async Task<ActionResult<IReadOnlyList<CourseDto>>> GetAll(
+        [FromQuery] string? carrera, [FromQuery] int? trimestre, [FromQuery] int? cohorteId)
     {
-        var query = _db.Courses.AsNoTracking().AsQueryable();
-
-        if (!string.IsNullOrWhiteSpace(carrera))
-        {
-            query = query.Where(c => c.Carrera == carrera);
-        }
-        else
-        {
-            var archivadas = _db.Carreras.AsNoTracking().Where(x => !x.Activa).Select(x => x.Nombre);
-            query = query.Where(c => !archivadas.Contains(c.Carrera));
-        }
+        var courses = await _pensum.CursosVigentesAsync(carrera, cohorteId, excluirArchivadas: true);
 
         if (trimestre.HasValue)
         {
-            query = query.Where(c => c.Trimestre == trimestre.Value);
+            courses = courses.Where(c => c.Trimestre == trimestre.Value).ToList();
         }
 
         // El orden de las carreras es el que fijó el admin en la pestaña "Pénsum";
         // dentro de cada una, por trimestre y por el orden en que se agregaron los
         // cursos (que es el orden en que se cursan, no el alfabético).
-        var courses = await query.ToListAsync();
         var orden = await _db.Carreras.AsNoTracking()
             .ToDictionaryAsync(c => c.Nombre, c => c.Orden, StringComparer.OrdinalIgnoreCase);
 
@@ -67,20 +68,15 @@ public class CoursesController : ControllerBase
         return Ok(ordenados);
     }
 
-    /// <summary>GET /api/courses/trimestres?carrera=X — los trimestres que ese pénsum tiene, en orden.</summary>
+    /// <summary>GET /api/courses/trimestres?carrera=X&amp;cohorteId=5 — los trimestres que tiene la versión del pénsum de esa cohorte.</summary>
     [HttpGet("trimestres")]
-    public async Task<ActionResult<IReadOnlyList<int>>> GetTrimestres([FromQuery] string carrera)
+    public async Task<ActionResult<IReadOnlyList<int>>> GetTrimestres([FromQuery] string carrera, [FromQuery] int? cohorteId)
     {
         if (string.IsNullOrWhiteSpace(carrera))
         {
             return BadRequest("Selecciona una carrera.");
         }
-        var trimestres = await _db.Courses.AsNoTracking()
-            .Where(c => c.Carrera == carrera)
-            .Select(c => c.Trimestre)
-            .Distinct()
-            .OrderBy(t => t)
-            .ToListAsync();
-        return Ok(trimestres);
+        var cursos = await _pensum.CursosVigentesAsync(carrera, cohorteId, excluirArchivadas: false);
+        return Ok(cursos.Select(c => c.Trimestre).Distinct().OrderBy(t => t).ToList());
     }
 }

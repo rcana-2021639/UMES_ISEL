@@ -242,6 +242,7 @@ export function InscripcionesAdminPanels() {
                     <Th>Carné</Th>
                     <Th>Aspirante</Th>
                     <Th>Carrera</Th>
+                    <Th className="text-center">Cohorte</Th>
                     <Th className="text-center">Estado</Th>
                     <Th className="text-right">Acciones</Th>
                   </tr>
@@ -252,6 +253,7 @@ export function InscripcionesAdminPanels() {
                       <Td className="tabular font-semibold text-isel-navy">{a.dpi || a.pasaporte || "—"}</Td>
                       <Td>{a.nombreCompleto || <span className="text-isel-ink/35">Aspirante sin nombre</span>}</Td>
                       <Td className="text-isel-ink/65">{a.carrera || "—"}</Td>
+                      <Td className="whitespace-nowrap text-center text-isel-ink/65">{a.cohorte || "—"}</Td>
                       <Td className="text-center"><EstadoChip item={a} /></Td>
                       <Td>
                         <div className="flex items-center justify-end gap-1">

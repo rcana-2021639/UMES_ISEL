@@ -55,7 +55,7 @@ public class InscripcionesController : ControllerBase
 
     private IQueryable<Applicant> FullQuery() =>
         _db.Applicants
-            .Include(a => a.Preinscripcion)
+            .Include(a => a.Preinscripcion!).ThenInclude(p => p.Cohorte)
             .Include(a => a.AsignacionNuevoIngreso!).ThenInclude(x => x.CursosAsignados)
             .Include(a => a.AsignacionNuevoIngreso!).ThenInclude(x => x.CursosAdicionales)
             .Include(a => a.CartaCompromiso)
@@ -98,7 +98,8 @@ public class InscripcionesController : ControllerBase
         p.LugarNacimiento, p.Nacionalidad, p.DireccionCompleta, p.Departamento, p.Municipio, p.EstadoCivil,
         p.ComunidadLinguistica, p.PuebloPertenencia, p.IdiomaMaterno, p.CorreoElectronico, p.TelefonoCelular,
         p.TelefonoCasa, p.Emergencia1Nombre, p.Emergencia1Telefono, p.Emergencia2Nombre, p.Emergencia2Telefono,
-        p.TieneAlergia, p.AlergiaDescripcion, p.TieneProblemaSalud, p.SaludDescripcion, p.FirmaBase64, p.FirmadoEn
+        p.TieneAlergia, p.AlergiaDescripcion, p.TieneProblemaSalud, p.SaludDescripcion, p.FirmaBase64, p.FirmadoEn,
+        p.CohorteId, p.Cohorte?.Nombre
     );
 
     private static AsignacionNuevoIngresoDto ToAsignacionDto(AsignacionNuevoIngreso a) => new(
@@ -132,7 +133,8 @@ public class InscripcionesController : ControllerBase
             a.AsignacionNuevoIngreso?.Carrera ?? a.Preinscripcion?.Carrera,
             a.AsignacionNuevoIngreso?.Seccion, a.AsignacionNuevoIngreso?.Trimestre, a.EsExtranjero,
             a.MigradoStudentId is not null, fichaCompleta, subidos, requeridos.Length,
-            DateOnly.FromDateTime(a.CreatedAt)
+            DateOnly.FromDateTime(a.CreatedAt),
+            a.Preinscripcion?.Cohorte?.Nombre
         );
     }
 
@@ -141,7 +143,7 @@ public class InscripcionesController : ControllerBase
     private static StudentDto ToStudentDto(Student s, int? expedienteId = null) => new(
         s.Id, s.Carnet, s.PrimerApellido, s.SegundoApellido, s.PrimerNombre, s.SegundoNombre,
         s.NombreCompleto, s.Carrera, s.Seccion, s.Trimestre, s.CorreoInstitucional, s.CorreoPersonal, s.Celular,
-        s.PapeleriaEnOrden, 0, expedienteId);
+        s.PapeleriaEnOrden, 0, expedienteId, s.CohorteId, s.Cohorte?.Nombre);
 
     // ---- Acceso / consulta -------------------------------------------------------------------
 
@@ -258,6 +260,23 @@ public class InscripcionesController : ControllerBase
             return BadRequest("Nombre completo y carrera son obligatorios.");
         }
 
+        // La cohorte: el aspirante solo puede elegir una abierta a inscripción (o conservar la
+        // que ya tenía, aunque se haya cerrado después). Si hay cohortes abiertas, es obligatoria.
+        var cohorteActual = applicant.Preinscripcion?.CohorteId;
+        if (request.CohorteId is int cohorteId)
+        {
+            var cohorte = await _db.Cohortes.AsNoTracking().FirstOrDefaultAsync(x => x.Id == cohorteId);
+            if (cohorte is null) return BadRequest("La cohorte elegida ya no existe. Vuelve a elegirla.");
+            if (!cohorte.AbiertaInscripcion && cohorteId != cohorteActual && !_currentUser.IsAdmin)
+            {
+                return BadRequest($"La {cohorte.Nombre} ya no recibe inscripciones. Elige una de las cohortes abiertas.");
+            }
+        }
+        else if (await _db.Cohortes.AnyAsync(x => x.AbiertaInscripcion))
+        {
+            return BadRequest("Elige la cohorte en la que vas a iniciar.");
+        }
+
         var now = DateTime.UtcNow;
         var pre = applicant.Preinscripcion;
         var isNew = pre is null;
@@ -267,6 +286,7 @@ public class InscripcionesController : ControllerBase
         pre.Dpi = request.Dpi?.Trim();
         pre.NoPasaporte = request.NoPasaporte?.Trim();
         pre.Carrera = request.Carrera.Trim();
+        pre.CohorteId = request.CohorteId;
         pre.Jornada = request.Jornada?.Trim();
         pre.FechaNacimiento = request.FechaNacimiento;
         pre.Genero = request.Genero?.Trim();
@@ -304,6 +324,7 @@ public class InscripcionesController : ControllerBase
         applicant.UpdatedAt = now;
 
         await _db.SaveChangesAsync();
+        await _db.Entry(pre).Reference(p => p.Cohorte).LoadAsync();
         return Ok(ToPreinscripcionDto(pre));
     }
 
@@ -446,8 +467,12 @@ public class InscripcionesController : ControllerBase
         var seccion = request.Seccion?.Trim() ?? asn.Seccion;
         var trimestre = request.Trimestre ?? asn.Trimestre;
 
+        var cohorteId = applicant.Preinscripcion?.CohorteId
+                        ?? await PensumService.CohortePorCarneAsync(_db, request.Carnet.Trim());
+
         var student = new Student
         {
+            CohorteId = cohorteId,
             Carnet = request.Carnet.Trim(),
             PrimerApellido = asn.PrimerApellido,
             SegundoApellido = asn.SegundoApellido,
@@ -505,6 +530,7 @@ public class InscripcionesController : ControllerBase
         applicant.UpdatedAt = now;
 
         await _db.SaveChangesAsync();
+        await _db.Entry(student).Reference(s => s.Cohorte).LoadAsync();
         await _audit.LogAsync(SecurityEventTypes.InscripcionMigrada,
             $"aspirante #{applicant.Id} pasó al padrón como {student.Carnet} ({student.NombreCompleto})");
         return Ok(ToStudentDto(student, applicant.Id));

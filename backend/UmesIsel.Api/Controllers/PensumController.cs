@@ -126,12 +126,40 @@ public class PensumController : ControllerBase
 
     [HttpDelete("carreras/{carreraId:int}/trimestres/{trimestre:int}")]
     [RequireAdmin]
-    public async Task<ActionResult<IReadOnlyList<PensumCarreraDto>>> EliminarTrimestre(int carreraId, int trimestre)
+    public async Task<ActionResult<IReadOnlyList<PensumCarreraDto>>> EliminarTrimestre(
+        int carreraId, int trimestre, [FromQuery] int? cohorteId)
     {
-        var error = await _pensum.EliminarTrimestreAsync(carreraId, trimestre);
+        var error = await _pensum.EliminarTrimestreAsync(carreraId, trimestre, cohorteId);
         if (error is not null) return Fail(error);
         await _audit.LogAsync(SecurityEventTypes.RegistroEliminado,
-            $"trimestre {trimestre} completo de la carrera #{carreraId}", esAlerta: true);
+            $"trimestre {trimestre} completo de la carrera #{carreraId} (versión {cohorteId?.ToString() ?? "original"})", esAlerta: true);
+        return Ok(await _pensum.GetPensumAsync());
+    }
+
+    /// <summary>
+    /// POST /api/pensum/carreras/{id}/versiones — el pénsum cambia a partir de una cohorte.
+    /// Se crea como copia de lo que esa cohorte recibía, para editar solo lo que cambia.
+    /// </summary>
+    [HttpPost("carreras/{carreraId:int}/versiones")]
+    [RequireAdmin]
+    public async Task<ActionResult<IReadOnlyList<PensumCarreraDto>>> CrearVersion(int carreraId, NuevaVersionRequest request)
+    {
+        var error = await _pensum.CrearVersionAsync(carreraId, request);
+        if (error is not null) return Fail(error);
+        await _audit.LogAsync(SecurityEventTypes.PensumModificado,
+            $"nueva versión del pénsum de la carrera #{carreraId} desde la cohorte #{request.CohorteId}");
+        return Ok(await _pensum.GetPensumAsync());
+    }
+
+    /// <summary>DELETE /api/pensum/carreras/{id}/versiones?cohorteId= — sin cohorteId, la versión original.</summary>
+    [HttpDelete("carreras/{carreraId:int}/versiones")]
+    [RequireAdmin]
+    public async Task<ActionResult<IReadOnlyList<PensumCarreraDto>>> EliminarVersion(int carreraId, [FromQuery] int? cohorteId)
+    {
+        var error = await _pensum.EliminarVersionAsync(carreraId, cohorteId);
+        if (error is not null) return Fail(error);
+        await _audit.LogAsync(SecurityEventTypes.RegistroEliminado,
+            $"versión del pénsum de la carrera #{carreraId} (cohorte {cohorteId?.ToString() ?? "original"})", esAlerta: true);
         return Ok(await _pensum.GetPensumAsync());
     }
 }

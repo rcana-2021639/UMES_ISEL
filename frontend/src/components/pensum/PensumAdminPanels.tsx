@@ -5,14 +5,19 @@ import {
   actualizarCurso,
   crearCarrera,
   crearCurso,
+  crearVersion,
   eliminarCarrera,
   eliminarCurso,
   eliminarTrimestre,
+  eliminarVersion,
   getPensum,
   reordenarCarreras,
   type CarreraPayload,
   type PensumCarrera,
+  type PensumVersion,
 } from "@/lib/pensumApi";
+import { getCohortesAdmin, type CohorteAdmin } from "@/lib/cohortesApi";
+import { CohortesPanel } from "@/components/pensum/CohortesPanel";
 import { Modal } from "@/components/ui/Modal";
 import { useConfirm } from "@/hooks/useConfirm";
 import { Icon } from "@/components/portal/Icon";
@@ -40,7 +45,17 @@ import { Alert, Chip, EmptyState, Field, IconButton, Loading, PortalButton, fiel
  *   no existe y su pénsum saldría vacío. Para esas, la salida es archivarla —
  *   desaparece de los formularios y el historial sigue en pie. El servidor lo
  *   comprueba también, no solo esta pantalla.
+ *
+ * · **El pénsum tiene versiones por cohorte.** Cuando el plan de estudios cambia
+ *   para los que entran en un año, no se crea otra carrera: se agrega una versión
+ *   "desde la cohorte X". A cada alumno le toca la versión más reciente que empezó
+ *   en su cohorte o antes; los de cohortes anteriores siguen con la suya.
  */
+
+type CursoNuevo = { carreraId: number; cohorteId: number | null; trimestre: number; nombre: string };
+
+/** Clave estable de una versión para el estado local (null no sirve como clave de objeto). */
+const claveVersion = (cohorteId: number | null) => (cohorteId === null ? "original" : String(cohorteId));
 
 const TIPOS = ["Maestría", "Actualización profesional", "Diplomado", "Cursos libres"];
 
@@ -62,20 +77,32 @@ export function PensumAdminPanels() {
   const [filtro, setFiltro] = useState("");
 
   const [modalCarrera, setModalCarrera] = useState<PensumCarrera | "nueva" | null>(null);
+  const [cohortes, setCohortes] = useState<CohorteAdmin[] | null>(null);
 
   // Edición de un curso en su propia fila, y alta de curso dentro de un trimestre.
   const [cursoEditando, setCursoEditando] = useState<{ id: number; nombre: string } | null>(null);
-  const [cursoNuevo, setCursoNuevo] = useState<{ carreraId: number; trimestre: number; nombre: string } | null>(null);
+  const [cursoNuevo, setCursoNuevo] = useState<CursoNuevo | null>(null);
 
   useEffect(() => {
     let active = true;
     getPensum()
       .then((list) => active && setCarreras(list))
       .catch((e) => active && setError(mensaje(e, "No se pudo cargar el pénsum.")));
+    getCohortesAdmin()
+      .then((list) => active && setCohortes(list))
+      .catch(() => active && setCohortes([]));
     return () => {
       active = false;
     };
   }, []);
+
+  /** Tras tocar una cohorte, el pénsum se vuelve a pedir: los nombres de sus versiones salen de ella. */
+  function cohortesCambiaron(list: CohorteAdmin[]) {
+    setCohortes(list);
+    getPensum()
+      .then(setCarreras)
+      .catch(() => undefined);
+  }
 
   function mensaje(e: unknown, fallback: string) {
     return e instanceof ApiError ? e.message : fallback;
@@ -183,7 +210,12 @@ export function PensumAdminPanels() {
   async function agregarCurso() {
     if (!cursoNuevo || !cursoNuevo.nombre.trim()) return;
     const ok = await run(
-      () => crearCurso(cursoNuevo.carreraId, { trimestre: cursoNuevo.trimestre, nombre: cursoNuevo.nombre }),
+      () =>
+        crearCurso(cursoNuevo.carreraId, {
+          trimestre: cursoNuevo.trimestre,
+          nombre: cursoNuevo.nombre,
+          cohorteId: cursoNuevo.cohorteId,
+        }),
       "No se pudo agregar el curso.",
     );
     // El campo se queda abierto y vacío: casi nunca se agrega un solo curso a un trimestre.
@@ -212,30 +244,60 @@ export function PensumAdminPanels() {
     await run(() => eliminarCurso(cursoId), "No se pudo quitar el curso.");
   }
 
-  async function borrarTrimestre(c: PensumCarrera, trimestre: number, cuantos: number) {
+  async function borrarTrimestre(c: PensumCarrera, v: PensumVersion, trimestre: number, cuantos: number) {
     const ok = await confirm({
       title: `Eliminar el trimestre ${trimestre}`,
       message:
-        `Se quitarán del pénsum de «${c.nombre}» los ${cuantos} curso${cuantos === 1 ? "" : "s"} de ese trimestre. ` +
+        `Se quitarán del pénsum de «${c.nombre}» (${v.nombre.toLowerCase()}) los ${cuantos} curso${cuantos === 1 ? "" : "s"} de ese trimestre. ` +
         "Las fichas ya guardadas no cambian.",
       confirmLabel: "Sí, eliminar",
       danger: true,
     });
     if (!ok) return;
-    await run(() => eliminarTrimestre(c.id, trimestre), "No se pudo eliminar el trimestre.");
+    await run(() => eliminarTrimestre(c.id, trimestre, v.cohorteId), "No se pudo eliminar el trimestre.");
   }
 
-  function agregarTrimestre(c: PensumCarrera) {
-    const siguiente = (c.trimestres.at(-1)?.trimestre ?? 0) + 1;
-    setCursoNuevo({ carreraId: c.id, trimestre: siguiente, nombre: "" });
+  function agregarTrimestre(c: PensumCarrera, v: PensumVersion | null) {
+    const siguiente = (v?.trimestres.at(-1)?.trimestre ?? 0) + 1;
+    setCursoNuevo({ carreraId: c.id, cohorteId: v?.cohorteId ?? null, trimestre: siguiente, nombre: "" });
+  }
+
+  /** El pénsum cambia a partir de una cohorte: se copia lo que esa cohorte recibía, para editar solo lo distinto. */
+  async function nuevaVersion(c: PensumCarrera, cohorteId: number) {
+    const cohorte = cohortes?.find((x) => x.id === cohorteId);
+    const ok = await confirm({
+      title: "Nueva versión del pénsum",
+      message:
+        `Se creará una versión del pénsum de «${c.nombre}» vigente desde la ${cohorte?.nombre ?? "cohorte elegida"}. ` +
+        "Empieza como copia del pénsum que esa cohorte recibía hasta ahora; luego cambia solo los cursos que sean distintos. " +
+        "Las cohortes anteriores conservan su versión.",
+      confirmLabel: "Crear versión",
+    });
+    if (!ok) return false;
+    return run(() => crearVersion(c.id, cohorteId), "No se pudo crear la versión del pénsum.");
+  }
+
+  async function borrarVersion(c: PensumCarrera, v: PensumVersion) {
+    const ok = await confirm({
+      title: "Quitar versión del pénsum",
+      message:
+        `Se quitará «${v.nombre}» del pénsum de «${c.nombre}» (${v.totalCursos} curso${v.totalCursos === 1 ? "" : "s"}). ` +
+        "Quienes la recibían pasarán a recibir la versión anterior. Las fichas ya guardadas no cambian.",
+      confirmLabel: "Sí, quitar",
+      danger: true,
+    });
+    if (!ok) return;
+    await run(() => eliminarVersion(c.id, v.cohorteId), "No se pudo quitar la versión.");
   }
 
   // ------------------------------------------------------------- pintado
 
   return (
     <>
+      <CohortesPanel cohortes={cohortes} onChange={cohortesCambiaron} />
+
       <PortalPanel
-        step="01"
+        step="02"
         accent="#5B4B9E"
         title="Pénsum"
         description="El plan de estudios de cada carrera. Lo que se guarde aquí es lo que ven al instante la asignación de cursos, la inscripción de nuevo ingreso y la solicitud de título."
@@ -300,6 +362,7 @@ export function PensumAdminPanels() {
               <CarreraCard
                 key={c.id}
                 carrera={c}
+                cohortes={cohortes ?? []}
                 abierta={abierta === c.id}
                 busy={busy}
                 primera={i === 0}
@@ -316,8 +379,10 @@ export function PensumAdminPanels() {
                 onGuardarCurso={guardarCurso}
                 onBorrarCurso={borrarCurso}
                 onAgregarCurso={agregarCurso}
-                onBorrarTrimestre={(t, n) => borrarTrimestre(c, t, n)}
-                onAgregarTrimestre={() => agregarTrimestre(c)}
+                onBorrarTrimestre={(v, t, n) => borrarTrimestre(c, v, t, n)}
+                onAgregarTrimestre={(v) => agregarTrimestre(c, v)}
+                onNuevaVersion={(cohorteId) => nuevaVersion(c, cohorteId)}
+                onBorrarVersion={(v) => borrarVersion(c, v)}
               />
             ))
           )}
@@ -341,28 +406,32 @@ export function PensumAdminPanels() {
 
 interface CarreraCardProps {
   carrera: PensumCarrera;
+  cohortes: CohorteAdmin[];
   abierta: boolean;
   busy: boolean;
   primera: boolean;
   ultima: boolean;
   cursoEditando: { id: number; nombre: string } | null;
-  cursoNuevo: { carreraId: number; trimestre: number; nombre: string } | null;
+  cursoNuevo: CursoNuevo | null;
   onToggle: () => void;
   onEditar: () => void;
   onArchivar: () => void;
   onEliminar: () => void;
   onMover: (delta: -1 | 1) => void;
   onCursoEditandoChange: (v: { id: number; nombre: string } | null) => void;
-  onCursoNuevoChange: (v: { carreraId: number; trimestre: number; nombre: string } | null) => void;
+  onCursoNuevoChange: (v: CursoNuevo | null) => void;
   onGuardarCurso: (cursoId: number, trimestre: number) => void;
   onBorrarCurso: (cursoId: number, nombre: string) => void;
   onAgregarCurso: () => void;
-  onBorrarTrimestre: (trimestre: number, cuantos: number) => void;
-  onAgregarTrimestre: () => void;
+  onBorrarTrimestre: (version: PensumVersion, trimestre: number, cuantos: number) => void;
+  onAgregarTrimestre: (version: PensumVersion | null) => void;
+  onNuevaVersion: (cohorteId: number) => Promise<boolean>;
+  onBorrarVersion: (version: PensumVersion) => void;
 }
 
 function CarreraCard({
   carrera: c,
+  cohortes,
   abierta,
   busy,
   primera,
@@ -381,10 +450,33 @@ function CarreraCard({
   onAgregarCurso,
   onBorrarTrimestre,
   onAgregarTrimestre,
+  onNuevaVersion,
+  onBorrarVersion,
 }: CarreraCardProps) {
   // Una carrera en uso no se puede borrar: el botón lo dice antes de pulsarlo,
   // en vez de dejar que el servidor conteste 409 y parezca una avería.
   const enUso = c.uso.total > 0;
+
+  // Qué versión del pénsum se está viendo. Por defecto, la vigente hoy (la última).
+  const [versionSel, setVersionSel] = useState<string | null>(null);
+  const [cohorteNueva, setCohorteNueva] = useState("");
+  const version: PensumVersion | null =
+    c.versiones.find((v) => claveVersion(v.cohorteId) === versionSel) ?? c.versiones.at(-1) ?? null;
+  const trimestres = version?.trimestres ?? [];
+  const vigente = c.versiones.at(-1) ?? null;
+  // Solo se ofrecen cohortes que todavía no tienen su propia versión en esta carrera.
+  const cohortesLibres = cohortes.filter((co) => !c.versiones.some((v) => v.cohorteId === co.id));
+  const esNuevoAqui = (t: number) =>
+    cursoNuevo?.carreraId === c.id && cursoNuevo.cohorteId === (version?.cohorteId ?? null) && cursoNuevo.trimestre === t;
+
+  async function crearVersionDesde() {
+    const id = Number(cohorteNueva);
+    if (!id) return;
+    if (await onNuevaVersion(id)) {
+      setVersionSel(String(id));
+      setCohorteNueva("");
+    }
+  }
 
   return (
     <div
@@ -412,8 +504,9 @@ function CarreraCard({
               <span className="font-semibold uppercase tracking-[0.1em] text-isel-plum">{c.tipo}</span>
               <span aria-hidden>·</span>
               <span className="tabular">
-                {c.trimestres.length} trimestre{c.trimestres.length === 1 ? "" : "s"} · {c.totalCursos} curso
-                {c.totalCursos === 1 ? "" : "s"}
+                {(vigente?.trimestres.length ?? 0)} trimestre{(vigente?.trimestres.length ?? 0) === 1 ? "" : "s"} ·{" "}
+                {vigente?.totalCursos ?? 0} curso{(vigente?.totalCursos ?? 0) === 1 ? "" : "s"}
+                {c.versiones.length > 1 && ` · ${c.versiones.length} versiones del pénsum`}
               </span>
               {enUso && (
                 <>
@@ -456,14 +549,74 @@ function CarreraCard({
 
       {abierta && (
         <div className="border-t border-isel-line bg-isel-paper/40 px-4 py-4">
-          {c.trimestres.length === 0 && !cursoNuevo && (
+          {/* Versiones del pénsum por cohorte */}
+          <div className="mb-4 rounded-lg border border-isel-line bg-white px-3.5 py-3">
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-isel-ink/50">Versión del pénsum</p>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {c.versiones.length === 0 && <span className="text-[12.5px] text-isel-ink/45">Todavía sin cursos.</span>}
+              {c.versiones.map((v) => {
+                const activa = claveVersion(v.cohorteId) === claveVersion(version?.cohorteId ?? null);
+                return (
+                  <button
+                    key={claveVersion(v.cohorteId)}
+                    type="button"
+                    onClick={() => setVersionSel(claveVersion(v.cohorteId))}
+                    aria-pressed={activa}
+                    className={`rounded-lg border px-3 py-1.5 text-left text-[12.5px] transition-colors duration-200 ${
+                      activa
+                        ? "border-isel-plum/40 bg-isel-plum/10 font-semibold text-isel-plum"
+                        : "border-isel-line bg-isel-paper/60 text-isel-ink/65 hover:border-isel-navy/25"
+                    }`}
+                  >
+                    {v.nombre}
+                    <span className="ml-1.5 font-normal text-isel-ink/45">
+                      · {v.trimestres.length} trim. · {v.alumnos} alumno{v.alumnos === 1 ? "" : "s"}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-2 text-[12px] leading-relaxed text-isel-ink/45">
+              A cada alumno le toca la versión más reciente que empezó en su cohorte o antes. Para cambiar el plan de
+              estudios desde un año, crea una versión nueva: las cohortes anteriores conservan la suya.
+            </p>
+            <div className="mt-2.5 flex flex-wrap items-center gap-2">
+              {c.versiones.length > 0 && cohortesLibres.length > 0 && (
+                <>
+                  <select
+                    value={cohorteNueva}
+                    onChange={(e) => setCohorteNueva(e.target.value)}
+                    aria-label="Cohorte desde la que rige la nueva versión"
+                    className={`${fieldClass} w-auto py-1.5 text-[13px]`}
+                  >
+                    <option value="">Nueva versión desde la cohorte…</option>
+                    {cohortesLibres.map((co) => (
+                      <option key={co.id} value={co.id}>
+                        {co.nombre}
+                      </option>
+                    ))}
+                  </select>
+                  <PortalButton tone="ghost" size="sm" icon="plus" disabled={busy || !cohorteNueva} onClick={crearVersionDesde}>
+                    Crear versión
+                  </PortalButton>
+                </>
+              )}
+              {version && c.versiones.length > 1 && (
+                <PortalButton tone="ghost" size="sm" icon="trash" disabled={busy} onClick={() => onBorrarVersion(version)}>
+                  Quitar esta versión
+                </PortalButton>
+              )}
+            </div>
+          </div>
+
+          {trimestres.length === 0 && !cursoNuevo && (
             <p className="px-1 pb-3 text-[13px] text-isel-ink/50">
               Esta carrera todavía no tiene pénsum. Agrega su primer trimestre para empezar.
             </p>
           )}
 
           <div className="space-y-3">
-            {c.trimestres.map((t) => (
+            {trimestres.map((t) => (
               <div key={t.trimestre} className="overflow-hidden rounded-lg border border-isel-line bg-white">
                 <div className="flex items-center justify-between gap-3 border-b border-isel-line/70 px-3.5 py-2">
                   <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-isel-ink/50">
@@ -477,7 +630,7 @@ function CarreraCard({
                     tone="danger"
                     label={`Eliminar el trimestre ${t.trimestre} de ${c.nombre}`}
                     disabled={busy}
-                    onClick={() => onBorrarTrimestre(t.trimestre, t.cursos.length)}
+                    onClick={() => version && onBorrarTrimestre(version, t.trimestre, t.cursos.length)}
                   />
                 </div>
 
@@ -530,7 +683,7 @@ function CarreraCard({
                   ))}
                 </ul>
 
-                {cursoNuevo?.carreraId === c.id && cursoNuevo.trimestre === t.trimestre ? (
+                {cursoNuevo && esNuevoAqui(t.trimestre) ? (
                   <NuevoCursoRow
                     valor={cursoNuevo.nombre}
                     busy={busy}
@@ -545,7 +698,14 @@ function CarreraCard({
                       size="sm"
                       icon="plus"
                       disabled={busy}
-                      onClick={() => onCursoNuevoChange({ carreraId: c.id, trimestre: t.trimestre, nombre: "" })}
+                      onClick={() =>
+                        onCursoNuevoChange({
+                          carreraId: c.id,
+                          cohorteId: version?.cohorteId ?? null,
+                          trimestre: t.trimestre,
+                          nombre: "",
+                        })
+                      }
                     >
                       Agregar curso
                     </PortalButton>
@@ -556,7 +716,10 @@ function CarreraCard({
 
             {/* Un trimestre nuevo no existe hasta que tiene su primer curso: el
                 trimestre no es una fila en la base, es la etiqueta de sus cursos. */}
-            {cursoNuevo?.carreraId === c.id && !c.trimestres.some((t) => t.trimestre === cursoNuevo.trimestre) ? (
+            {cursoNuevo &&
+            cursoNuevo.carreraId === c.id &&
+            cursoNuevo.cohorteId === (version?.cohorteId ?? null) &&
+            !trimestres.some((t) => t.trimestre === cursoNuevo.trimestre) ? (
               <div className="overflow-hidden rounded-lg border border-isel-plum/30 bg-white">
                 <div className="border-b border-isel-line/70 px-3.5 py-2">
                   <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-isel-plum">
@@ -572,8 +735,8 @@ function CarreraCard({
                 />
               </div>
             ) : (
-              <PortalButton tone="ghost" size="sm" icon="plus" disabled={busy} onClick={onAgregarTrimestre}>
-                Agregar trimestre {(c.trimestres.at(-1)?.trimestre ?? 0) + 1}
+              <PortalButton tone="ghost" size="sm" icon="plus" disabled={busy} onClick={() => onAgregarTrimestre(version)}>
+                Agregar trimestre {(trimestres.at(-1)?.trimestre ?? 0) + 1}
               </PortalButton>
             )}
           </div>

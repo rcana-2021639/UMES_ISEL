@@ -155,7 +155,7 @@ export function CourseAssignmentForm({
 
   // Reference catalog — loaded once.
   useEffect(() => {
-    getCourses().then(setAllCourses);
+    getCourses(undefined, undefined, student.cohorteId).then(setAllCourses);
   }, []);
 
   // Does this student already have ANY saved ficha? If so, open on it (so returning students see
@@ -184,7 +184,7 @@ export function CourseAssignmentForm({
     }
     let active = true;
     setTrimestres(null);
-    getTrimestres(carrera).then((list) => {
+    getTrimestres(carrera, student.cohorteId).then((list) => {
       if (!active) return;
       setTrimestres(list);
       // Solo se elige un trimestre por defecto cuando todavía no hay ninguno puesto — NUNCA se
@@ -212,7 +212,7 @@ export function CourseAssignmentForm({
     }
     let active = true;
     setLoadingAssignment(true);
-    getCourses(carrera, trimestre).then((list) => active && setMainCourses(list));
+    getCourses(carrera, trimestre, student.cohorteId).then((list) => active && setMainCourses(list));
     getAssignmentByStudent(student.carnet, trimestre).then((ca) => {
       if (!active) return;
       const matching = ca && ca.carrera === carrera ? ca : null;
@@ -265,7 +265,7 @@ export function CourseAssignmentForm({
     if (!pickerOpen || !draftCarrera) return;
     let active = true;
     setDraftTrimestres(null);
-    getTrimestres(draftCarrera).then((list) => {
+    getTrimestres(draftCarrera, student.cohorteId).then((list) => {
       if (!active) return;
       setDraftTrimestres(list);
       setDraftTrimestre((current) => (current && list.includes(current) ? current : (list[0] ?? null)));
@@ -282,7 +282,7 @@ export function CourseAssignmentForm({
       return;
     }
     let active = true;
-    getCourses(draftCarrera, draftTrimestre).then((list) => active && setDraftCourses(list));
+    getCourses(draftCarrera, draftTrimestre, student.cohorteId).then((list) => active && setDraftCourses(list));
     return () => {
       active = false;
     };

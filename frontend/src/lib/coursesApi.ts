@@ -2,11 +2,16 @@ import { http } from "@/lib/http";
 import { getCarreraOpciones } from "@/lib/pensumApi";
 import type { Course } from "@/types/course";
 
-/** Omit both filters to get the full cross-program catalog (used by "Cursos adicionales"). */
-export function getCourses(carrera?: string, trimestre?: number): Promise<Course[]> {
+/**
+ * Omit carrera and trimestre to get the full cross-program catalog (used by "Cursos adicionales").
+ * `cohorteId` = la cohorte de quien llena la ficha: cada carrera puede tener varias versiones
+ * del pénsum y el servidor devuelve la que le toca a esa cohorte (sin ella, la vigente hoy).
+ */
+export function getCourses(carrera?: string, trimestre?: number, cohorteId?: number | null): Promise<Course[]> {
   const params = new URLSearchParams();
   if (carrera) params.set("carrera", carrera);
   if (trimestre) params.set("trimestre", String(trimestre));
+  if (cohorteId) params.set("cohorteId", String(cohorteId));
   const query = params.toString();
   return http.get<Course[]>(`/api/courses${query ? `?${query}` : ""}`);
 }
@@ -29,6 +34,7 @@ export async function getCarreras(): Promise<string[]> {
 }
 
 /** The trimestres a carrera's pensum actually has, in order (populates the Trimestre selector once a maestría is chosen). */
-export function getTrimestres(carrera: string): Promise<number[]> {
-  return http.get<number[]>(`/api/courses/trimestres?carrera=${encodeURIComponent(carrera)}`);
+export function getTrimestres(carrera: string, cohorteId?: number | null): Promise<number[]> {
+  const cohorte = cohorteId ? `&cohorteId=${cohorteId}` : "";
+  return http.get<number[]>(`/api/courses/trimestres?carrera=${encodeURIComponent(carrera)}${cohorte}`);
 }

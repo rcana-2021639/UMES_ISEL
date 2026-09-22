@@ -227,6 +227,7 @@ export function AdminPortalPage() {
   // verdad recuerda del alumno — su nombre tanto como su carné.
   const [studentSearch, setStudentSearch] = useState("");
   const [studentCarreraFilter, setStudentCarreraFilter] = useState("todas");
+  const [studentCohorteFilter, setStudentCohorteFilter] = useState("todas");
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [studentModalOpen, setStudentModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
@@ -256,10 +257,20 @@ export function AdminPortalPage() {
     [students],
   );
 
+  /** Las cohortes que aparecen en el padrón, de la más reciente a la más antigua. */
+  const studentCohortes = useMemo(
+    () =>
+      Array.from(new Set(students.map((s) => s.cohorteNombre).filter((c): c is string => !!c))).sort((a, b) =>
+        b.localeCompare(a, "es", { numeric: true }),
+      ),
+    [students],
+  );
+
   const filteredStudents = useMemo(() => {
     const q = normalize(studentSearch.trim());
     return students.filter((s) => {
       if (studentCarreraFilter !== "todas" && s.carrera !== studentCarreraFilter) return false;
+      if (studentCohorteFilter !== "todas" && (s.cohorteNombre ?? "") !== studentCohorteFilter) return false;
       if (!q) return true;
       return (
         normalize(s.carnet).includes(q) ||
@@ -268,7 +279,7 @@ export function AdminPortalPage() {
         normalize(s.correoPersonal ?? "").includes(q)
       );
     });
-  }, [students, studentSearch, studentCarreraFilter]);
+  }, [students, studentSearch, studentCarreraFilter, studentCohorteFilter]);
 
   useEffect(() => {
     loadStudents();
@@ -873,6 +884,19 @@ export function AdminPortalPage() {
                 </option>
               ))}
             </select>
+            <select
+              value={studentCohorteFilter}
+              onChange={(e) => setStudentCohorteFilter(e.target.value)}
+              aria-label="Filtrar por cohorte"
+              className={`${fieldClass} w-auto max-w-[13rem]`}
+            >
+              <option value="todas">Todas las cohortes</option>
+              {studentCohortes.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
             <span className="tabular text-[12.5px] text-isel-ink/45">
               {filteredStudents.length === students.length
                 ? `${students.length} alumno${students.length === 1 ? "" : "s"}`
@@ -903,6 +927,7 @@ export function AdminPortalPage() {
                       <Th>Carné</Th>
                       <Th>Alumno</Th>
                       <Th>Carrera</Th>
+                      <Th className="text-center">Cohorte</Th>
                       <Th className="text-center">Sección</Th>
                       <Th className="text-center">Tri</Th>
                       <Th className="text-center">Papelería</Th>
@@ -921,6 +946,9 @@ export function AdminPortalPage() {
                         </Td>
                         <Td>{s.nombreCompleto}</Td>
                         <Td className="text-isel-ink/65">{s.carrera}</Td>
+                        <Td className="tabular whitespace-nowrap text-center text-isel-ink/65">
+                          {s.cohorteNombre?.replace(/^Cohorte\s+/i, "") || "—"}
+                        </Td>
                         <Td className="text-center text-isel-ink/65">{s.seccion || "—"}</Td>
                         <Td className="tabular text-center text-isel-ink/65">{s.trimestre ?? "—"}</Td>
                         <Td className="text-center">
