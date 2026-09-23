@@ -36,7 +36,8 @@ public class FichaPdfBuilder
 
     /// <summary>One ficha → one PDF.</summary>
     /// <param name="firmaAdmin">Pega la firma del administrador con la fecha de hoy — solo al imprimir desde el panel. Ver FichaXlsxBuilder.Build.</param>
-    public byte[] BuildOne(CourseAssignmentDto ca, bool firmaAdmin = false) => ConvertXlsxToPdf(_xlsxBuilder.Build(ca, firmaAdmin));
+    public byte[] BuildOne(CourseAssignmentDto ca, bool firmaAdmin = false, DateOnly? fechaFirma = null) =>
+        ConvertXlsxToPdf(_xlsxBuilder.Build(ca, firmaAdmin, fechaFirma));
 
     /// <summary>
     /// Converts the blank template once, discarding the result, purely to "warm up" the shared

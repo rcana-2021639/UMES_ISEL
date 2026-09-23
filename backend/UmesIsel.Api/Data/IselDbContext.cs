@@ -11,6 +11,7 @@ public class IselDbContext : DbContext
     public DbSet<CourseAssignment> CourseAssignments => Set<CourseAssignment>();
     public DbSet<AssignedCourseRow> AssignedCourseRows => Set<AssignedCourseRow>();
     public DbSet<AdditionalCourseRow> AdditionalCourseRows => Set<AdditionalCourseRow>();
+    public DbSet<ArchivoFichas> ArchivosFichas => Set<ArchivoFichas>();
     public DbSet<Course> Courses => Set<Course>();
     public DbSet<Carrera> Carreras => Set<Carrera>();
     public DbSet<Cohorte> Cohortes => Set<Cohorte>();

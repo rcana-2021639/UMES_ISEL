@@ -107,6 +107,7 @@ builder.Services.AddSingleton<SolicitudTituloDocxBuilder>();
 builder.Services.AddScoped<PensumService>();
 // Documentos en PDF subidos por aspirantes/alumnos — ver Services/DocumentStorageService.cs.
 builder.Services.AddSingleton<DocumentStorageService>();
+builder.Services.AddSingleton<ArchivoFichasService>();
 
 // ---------------------------------------------------------------- seguridad
 builder.Services.AddHttpContextAccessor();
@@ -185,6 +186,7 @@ using (var scope = app.Services.CreateScope())
         "Actualización profesional de la licenciatura en Teología con especialidad en Pastoral", logger);
     // Sin al menos una cuenta de admin, el panel sería inalcanzable — ver SeedAdminUser.
     DbInitializer.SeedAdminUser(db, app.Configuration, logger);
+    ArchivoFichasService.MarcarInterrumpidos(db);
 
     /* Comando de mantenimiento: `dotnet run -- limpiar-pruebas`.
      *

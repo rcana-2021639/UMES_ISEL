@@ -72,3 +72,13 @@ public record CourseAssignmentUpsertRequest(
     /// </summary>
     int? Id = null
 );
+
+// ---- Reinicio de asignaciones / archivo de fichas ----
+
+public record ArchivoFichasDto(
+    int Id, string Etiqueta, string Estado, int CantidadFichas, long Bytes, string? Error,
+    string CreadoPor, DateTime CreadoEn, DateTime? TerminadoEn, bool Disponible);
+
+public record ResumenReinicioDto(int TotalFichas, int Impresas, int Pendientes, bool EnCurso);
+
+public record ReiniciarAsignacionesRequest(string? Etiqueta, string? Confirmacion);

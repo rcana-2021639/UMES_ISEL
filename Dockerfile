@@ -74,6 +74,7 @@ ENV ASPNETCORE_ENVIRONMENT=Production
 ENV ASPNETCORE_URLS=http://+:8080
 ENV ConnectionStrings__IselDb="Data Source=/data/isel.db"
 ENV Backups__Directory="/data/backups"
+ENV Storage__Directory="/data"
 # LibreOffice necesita un HOME donde escribir su perfil. Sin esto la primera
 # conversión falla y el PDF no sale nunca.
 ENV HOME=/tmp

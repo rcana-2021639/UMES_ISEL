@@ -43,7 +43,11 @@ public class FichaXlsxBuilder
     /// el alumno que abre su propia ficha no debe verla firmada por nadie, porque la revisión es
     /// justamente lo que ocurre al imprimirla en Secretaría. Ver FirmaAdminRenderer.
     /// </param>
-    public byte[] Build(CourseAssignmentDto ca, bool firmaAdmin)
+    /// <param name="fechaFirma">
+    /// La fecha junto a esa firma. Por defecto la de hoy (se está imprimiendo ahora); el archivo de
+    /// fichas del reinicio pasa el día en que de verdad se imprimió cada una.
+    /// </param>
+    public byte[] Build(CourseAssignmentDto ca, bool firmaAdmin, DateOnly? fechaFirma = null)
     {
         var templateBytes = File.ReadAllBytes(_templatePath);
         using var output = new MemoryStream();
@@ -70,7 +74,7 @@ public class FichaXlsxBuilder
 
             if (firmaAdmin && _firmaAdmin.Disponible)
             {
-                InsertAdminSignature(archive, _firmaAdmin.Render(FechaDeHoyEnGuatemala()));
+                InsertAdminSignature(archive, _firmaAdmin.Render(fechaFirma ?? FechaDeHoyEnGuatemala()));
             }
         }
 

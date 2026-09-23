@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getSession } from "@/lib/auth";
 import { useSession } from "@/hooks/useSession";
@@ -36,6 +36,9 @@ import { Icon } from "@/components/portal/Icon";
 import { FichaStack } from "@/components/portal/FichaCard";
 import { PortalBand, PortalPanel, PortalTopBar } from "@/components/portal/PortalShell";
 import { CorreoPagoModal } from "@/components/portal/CorreoPagoModal";
+import { ReiniciarAsignacionesModal } from "@/components/portal/ReiniciarAsignacionesModal";
+import { ArchivoFichasPanel } from "@/components/portal/ArchivoFichasPanel";
+import type { ArchivoFichas } from "@/lib/archivoFichasApi";
 import { Alert, Chip, EmptyState, IconButton, Loading, PortalButton, Segmented, fieldClass } from "@/components/portal/kit";
 
 /**
@@ -465,6 +468,30 @@ export function AdminPortalPage() {
     }
   }
 
+  /**
+   * Reiniciar asignaciones — ver ReiniciarAsignacionesModal y ArchivoFichasPanel.
+   *
+   * El reinicio corre en el servidor en segundo plano (convertir decenas de fichas a PDF lleva
+   * minutos). La tabla se recarga dos veces: al empezar, para que no parezca que no pasó nada, y
+   * al terminar, cuando las fichas ya se borraron.
+   */
+  const [reinicioAbierto, setReinicioAbierto] = useState(false);
+  const [archivoRefresh, setArchivoRefresh] = useState(0);
+  const [avisoReinicio, setAvisoReinicio] = useState<string | null>(null);
+
+  function handleReinicioIniciado(archivo: ArchivoFichas) {
+    setAvisoReinicio(
+      `Se están guardando los PDF de ${archivo.cantidadFichas} fichas en «Archivo de fichas». Cuando el ZIP esté listo, las fichas desaparecerán de esta tabla.`,
+    );
+    setArchivoRefresh((n) => n + 1);
+  }
+
+  const handleArchivoTerminado = useCallback(() => {
+    setAvisoReinicio(null);
+    void loadAssignments(rangeMode ?? "day");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rangeMode]);
+
   const rangeLabel = useMemo(() => {
     if (!rangeMode) return null;
     return { day: "Hoy", week: "Esta semana", month: "Este mes", todo: "Todo el histórico" }[rangeMode];
@@ -574,16 +601,26 @@ export function AdminPortalPage() {
           title="Impresión de asignaciones"
           description="Elige una fecha ancla y el rango que quieres revisar. La carta de entrega lista las fichas ya impresas del rango cargado, no el texto que busques."
           actions={
-            <PortalButton
-              tone="primary"
-              icon="file"
-              disabled={impresasCount === 0}
-              loading={printingId === "batch"}
-              onClick={() => setCartaAbierta(true)}
-              title={impresasCount === 0 ? "Todavía no hay fichas impresas en este rango." : undefined}
-            >
-              Carta de entrega{impresasCount > 0 ? ` (${impresasCount})` : ""}
-            </PortalButton>
+            <div className="flex flex-wrap gap-3">
+              <PortalButton
+                tone="danger"
+                icon="repeat"
+                onClick={() => setReinicioAbierto(true)}
+                title="Archiva en un ZIP los PDF de todas las fichas y las quita del panel, para empezar una temporada nueva."
+              >
+                Reiniciar asignaciones
+              </PortalButton>
+              <PortalButton
+                tone="primary"
+                icon="file"
+                disabled={impresasCount === 0}
+                loading={printingId === "batch"}
+                onClick={() => setCartaAbierta(true)}
+                title={impresasCount === 0 ? "Todavía no hay fichas impresas en este rango." : undefined}
+              >
+                Carta de entrega{impresasCount > 0 ? ` (${impresasCount})` : ""}
+              </PortalButton>
+            </div>
           }
         >
           <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
@@ -659,6 +696,11 @@ export function AdminPortalPage() {
           {printError && (
             <div className="mt-5">
               <Alert kind="error">{printError}</Alert>
+            </div>
+          )}
+          {avisoReinicio && (
+            <div className="mt-5">
+              <Alert kind="info">{avisoReinicio}</Alert>
             </div>
           )}
 
@@ -1005,6 +1047,8 @@ export function AdminPortalPage() {
             )}
           </div>
         </PortalPanel>
+
+        <ArchivoFichasPanel refreshKey={archivoRefresh} onTerminado={handleArchivoTerminado} />
           </>
         )}
       </div>
@@ -1152,6 +1196,12 @@ export function AdminPortalPage() {
           </div>
         </div>
       </Modal>
+      <ReiniciarAsignacionesModal
+        open={reinicioAbierto}
+        periodoSugerido={periodoCarta}
+        onClose={() => setReinicioAbierto(false)}
+        onIniciado={handleReinicioIniciado}
+      />
       {confirmDialog}
     </main>
   );

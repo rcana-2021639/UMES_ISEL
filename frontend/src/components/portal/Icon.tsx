@@ -43,7 +43,9 @@ type Name =
   | "repeat"
   | "sparkle"
   | "upload"
-  | "globe";
+  | "globe"
+  | "download"
+  | "archive";
 
 /** Trazos sueltos; el <svg> pone viewBox, grosor y terminaciones. */
 const PATHS: Record<Name, string> = {
@@ -81,6 +83,8 @@ const PATHS: Record<Name, string> = {
   repeat: "M4 9.5V8a2.5 2.5 0 012.5-2.5H19M16 2.5l3 3-3 3M20 14.5V16a2.5 2.5 0 01-2.5 2.5H5M8 21.5l-3-3 3-3",
   sparkle: "M12 3.5l1.9 5.1 5.1 1.9-5.1 1.9L12 17.5l-1.9-5.1L5 10.5l5.1-1.9L12 3.5z",
   upload: "M12 15.5V4M7 8.5L12 4l5 4.5M5 15.5v3A1.5 1.5 0 006.5 20h11a1.5 1.5 0 001.5-1.5v-3",
+  download: "M12 4v11.5M7 11l5 4.5 5-4.5M5 15.5v3A1.5 1.5 0 006.5 20h11a1.5 1.5 0 001.5-1.5v-3",
+  archive: "M3.5 4.5h17v4h-17zM5 8.5v10A1.5 1.5 0 006.5 20h11a1.5 1.5 0 001.5-1.5v-10M10 12h4",
   globe: "M12 20.5a8.5 8.5 0 100-17 8.5 8.5 0 000 17zM3.7 9h16.6M3.7 15h16.6M12 3.6c2 2.2 3.1 5 3.1 8.4s-1.1 6.2-3.1 8.4c-2-2.2-3.1-5-3.1-8.4S10 5.8 12 3.6z",
 };
 

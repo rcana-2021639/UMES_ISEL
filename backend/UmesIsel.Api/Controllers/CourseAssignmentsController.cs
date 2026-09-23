@@ -67,7 +67,7 @@ public class CourseAssignmentsController : ControllerBase
     /// pinta, y al abrir una ficha se vuelve a pedir entera). Quitarla del listado es la diferencia
     /// entre que "Histórico" sea instantáneo o inviable.
     /// </param>
-    private static CourseAssignmentDto ToDto(CourseAssignment ca, bool incluirFirma = true) => new(
+    internal static CourseAssignmentDto ToDto(CourseAssignment ca, bool incluirFirma = true) => new(
         ca.Id,
         ca.StudentId,
         ca.Student?.Carnet ?? string.Empty,

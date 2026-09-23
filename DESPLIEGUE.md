@@ -420,6 +420,12 @@ docker run --rm -v isel_data:/data -v /root/respaldos:/salida alpine \
 rclone sync /root/respaldos b2:isel-respaldos     # o rsync a otra máquina
 ```
 
+En `/data` viven también los PDF que suben los alumnos (`/data/uploads`) y los
+ZIP de «Reiniciar asignaciones» (`/data/archivo-fichas`), uno por reinicio, con
+el PDF de cada ficha. Esos ZIP no se borran nunca solos: si se copia fuera
+`/data/archivo-fichas` junto con los respaldos, las fichas de temporadas
+pasadas sobreviven aunque se pierda el servidor.
+
 ### Paso 7 — publicar cambios más adelante
 
 ```bash

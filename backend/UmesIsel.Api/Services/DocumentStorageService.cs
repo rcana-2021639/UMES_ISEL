@@ -10,10 +10,23 @@ public class DocumentStorageService
     private const long MaxSizeBytes = 10 * 1024 * 1024;
     private readonly string _root;
 
-    public DocumentStorageService(IWebHostEnvironment env)
+    public DocumentStorageService(IWebHostEnvironment env, IConfiguration config)
     {
-        _root = Path.Combine(env.ContentRootPath, "App_Data", "uploads");
+        _root = Path.Combine(DataDirectory(env, config), "uploads");
     }
+
+    /// <summary>
+    /// La carpeta donde viven los archivos que no pueden perderse: subidas y archivo de fichas.
+    ///
+    /// En el contenedor es <c>/data</c> (Storage__Directory, ver Dockerfile), el volumen que
+    /// sobrevive a cada despliegue. Antes las subidas iban a <c>App_Data</c> dentro de la imagen:
+    /// una carpeta que el usuario de la aplicación ni siquiera puede crear allí, y que de poder,
+    /// se habría vaciado con el siguiente despliegue.
+    /// </summary>
+    public static string DataDirectory(IWebHostEnvironment env, IConfiguration config) =>
+        config["Storage:Directory"] is { Length: > 0 } dir
+            ? Path.GetFullPath(dir)
+            : Path.Combine(env.ContentRootPath, "App_Data");
 
     /// <summary>
     /// Comprueba que lo que llega es de verdad un PDF. Lanza
