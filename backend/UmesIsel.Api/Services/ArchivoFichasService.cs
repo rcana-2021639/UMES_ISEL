@@ -263,11 +263,11 @@ public class ArchivoFichasService
         return limpio.Length == 0 ? "sin nombre" : limpio.Length > 90 ? limpio[..90] : limpio;
     }
 
-    private static string Csv(string? valor)
-    {
-        var v = valor ?? string.Empty;
-        return v.Contains(';') || v.Contains('"') ? $"\"{v.Replace("\"", "\"\"")}\"" : v;
-    }
+    /// <summary>
+    /// El mismo escapado que las demás exportaciones, fórmulas incluidas: los nombres y correos del
+    /// listado los escribió gente de fuera, y el ZIP se abre en Excel meses después.
+    /// </summary>
+    private static string Csv(string? valor) => TabularService.EscapeCsv(valor);
 
     private static DateTime AhoraEnGuatemala() => EnGuatemala(DateTime.UtcNow);
 

@@ -1,0 +1,20 @@
+# Cabeceras de seguridad de la página pública (Cloudflare Pages las aplica a cada respuesta).
+#
+# Content-Security-Policy: el navegador solo ejecuta scripts de este mismo sitio y solo habla con
+# la API. Si alguien lograra colar un <script> en un nombre o un correo, no correría, y aunque
+# corriera no podría mandar la sesión del admin a otro servidor.
+#   - style 'unsafe-inline': las animaciones y el pad de firma ponen estilos en línea.
+#   - img data:/blob:: firmas y fotos se muestran como data: o blob:.
+#   - frame blob:: "Imprimir" carga el PDF en un iframe oculto (lib/printPdf.ts).
+#   - media blob:: la cámara de la foto del título (FotoCapture).
+# Si un día la API cambia de dirección (VITE_API_URL), hay que cambiarla también en connect-src.
+#
+# frame-ancestors / X-Frame-Options: nadie puede meter el panel dentro de otra página para
+# engañar al admin con clics ("clickjacking").
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://isel-api.duckdns.org; frame-src 'self' blob:; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(self), microphone=(), geolocation=(), payment=(), usb=()
+  Cross-Origin-Opener-Policy: same-origin

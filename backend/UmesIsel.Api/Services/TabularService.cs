@@ -49,7 +49,7 @@ public static class TabularService
     /// <c>=HYPERLINK("http://malo","clic")</c> y esperar a que un administrador
     /// abra el archivo. Anteponer un apóstrofo lo deja como texto.
     /// </summary>
-    private static string EscapeCsv(string? value)
+    internal static string EscapeCsv(string? value)
     {
         var v = value ?? string.Empty;
         if (v.Length > 0 && (v[0] is '=' or '+' or '-' or '@' or '\t' or '\r'))
