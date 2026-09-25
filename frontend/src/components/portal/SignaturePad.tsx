@@ -16,6 +16,13 @@ interface SignaturePadProps {
   readOnly?: boolean;
 }
 
+/**
+ * Altura del renglón de firma, como fracción del alto del pad. El servidor la usa para poner la
+ * firma sobre la línea de la ficha: tiene que coincidir con LineaFirmaFraccion en
+ * backend/UmesIsel.Api/Services/FichaXlsxBuilder.cs.
+ */
+const LINEA_FIRMA = 0.72;
+
 function setupContext(canvas: HTMLCanvasElement) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
@@ -213,13 +220,25 @@ export const SignaturePad = forwardRef<SignaturePadHandle, SignaturePadProps>(fu
         onPointerUp={endStroke}
         onPointerLeave={endStroke}
       />
+      {/* El renglón ES la línea de firma de la ficha: lo que se traza encima queda encima de esa
+          línea en el PDF, al ras y a buen tamaño (ver FichaXlsxBuilder.RecortarFirma). Va fuera del
+          lienzo para no quedar grabado en la imagen, y se ve siempre, no solo con el pad vacío. */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute left-[6%] right-[6%] h-px bg-isel-ink/35"
+        style={{ top: `${LINEA_FIRMA * 100}%` }}
+      />
+      {!readOnly && (
+        <span
+          className="pointer-events-none absolute left-[6%] text-[11px] text-isel-ink/40"
+          style={{ top: `calc(${LINEA_FIRMA * 100}% + 4px)` }}
+        >
+          Firme sobre la línea: es la línea de firma de la ficha
+        </span>
+      )}
       {isEmpty && (
-        <span className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 text-isel-ink/30">
-          {/* Renglón de firma: dice dónde va sin escribir "escribe aquí". */}
-          <span aria-hidden className="h-px w-2/3 bg-isel-line" />
-          <span className="text-[12.5px]">
-            {readOnly ? "Sin firma registrada" : "Firma con el mouse, el lápiz óptico o el dedo"}
-          </span>
+        <span className="pointer-events-none absolute inset-x-0 top-[22%] text-center text-[12.5px] text-isel-ink/30">
+          {readOnly ? "Sin firma registrada" : "Firma con el mouse, el lápiz óptico o el dedo"}
         </span>
       )}
     </div>

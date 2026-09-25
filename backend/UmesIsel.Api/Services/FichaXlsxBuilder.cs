@@ -1,6 +1,8 @@
 using System.IO.Compression;
 using System.Text;
 using System.Text.RegularExpressions;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Processing;
 using UmesIsel.Api.Models.Dtos;
 
 namespace UmesIsel.Api.Services;
@@ -330,6 +332,10 @@ public class FichaXlsxBuilder
             return; // malformed signature data — print the ficha without it rather than fail the whole request
         }
 
+        // Solo el trazo, sin el blanco del lienzo alrededor. Ver RecortarFirma.
+        var recorte = RecortarFirma(bytes);
+        if (recorte is not null) bytes = recorte.Value.Png;
+
         const string mediaEntryName = "xl/media/imageFirma.png";
         archive.GetEntry(mediaEntryName)?.Delete();
         var mediaEntry = archive.CreateEntry(mediaEntryName, CompressionLevel.Optimal);
@@ -350,25 +356,34 @@ public class FichaXlsxBuilder
 
         // Available box: columns A:E, rows 29-30 (1-indexed) — the same span as the "FIRMA DEL
         // ALUMNO(A)" caption merge (A31:E31) below it. Roughly 4.15in × 0.42in at this template's
-        // actual column widths/default row height (measured once, hardcoded — see the comment on
-        // BoxWidthEmu/BoxHeightEmu). A stretched-to-fill image gets visibly distorted whenever the
-        // real signature's aspect ratio doesn't match that box's, so instead of stretching, this
-        // scales the PNG down (never up) to fit inside the box while keeping its own proportions,
-        // then bottom-aligns it just above the signature line using a oneCellAnchor with an
-        // explicit, aspect-correct <xdr:ext>.
-        const long emuPerPixelAt96Dpi = 9525;
+        // actual column widths/default row height (measured once, hardcoded). The bottom edge of
+        // that box IS the ficha's signature line.
+        //
+        // La firma se coloca SOBRE esa línea, no flotando encima: el renglón del pad de firma
+        // (SignaturePad, LineaFirmaFraccion) representa la línea de la ficha, y lo que el alumno
+        // trazó por encima de su renglón queda por encima de esta línea, lo que bajó (la cola de
+        // una "g", una rúbrica) cruza la línea igual que en papel. El tamaño es el mayor que cabe
+        // en el hueco — antes se escalaba el lienzo entero, blanco incluido, y el trazo real salía
+        // diminuto y separado de la línea.
         const long boxWidthEmu = 3_800_000; // ~4.15in — columns A:E
         const long boxHeightEmu = 380_000; // ~0.42in — rows 29-30 at the default 15pt row height
+        const long maxBajoLineaEmu = 100_000; // ~0.11in: lo que puede cruzar la línea sin pisar "FIRMA DEL ALUMNO(A)"
 
         var (pngWidthPx, pngHeightPx) = ReadPngDimensions(bytes);
-        long extCx, extCy;
+        long extCx, extCy, sobreLineaEmu;
         if (pngWidthPx > 0 && pngHeightPx > 0)
         {
-            var naturalWidthEmu = pngWidthPx * emuPerPixelAt96Dpi;
-            var naturalHeightEmu = pngHeightPx * emuPerPixelAt96Dpi;
-            var scale = Math.Min(1.0, Math.Min((double)boxWidthEmu / naturalWidthEmu, (double)boxHeightEmu / naturalHeightEmu));
-            extCx = (long)(naturalWidthEmu * scale);
-            extCy = (long)(naturalHeightEmu * scale);
+            // Sin recorte (PNG ilegible para ImageSharp) se trata la imagen entera como "sobre la línea".
+            var baseLineaPx = recorte?.LineaPx ?? pngHeightPx;
+            var sobrePx = Math.Max(1, baseLineaPx);
+            var bajoPx = Math.Max(0, pngHeightPx - baseLineaPx);
+
+            var escala = Math.Min((double)boxWidthEmu / pngWidthPx, (double)boxHeightEmu / sobrePx);
+            if (bajoPx > 0) escala = Math.Min(escala, (double)maxBajoLineaEmu / bajoPx);
+
+            extCx = (long)(pngWidthPx * escala);
+            extCy = (long)(pngHeightPx * escala);
+            sobreLineaEmu = (long)(sobrePx * escala);
         }
         else
         {
@@ -376,9 +391,10 @@ public class FichaXlsxBuilder
             // rather than guessing an aspect ratio that might distort it.
             extCx = boxWidthEmu / 2;
             extCy = boxHeightEmu;
+            sobreLineaEmu = boxHeightEmu;
         }
 
-        var rowOff = Math.Max(0, boxHeightEmu - extCy); // bottom-align within the 2-row box
+        var rowOff = Math.Max(0, boxHeightEmu - sobreLineaEmu); // la base del trazo cae justo en la línea
         var colOff = Math.Max(0, (boxWidthEmu - extCx) / 2); // horizontally centered within the box — a
         // small fixed left pad here left most (narrower, real) signatures hugging the left edge instead
         // of sitting over the middle of the "FIRMA DEL ALUMNO(A)" line, which the user flagged as
@@ -399,6 +415,67 @@ public class FichaXlsxBuilder
         var drawingXml = ReadEntry(archive, "xl/drawings/drawing1.xml");
         drawingXml = drawingXml.Replace("</xdr:wsDr>", anchor + "</xdr:wsDr>");
         WriteEntry(archive, "xl/drawings/drawing1.xml", drawingXml);
+    }
+
+    /// <summary>
+    /// Dónde está el renglón del pad de firma, como fracción de su alto. Tiene que coincidir con
+    /// LINEA_FIRMA en frontend/src/components/portal/SignaturePad.tsx.
+    /// </summary>
+    private const double LineaFirmaFraccion = 0.72;
+
+    /// <summary>
+    /// Recorta el PNG de la firma al trazo (con un margen mínimo) y dice a qué altura del recorte
+    /// queda la línea de la ficha.
+    ///
+    /// La línea es el renglón del pad; si el trazo quedó entero por encima de él (firmas guardadas
+    /// antes de que existiera el renglón, o quien firmó "en el aire"), la línea se pone al pie del
+    /// trazo, para que nunca quede flotando lejos de la línea. Null si el PNG no se puede leer o
+    /// está en blanco: entonces se usa tal cual, como antes.
+    /// </summary>
+    private static (byte[] Png, int LineaPx)? RecortarFirma(byte[] png)
+    {
+        try
+        {
+            using var img = SixLabors.ImageSharp.Image.Load<SixLabors.ImageSharp.PixelFormats.Rgba32>(png);
+            int minX = img.Width, minY = img.Height, maxX = -1, maxY = -1;
+            img.ProcessPixelRows(filas =>
+            {
+                for (var y = 0; y < filas.Height; y++)
+                {
+                    var fila = filas.GetRowSpan(y);
+                    for (var x = 0; x < fila.Length; x++)
+                    {
+                        // Tinta: opaca y oscura. Así sirve tanto para el lienzo transparente del pad
+                        // como para una firma que llegara sobre fondo blanco.
+                        var p = fila[x];
+                        if (p.A < 60 || (p.R > 220 && p.G > 220 && p.B > 220)) continue;
+                        if (x < minX) minX = x;
+                        if (x > maxX) maxX = x;
+                        if (y < minY) minY = y;
+                        if (y > maxY) maxY = y;
+                    }
+                }
+            });
+            if (maxX < 0) return null;
+
+            var margen = Math.Max(2, img.Height / 60);
+            var x0 = Math.Max(0, minX - margen);
+            var y0 = Math.Max(0, minY - margen);
+            var x1 = Math.Min(img.Width - 1, maxX + margen);
+            var y1 = Math.Min(img.Height - 1, maxY + margen);
+
+            var lineaLienzo = (int)Math.Round(img.Height * LineaFirmaFraccion);
+            var lineaPx = Math.Clamp(Math.Min(lineaLienzo, maxY) - y0, 1, y1 - y0 + 1);
+
+            img.Mutate(c => c.Crop(new SixLabors.ImageSharp.Rectangle(x0, y0, x1 - x0 + 1, y1 - y0 + 1)));
+            using var ms = new MemoryStream();
+            img.SaveAsPng(ms);
+            return (ms.ToArray(), lineaPx);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 
     /// <summary>Reads width/height straight from a PNG's IHDR chunk (bytes 16-23, big-endian). Returns (0, 0) if it doesn't look like a PNG.</summary>
