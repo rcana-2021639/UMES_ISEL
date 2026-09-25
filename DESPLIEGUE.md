@@ -426,12 +426,27 @@ el PDF de cada ficha. Esos ZIP no se borran nunca solos: si se copia fuera
 `/data/archivo-fichas` junto con los respaldos, las fichas de temporadas
 pasadas sobreviven aunque se pierda el servidor.
 
+**Cómo está hecho hoy (servidor de Oracle):** una tarea programada de Windows
+en la computadora del administrador («Respaldo portal ISEL», diaria a la 1 p.m.
+o al encender si estaba apagada) ejecuta `Documentos\Respaldos ISEL\respaldar.ps1`.
+El script baja por SSH un `.tar.gz` con el respaldo más reciente de la base,
+`archivo-fichas/` y `uploads/`, comprueba que se abra y guarda 30 días. El
+resultado de cada corrida queda en `respaldos.log`, en esa misma carpeta.
+
 ### Paso 7 — publicar cambios más adelante
 
+La configuración del contenedor (clave de sesiones, CORS, proxy) vive en
+`/etc/isel/isel.env`, legible solo por root. **Nunca** se pasan secretos con
+`-e` en la línea de comandos: quedan en el historial de la terminal.
+
 ```bash
-cd /opt/isel && git pull
-docker build -t isel-api . && docker rm -f isel-api
-# y volver a lanzar el mismo `docker run` del paso 3
+cd ~/isel && git pull
+sudo docker build -t isel-api:latest .
+sudo docker rename isel-api isel-api-old && sudo docker stop isel-api-old
+sudo docker run -d --name isel-api --restart always -p 127.0.0.1:8080:8080 \
+  -v isel_data:/data --env-file /etc/isel/isel.env isel-api:latest
+# comprobar que responde y, si todo bien:
+sudo docker rm -f isel-api-old
 ```
 
 El volumen `isel_data` no se toca, así que la base de datos sobrevive al
